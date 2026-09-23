@@ -1,0 +1,34 @@
+name: simulation-evidence
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install locked Python dependencies
+        run: python -m pip install -r requirements.lock.txt
+      - name: Build, test and run fault matrix
+        run: PYTHON=python bash scripts/run_all.sh
+      - name: Evidence gates must not depend on assert statements
+        run: python -O -m unittest discover -s tests -p 'test_*.py'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Check dashboard state and documentation links
+        run: |
+          npm ci
+          npm run docs
+          git diff --exit-code -- docs/ || { echo 'Committed HTML is stale; run npm run docs'; exit 1; }
+          node tests/test_diagrams.mjs
+          node tests/test_dashboard.mjs
+          node tests/test_sitl_dashboard.mjs
+          python tools/check_docs.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: simulation-evidence
+          path: artifacts/latest/

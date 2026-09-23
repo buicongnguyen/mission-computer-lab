@@ -1,0 +1,86 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Execution evidence</title><style>:root{color-scheme:light;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--teal:#067c80;--bg:#f2f6f7}*{box-sizing:border-box}body{margin:0;background:var(--bg);font:16px/1.65 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}a{color:#006c86;text-underline-offset:3px}nav{background:#112e3d;display:flex;gap:28px;align-items:center;flex-wrap:wrap;padding:20px 5%;font-size:14px}nav a{color:#d8f7f2;text-decoration:none}nav a:first-child{font-weight:750;letter-spacing:1.5px;margin-right:auto}.document{max-width:1060px;margin:38px auto;padding:46px 60px;background:white;border:1px solid var(--line);border-radius:14px}h1{font-size:clamp(30px,5vw,46px);line-height:1.14;letter-spacing:-1.3px;margin:0 0 24px}h2{font-size:26px;margin:44px 0 16px;line-height:1.3;border-top:1px solid var(--line);padding-top:25px}h3{font-size:20px;margin:26px 0 10px}p,li{max-width:85ch}blockquote{margin:20px 0;border-left:4px solid var(--teal);padding:12px 22px;background:#eef8f7;color:#31505b}blockquote p{margin:0}table{border-collapse:collapse;width:100%;font-size:14px;display:block;overflow:auto}td,th{border:1px solid var(--line);padding:12px;text-align:left;vertical-align:top}th{background:#e7f1f3}pre{background:#102c3b;color:#e3f3f5;padding:20px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.6}code{font-family:Consolas,monospace}p code,li code,td code{background:#eef3f5;padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}footer{padding:25px;text-align:center;color:var(--muted);font-size:13px}button,select,input{font:inherit}button,select{padding:8px 14px;border-radius:6px;border:1px solid #aec4ce;background:white;color:var(--ink)}button{cursor:pointer}button:hover{background:#dbf4ed}:focus-visible{outline:3px solid #e69f00;outline-offset:3px}@media(max-width:700px){.document{padding:28px 20px;margin:16px 12px}nav{gap:15px;font-size:12px}td,th{min-width:120px}}@media print{nav,footer{display:none}.document{margin:0;padding:0;border:0;max-width:none}body{background:white}h2{break-after:avoid}pre{white-space:pre-wrap}a{color:inherit}}
+
+.diagram{margin:24px 0;border:1px solid var(--line);border-radius:10px;padding:16px;background:#fff;overflow:auto}.diagram pre.mermaid{background:#fff;color:var(--ink);text-align:center;padding:8px;margin:0;min-width:440px}.diagram svg{max-width:100%;height:auto}.diagram figcaption{font-size:13px;color:var(--muted);margin:10px 0}.diagram details{font-size:13px}.diagram summary{cursor:pointer}.diagram .diagram-error{text-align:left;white-space:pre-wrap}@media print{.diagram{break-inside:avoid}.diagram details{display:none}}
+</style></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a></nav><main class="document"><h1>Execution evidence</h1>
+<p>Accelerated kinematic simulation; synthetic sensors; CPU ONNX; no Qualcomm hardware/PX4/ROS 2</p>
+<p>Generated UTC: 2026-09-23T16:56:28Z</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Result</th>
+<th>End</th>
+<th align="right">ONNX p95 (ms)</th>
+<th align="right">Supervisor IPC p95 (ms)</th>
+<th align="right">Localization RMSE (m)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>nominal</td>
+<td>PASS</td>
+<td>COMPLETE</td>
+<td align="right">0.032</td>
+<td align="right">0.074</td>
+<td align="right">0.043</td>
+</tr>
+<tr>
+<td>camera_dropout</td>
+<td>PASS</td>
+<td>COMPLETE</td>
+<td align="right">0.031</td>
+<td align="right">0.074</td>
+<td align="right">0.044</td>
+</tr>
+<tr>
+<td>gps_dropout</td>
+<td>PASS</td>
+<td>LAND</td>
+<td align="right">0.030</td>
+<td align="right">0.069</td>
+<td align="right">0.222</td>
+</tr>
+<tr>
+<td>link_dropout</td>
+<td>PASS</td>
+<td>LAND</td>
+<td align="right">0.028</td>
+<td align="right">0.068</td>
+<td align="right">0.044</td>
+</tr>
+<tr>
+<td>inference_overrun</td>
+<td>PASS</td>
+<td>COMPLETE</td>
+<td align="right">0.028</td>
+<td align="right">0.071</td>
+<td align="right">0.044</td>
+</tr>
+<tr>
+<td>low_battery</td>
+<td>PASS</td>
+<td>LAND</td>
+<td align="right">0.034</td>
+<td align="right">0.082</td>
+<td align="right">0.043</td>
+</tr>
+<tr>
+<td>imu_dropout</td>
+<td>PASS</td>
+<td>LAND</td>
+<td align="right">0.033</td>
+<td align="right">0.075</td>
+<td align="right">0.074</td>
+</tr>
+<tr>
+<td>companion_crash</td>
+<td>PASS</td>
+<td>LAND</td>
+<td align="right">0.027</td>
+<td align="right">0.070</td>
+<td align="right">0.044</td>
+</tr>
+</tbody></table>
+<p>Timing is measured wall-clock time in WSL, not a real-time guarantee or Qualcomm benchmark. The injected 120 ms inference fault is a synthetic reported latency; it does not sleep or emulate an NPU.</p>
+<p>Security policy checks: 6/6.</p>
+<p>Raw environment, model/binary hashes, per-scenario checks, events and replay frames: report.json.</p>
+</main><footer>Mission Computer Lab · software simulation portfolio · 2026</footer></body></html>

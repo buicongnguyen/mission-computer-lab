@@ -1,0 +1,66 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PX4 / ROS 2 / Gazebo execution evidence</title><style>:root{color-scheme:light;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--teal:#067c80;--bg:#f2f6f7}*{box-sizing:border-box}body{margin:0;background:var(--bg);font:16px/1.65 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}a{color:#006c86;text-underline-offset:3px}nav{background:#112e3d;display:flex;gap:28px;align-items:center;flex-wrap:wrap;padding:20px 5%;font-size:14px}nav a{color:#d8f7f2;text-decoration:none}nav a:first-child{font-weight:750;letter-spacing:1.5px;margin-right:auto}.document{max-width:1060px;margin:38px auto;padding:46px 60px;background:white;border:1px solid var(--line);border-radius:14px}h1{font-size:clamp(30px,5vw,46px);line-height:1.14;letter-spacing:-1.3px;margin:0 0 24px}h2{font-size:26px;margin:44px 0 16px;line-height:1.3;border-top:1px solid var(--line);padding-top:25px}h3{font-size:20px;margin:26px 0 10px}p,li{max-width:85ch}blockquote{margin:20px 0;border-left:4px solid var(--teal);padding:12px 22px;background:#eef8f7;color:#31505b}blockquote p{margin:0}table{border-collapse:collapse;width:100%;font-size:14px;display:block;overflow:auto}td,th{border:1px solid var(--line);padding:12px;text-align:left;vertical-align:top}th{background:#e7f1f3}pre{background:#102c3b;color:#e3f3f5;padding:20px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.6}code{font-family:Consolas,monospace}p code,li code,td code{background:#eef3f5;padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}footer{padding:25px;text-align:center;color:var(--muted);font-size:13px}button,select,input{font:inherit}button,select{padding:8px 14px;border-radius:6px;border:1px solid #aec4ce;background:white;color:var(--ink)}button{cursor:pointer}button:hover{background:#dbf4ed}:focus-visible{outline:3px solid #e69f00;outline-offset:3px}@media(max-width:700px){.document{padding:28px 20px;margin:16px 12px}nav{gap:15px;font-size:12px}td,th{min-width:120px}}@media print{nav,footer{display:none}.document{margin:0;padding:0;border:0;max-width:none}body{background:white}h2{break-after:avoid}pre{white-space:pre-wrap}a{color:inherit}}
+
+.diagram{margin:24px 0;border:1px solid var(--line);border-radius:10px;padding:16px;background:#fff;overflow:auto}.diagram pre.mermaid{background:#fff;color:var(--ink);text-align:center;padding:8px;margin:0;min-width:440px}.diagram svg{max-width:100%;height:auto}.diagram figcaption{font-size:13px;color:var(--muted);margin:10px 0}.diagram details{font-size:13px}.diagram summary{cursor:pointer}.diagram .diagram-error{text-align:left;white-space:pre-wrap}@media print{.diagram{break-inside:avoid}.diagram details{display:none}}
+</style></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a></nav><main class="document"><h1>PX4 / ROS 2 / Gazebo execution evidence</h1>
+<p>Actual PX4/Gazebo/ROS; procedural camera/lidar; CPU synthetic ONNX; no Qualcomm hardware.</p>
+<p>Generated UTC: 2026-09-23T17:05:39.355922+00:00</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Result</th>
+<th align="right">Wall duration (s)</th>
+<th align="right">Max estimated altitude (m)</th>
+<th align="right">Min estimated obstacle clearance (m)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>nominal</td>
+<td>PASS</td>
+<td align="right">49.75</td>
+<td align="right">3.027</td>
+<td align="right">1.183</td>
+</tr>
+<tr>
+<td>camera_dropout</td>
+<td>PASS</td>
+<td align="right">50.93</td>
+<td align="right">2.988</td>
+<td align="right">1.228</td>
+</tr>
+<tr>
+<td>companion_crash</td>
+<td>PASS</td>
+<td align="right">30.12</td>
+<td align="right">2.952</td>
+<td align="right">3.345</td>
+</tr>
+<tr>
+<td>gps_loss</td>
+<td>PASS</td>
+<td align="right">33.35</td>
+<td align="right">2.835</td>
+<td align="right">3.130</td>
+</tr>
+</tbody></table>
+<p>All four scenarios require actual armed offboard state, observed climb, land mode, landed state and final disarm. Normal and camera-recovery runs also require a reached goal, COMPLETE and accepted land command. GPS loss requires a post-injection stale-GNSS landing decision. Companion crash requires a subsequent PX4 failsafe.</p>
+<p>Clearance uses valid recorded PX4 position estimates against known cylinders. Invalid estimates after injected GPS loss are excluded; clearance is not established for that degraded interval. This is not Gazebo ground-truth collision verification. Wall duration includes startup and process cleanup.</p>
+<h2>Exact upstream revisions</h2>
+<ul>
+<li>PX4 v1.16.0: <code>6ea3539157ca358c70a515878b77077af7d4611d</code></li>
+<li>px4_msgs release/1.16: <code>392e831c1f659429ca83902e66820d7094591410</code></li>
+<li>XRCE Agent v2.4.3: <code>73622810d984349b80bbac0ef55fc0b694d62222</code></li>
+</ul>
+<h2>Evidence and limitations</h2>
+<ul>
+<li><a href="../web/sitl.html">Interactive replay</a> and <a href="../artifacts/sitl-sample/report.json">machine-readable report</a>.</li>
+<li>Per-scenario reference folders preserve final parameters, firmware log, mission/perception logs and acceptance result.</li>
+<li>Runtime source/binary hashes and installed versions were captured before flight; inputs were checked again after the matrix. Per-file SHA-256 hashes identify the exact tested inputs, including changes not yet committed when tested.</li>
+<li>Original run folders retain ROS bags and independent observer JSONL; Linux runtime folders retain PX4 ULogs.</li>
+<li>Camera and LiDAR are procedural ROS publishers. PX4 flight sensors and vehicle dynamics come from Gazebo.</li>
+<li>Battery supervision uses a fixed simulated 95% input in this adapter; low-battery testing remains in the accelerated suite.</li>
+<li>The model is a hand-authored brightness segmentation graph on CPU. No trained drone classifier, NPU profiling, VIO or Qualcomm boot-chain validation is claimed.</li>
+<li>DDS discovery uses domain 42 and the normal network transports. This is a simulation setup, not a secured operational deployment.</li>
+</ul>
+<p>Reproduce with <a href="sitl-guide.html">the WSL SITL guide</a>.</p>
+</main><footer>Mission Computer Lab · software simulation portfolio · 2026</footer></body></html>

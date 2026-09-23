@@ -1,0 +1,23 @@
+{"wall_time": 1790183066.9335582, "kind": "boot", "stages": [{"stage": "ROM / fuse trust anchor", "status": "MODELED ONLY"}, {"stage": "bootloader / kernel authentication", "status": "MODELED ONLY"}, {"stage": "signed ONNX artifact + version + device policy", "status": "VERIFIED IN USER SPACE"}, {"stage": "sensors and mission supervisor", "status": "READY"}], "model_sha256": "4ed0b999eda4e8f4d1642eb0d526771d188d62a4ded298746ce50649753c59dd"}
+{"wall_time": 1790183067.8902566, "kind": "inference", "sequence": 10, "bbox": [33, 25, 42, 33], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.084042}
+{"wall_time": 1790183068.8903651, "kind": "inference", "sequence": 20, "bbox": [38, 25, 47, 33], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.092627}
+{"wall_time": 1790183069.8902385, "kind": "inference", "sequence": 30, "bbox": [41, 24, 50, 32], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.083687}
+{"wall_time": 1790183070.8899298, "kind": "inference", "sequence": 40, "bbox": [43, 23, 52, 31], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.089777}
+{"wall_time": 1790183071.889583, "kind": "inference", "sequence": 50, "bbox": [43, 22, 52, 30], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.078268}
+{"wall_time": 1790183072.8897994, "kind": "inference", "sequence": 60, "bbox": [41, 20, 50, 28], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.090678}
+{"wall_time": 1790183073.890167, "kind": "inference", "sequence": 70, "bbox": [37, 19, 46, 27], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.088576}
+{"wall_time": 1790183074.8901608, "kind": "inference", "sequence": 80, "bbox": [32, 17, 41, 25], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.088047}
+{"wall_time": 1790183075.8902485, "kind": "inference", "sequence": 90, "bbox": [26, 16, 35, 24], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.100958}
+{"wall_time": 1790183076.890275, "kind": "inference", "sequence": 100, "bbox": [20, 14, 29, 22], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.092234}
+{"wall_time": 1790183077.890324, "kind": "inference", "sequence": 110, "bbox": [15, 13, 24, 21], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.092694}
+{"wall_time": 1790183078.890165, "kind": "inference", "sequence": 120, "bbox": [12, 12, 21, 20], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.088261}
+{"wall_time": 1790183079.8902962, "kind": "inference", "sequence": 130, "bbox": [10, 12, 19, 20], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.089294}
+{"wall_time": 1790183080.890148, "kind": "inference", "sequence": 140, "bbox": [10, 12, 19, 20], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.063088}
+{"wall_time": 1790183081.8900423, "kind": "inference", "sequence": 150, "bbox": [12, 12, 21, 20], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.069631}
+{"wall_time": 1790183082.8900278, "kind": "inference", "sequence": 160, "bbox": [16, 12, 25, 20], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.093031}
+{"wall_time": 1790183083.8900228, "kind": "inference", "sequence": 170, "bbox": [21, 13, 30, 21], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.09421}
+{"wall_time": 1790183084.8902183, "kind": "inference", "sequence": 180, "bbox": [27, 14, 36, 22], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.068982}
+{"wall_time": 1790183085.8896, "kind": "inference", "sequence": 190, "bbox": [33, 15, 42, 23], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.068059}
+{"wall_time": 1790183086.890191, "kind": "inference", "sequence": 200, "bbox": [38, 16, 47, 24], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.091583}
+{"wall_time": 1790183087.8906586, "kind": "inference", "sequence": 210, "bbox": [41, 18, 50, 26], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.089227}
+{"wall_time": 1790183088.890198, "kind": "inference", "sequence": 220, "bbox": [43, 19, 52, 27], "pixels": 48, "label": "synthetic aerial object", "inference_ms": 0.08848}

@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.py text eol=lf
+*.cpp text eol=lf
+*.hpp text eol=lf
+*.onnx binary
+# Preserve firmware log formatting as recorded (including terminal tabs).
+artifacts/sitl-sample/**/*.log -whitespace
+# Keep the audited upstream browser distribution byte-for-byte, including its formatting.
+docs/assets/mermaid-*.min.js -text -whitespace linguist-vendored=true

@@ -1,0 +1,6826 @@
+{
+  "scenario": "camera_dropout",
+  "passed": true,
+  "checks": {
+    "telemetry_received": true,
+    "offboard_entered": true,
+    "takeoff_observed": true,
+    "disarmed_at_end": true,
+    "estimated_obstacle_clearance": true,
+    "altitude_bounded": true,
+    "land_mode_observed": true,
+    "image_messages": true,
+    "perception_messages": true,
+    "lidar_messages": true,
+    "arming_ack_accepted": true,
+    "no_runner_error": true,
+    "ordered_flight_cycle": true,
+    "landed_at_end": true,
+    "final_pose_near_ground": true,
+    "finite_positions": true,
+    "estimator_valid_before_fault": true,
+    "rosbag_recorded": true,
+    "mission_complete": true,
+    "goal_reached": true,
+    "landing_ack_accepted": true,
+    "camera_hold_observed": true,
+    "camera_recovered": true
+  },
+  "error": null,
+  "duration_wall_s": 50.93,
+  "max_altitude_m": 2.9878621101379395,
+  "minimum_estimated_clearance_m": 1.228099770758319,
+  "injected_at": null,
+  "statuses": [
+    {
+      "wall_time": 1790183020.454398,
+      "kind": "status",
+      "timestamp": 1790183020451079,
+      "nav_state": 4,
+      "arming_state": 1,
+      "failsafe": false,
+      "preflight": true
+    },
+    {
+      "wall_time": 1790183022.5031757,
+      "kind": "status",
+      "timestamp": 1790183022503095,
+      "nav_state": 14,
+      "arming_state": 2,
+      "failsafe": false,
+      "preflight": true
+    },
+    {
+      "wall_time": 1790183051.267078,
+      "kind": "status",
+      "timestamp": 1790183051267157,
+      "nav_state": 18,
+      "arming_state": 2,
+      "failsafe": false,
+      "preflight": true
+    },
+    {
+      "wall_time": 1790183058.2515008,
+      "kind": "status",
+      "timestamp": 1790183058251173,
+      "nav_state": 14,
+      "arming_state": 1,
+      "failsafe": false,
+      "preflight": false
+    }
+  ],
+  "acks": [
+    {
+      "wall_time": 1790183020.4540188,
+      "kind": "ack",
+      "command": 211,
+      "result": 0,
+      "timestamp": 1790183015643079
+    },
+    {
+      "wall_time": 1790183022.5027518,
+      "kind": "ack",
+      "command": 176,
+      "result": 0,
+      "timestamp": 1790183022503095
+    },
+    {
+      "wall_time": 1790183022.5030425,
+      "kind": "ack",
+      "command": 400,
+      "result": 0,
+      "timestamp": 1790183022503095
+    },
+    {
+      "wall_time": 1790183051.25488,
+      "kind": "ack",
+      "command": 21,
+      "result": 0,
+      "timestamp": 1790183051255157
+    }
+  ],
+  "message_counts": {
+    "wall_time": 1790183059.5258672,
+    "kind": "counts",
+    "image": 431,
+    "scan": 439,
+    "perception": 431,
+    "land": 94,
+    "failsafe_flags": 74,
+    "gps": 1185,
+    "status": 83,
+    "position": 3909,
+    "decision": 616
+  },
+  "trace": [
+    {
+      "wall_time": 1790183020.4544933,
+      "kind": "position",
+      "timestamp": 1790183020451079,
+      "ned": [
+        -0.0026189815253019333,
+        -0.024674460291862488,
+        0.027435332536697388
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183020.5632958,
+      "kind": "position",
+      "timestamp": 1790183020563090,
+      "ned": [
+        -0.005504331551492214,
+        -0.02338666282594204,
+        0.02940306067466736
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183020.671189,
+      "kind": "position",
+      "timestamp": 1790183020667090,
+      "ned": [
+        -0.008293412625789642,
+        -0.0224462803453207,
+        0.03027483820915222
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183020.7716196,
+      "kind": "position",
+      "timestamp": 1790183020771090,
+      "ned": [
+        -0.010705359280109406,
+        -0.021402038633823395,
+        0.030017465353012085
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183020.8840227,
+      "kind": "position",
+      "timestamp": 1790183020883090,
+      "ned": [
+        -0.01290050894021988,
+        -0.020115302875638008,
+        0.028109058737754822
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183020.9917016,
+      "kind": "position",
+      "timestamp": 1790183020987090,
+      "ned": [
+        -0.014515894465148449,
+        -0.0187683142721653,
+        0.024839982390403748
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183021.0918407,
+      "kind": "position",
+      "timestamp": 1790183021091090,
+      "ned": [
+        -0.016043003648519516,
+        -0.016549931839108467,
+        0.020538553595542908
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183021.203576,
+      "kind": "position",
+      "timestamp": 1790183021203090,
+      "ned": [
+        -0.016940679401159286,
+        -0.01364204566925764,
+        0.01585349440574646
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183021.311806,
+      "kind": "position",
+      "timestamp": 1790183021307090,
+      "ned": [
+        -0.01632917858660221,
+        -0.011363501660525799,
+        0.01204727590084076
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183021.4112768,
+      "kind": "position",
+      "timestamp": 1790183021411090,
+      "ned": [
+        -0.01452955137938261,
+        -0.009985384531319141,
+        0.00871877372264862
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183021.5237768,
+      "kind": "position",
+      "timestamp": 1790183021515092,
+      "ned": [
+        -0.013507242314517498,
+        -0.010056734085083008,
+        0.005082294344902039
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183021.6238484,
+      "kind": "position",
+      "timestamp": 1790183021619092,
+      "ned": [
+        -0.013849431648850441,
+        -0.011229820549488068,
+        0.0012638717889785767
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183021.7314947,
+      "kind": "position",
+      "timestamp": 1790183021731092,
+      "ned": [
+        -0.014962737448513508,
+        -0.013356231153011322,
+        -0.0029765814542770386
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183021.8438709,
+      "kind": "position",
+      "timestamp": 1790183021835092,
+      "ned": [
+        -0.01639542542397976,
+        -0.015984684228897095,
+        -0.006790623068809509
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183021.9435868,
+      "kind": "position",
+      "timestamp": 1790183021939092,
+      "ned": [
+        -0.01754811219871044,
+        -0.018518727272748947,
+        -0.010646790266036987
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183022.0437117,
+      "kind": "position",
+      "timestamp": 1790183022043092,
+      "ned": [
+        -0.017499012872576714,
+        -0.020384004339575768,
+        -0.014723360538482666
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183022.151866,
+      "kind": "position",
+      "timestamp": 1790183022147092,
+      "ned": [
+        -0.01668250560760498,
+        -0.021672531962394714,
+        -0.018437042832374573
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183022.2509434,
+      "kind": "position",
+      "timestamp": 1790183022251092,
+      "ned": [
+        -0.015824513509869576,
+        -0.022163646295666695,
+        -0.0218193382024765
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183022.363292,
+      "kind": "position",
+      "timestamp": 1790183022363092,
+      "ned": [
+        -0.01454976573586464,
+        -0.02195131964981556,
+        -0.02517189085483551
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183022.471945,
+      "kind": "position",
+      "timestamp": 1790183022467095,
+      "ned": [
+        -0.012981540523469448,
+        -0.021296551451086998,
+        -0.027785763144493103
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183022.5720513,
+      "kind": "position",
+      "timestamp": 1790183022571095,
+      "ned": [
+        -0.01155161950737238,
+        -0.020347999408841133,
+        -0.02964283525943756
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183022.6837614,
+      "kind": "position",
+      "timestamp": 1790183022675095,
+      "ned": [
+        -0.01018002349883318,
+        -0.01847253367304802,
+        -0.0311100035905838
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183022.7830782,
+      "kind": "position",
+      "timestamp": 1790183022779095,
+      "ned": [
+        -0.00910398829728365,
+        -0.015366150997579098,
+        -0.031893953680992126
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183022.8834405,
+      "kind": "position",
+      "timestamp": 1790183022883095,
+      "ned": [
+        -0.008571604266762733,
+        -0.011775405146181583,
+        -0.03202672302722931
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183022.9910913,
+      "kind": "position",
+      "timestamp": 1790183022987095,
+      "ned": [
+        -0.008511151187121868,
+        -0.008044561371207237,
+        -0.03170041739940643
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183023.0911508,
+      "kind": "position",
+      "timestamp": 1790183023091095,
+      "ned": [
+        -0.008357067592442036,
+        -0.005114255007356405,
+        -0.03112681210041046
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183023.2034583,
+      "kind": "position",
+      "timestamp": 1790183023203095,
+      "ned": [
+        -0.008038809522986412,
+        -0.0030646868981420994,
+        -0.031082436442375183
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183023.311135,
+      "kind": "position",
+      "timestamp": 1790183023307095,
+      "ned": [
+        -0.007282312959432602,
+        -0.0015320644015446305,
+        -0.03121708333492279
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183023.411432,
+      "kind": "position",
+      "timestamp": 1790183023411095,
+      "ned": [
+        -0.00613032141700387,
+        -0.0005009660380892456,
+        -0.031224653124809265
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183023.5233417,
+      "kind": "position",
+      "timestamp": 1790183023523099,
+      "ned": [
+        -0.0041771624237298965,
+        0.0003762418928090483,
+        -0.03187157213687897
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183023.6317573,
+      "kind": "position",
+      "timestamp": 1790183023627099,
+      "ned": [
+        -0.0019514248706400394,
+        0.0013897790340706706,
+        -0.03250326216220856
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183023.7318268,
+      "kind": "position",
+      "timestamp": 1790183023731099,
+      "ned": [
+        0.00016852431872393936,
+        0.002273102290928364,
+        -0.03279556334018707
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183023.843983,
+      "kind": "position",
+      "timestamp": 1790183023843099,
+      "ned": [
+        0.0027601735200732946,
+        0.0028423680923879147,
+        -0.0327620655298233
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183023.9510212,
+      "kind": "position",
+      "timestamp": 1790183023947099,
+      "ned": [
+        0.005363441538065672,
+        0.003281321143731475,
+        -0.032669082283973694
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183024.051213,
+      "kind": "position",
+      "timestamp": 1790183024051099,
+      "ned": [
+        0.007792216259986162,
+        0.003842293983325362,
+        -0.03241629898548126
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183024.1638095,
+      "kind": "position",
+      "timestamp": 1790183024163099,
+      "ned": [
+        0.009864055551588535,
+        0.00496677216142416,
+        -0.0318729430437088
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183024.2714906,
+      "kind": "position",
+      "timestamp": 1790183024267099,
+      "ned": [
+        0.011701864190399647,
+        0.006237786263227463,
+        -0.03156517446041107
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183024.3715625,
+      "kind": "position",
+      "timestamp": 1790183024371099,
+      "ned": [
+        0.013926836661994457,
+        0.007691992912441492,
+        -0.03163053095340729
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183024.483201,
+      "kind": "position",
+      "timestamp": 1790183024475102,
+      "ned": [
+        0.016358762979507446,
+        0.009378020651638508,
+        -0.031978264451026917
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183024.5837455,
+      "kind": "position",
+      "timestamp": 1790183024579102,
+      "ned": [
+        0.01888432912528515,
+        0.010670876130461693,
+        -0.03225983679294586
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183024.6912138,
+      "kind": "position",
+      "timestamp": 1790183024691102,
+      "ned": [
+        0.019999109208583832,
+        0.011063906364142895,
+        -0.03222672641277313
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183024.8035204,
+      "kind": "position",
+      "timestamp": 1790183024803102,
+      "ned": [
+        0.019179746508598328,
+        0.010772296227514744,
+        -0.031090840697288513
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183024.9113736,
+      "kind": "position",
+      "timestamp": 1790183024907102,
+      "ned": [
+        0.017335930839180946,
+        0.010319647379219532,
+        -0.029732391238212585
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183025.0115595,
+      "kind": "position",
+      "timestamp": 1790183025011102,
+      "ned": [
+        0.014116393402218819,
+        0.009479627013206482,
+        -0.028775200247764587
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183025.1233635,
+      "kind": "position",
+      "timestamp": 1790183025115102,
+      "ned": [
+        0.010299349203705788,
+        0.008620601147413254,
+        -0.02812953293323517
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183025.22324,
+      "kind": "position",
+      "timestamp": 1790183025219102,
+      "ned": [
+        0.006322010885924101,
+        0.00808914564549923,
+        -0.027311548590660095
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183025.323115,
+      "kind": "position",
+      "timestamp": 1790183025323102,
+      "ned": [
+        0.0029916276689618826,
+        0.0077474163845181465,
+        -0.02686886489391327
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183025.4318917,
+      "kind": "position",
+      "timestamp": 1790183025427102,
+      "ned": [
+        0.0002526692405808717,
+        0.008085820823907852,
+        -0.026934757828712463
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183025.5318315,
+      "kind": "position",
+      "timestamp": 1790183025531105,
+      "ned": [
+        -0.0019832865800708532,
+        0.008301746100187302,
+        -0.027982130646705627
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183025.6433177,
+      "kind": "position",
+      "timestamp": 1790183025635105,
+      "ned": [
+        -0.003811606438830495,
+        0.007494582328945398,
+        -0.028739765286445618
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183025.743143,
+      "kind": "position",
+      "timestamp": 1790183025739105,
+      "ned": [
+        -0.0046146707609295845,
+        0.006868875119835138,
+        -0.02913232147693634
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183025.8433537,
+      "kind": "position",
+      "timestamp": 1790183025843105,
+      "ned": [
+        -0.003993942402303219,
+        0.006640366744250059,
+        -0.033094510436058044
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183025.9515235,
+      "kind": "position",
+      "timestamp": 1790183025947105,
+      "ned": [
+        -0.0011781137436628342,
+        0.00549657316878438,
+        -0.04982779920101166
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183026.0515702,
+      "kind": "position",
+      "timestamp": 1790183026051105,
+      "ned": [
+        0.0045774951577186584,
+        0.002868595300242305,
+        -0.0877285748720169
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183026.1635354,
+      "kind": "position",
+      "timestamp": 1790183026155105,
+      "ned": [
+        0.012342575937509537,
+        -0.0014986054738983512,
+        -0.14891217648983002
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183026.2632868,
+      "kind": "position",
+      "timestamp": 1790183026259105,
+      "ned": [
+        0.020733222365379333,
+        -0.00738977175205946,
+        -0.22897867858409882
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183026.3632526,
+      "kind": "position",
+      "timestamp": 1790183026363105,
+      "ned": [
+        0.02847243845462799,
+        -0.013891364447772503,
+        -0.32512331008911133
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183026.4712903,
+      "kind": "position",
+      "timestamp": 1790183026467105,
+      "ned": [
+        0.03446982055902481,
+        -0.02005096524953842,
+        -0.4513845443725586
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183026.5714755,
+      "kind": "position",
+      "timestamp": 1790183026571108,
+      "ned": [
+        0.03805695101618767,
+        -0.023952607065439224,
+        -0.6029080748558044
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183026.6836338,
+      "kind": "position",
+      "timestamp": 1790183026683108,
+      "ned": [
+        0.038879260420799255,
+        -0.023396633565425873,
+        -0.780775785446167
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183026.7915213,
+      "kind": "position",
+      "timestamp": 1790183026787108,
+      "ned": [
+        0.03690144047141075,
+        -0.017739372327923775,
+        -0.9545542001724243
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183026.8917043,
+      "kind": "position",
+      "timestamp": 1790183026891108,
+      "ned": [
+        0.03285060450434685,
+        -0.007241865620017052,
+        -1.13356351852417
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183027.0036309,
+      "kind": "position",
+      "timestamp": 1790183027003108,
+      "ned": [
+        0.02628188766539097,
+        0.00829248409718275,
+        -1.3253955841064453
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183027.1116915,
+      "kind": "position",
+      "timestamp": 1790183027107108,
+      "ned": [
+        0.01955701783299446,
+        0.023483339697122574,
+        -1.490264654159546
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183027.211398,
+      "kind": "position",
+      "timestamp": 1790183027211108,
+      "ned": [
+        0.01338138896971941,
+        0.03684041276574135,
+        -1.6335302591323853
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183027.3234076,
+      "kind": "position",
+      "timestamp": 1790183027315108,
+      "ned": [
+        0.008047503419220448,
+        0.047362130135297775,
+        -1.753300666809082
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183027.4232082,
+      "kind": "position",
+      "timestamp": 1790183027419108,
+      "ned": [
+        0.004596645012497902,
+        0.054635193198919296,
+        -1.8522025346755981
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183027.5235047,
+      "kind": "position",
+      "timestamp": 1790183027523111,
+      "ned": [
+        0.0036846252623945475,
+        0.05784080922603607,
+        -1.9360991716384888
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183027.6311202,
+      "kind": "position",
+      "timestamp": 1790183027627111,
+      "ned": [
+        0.0037436739075928926,
+        0.05601759999990463,
+        -2.010744333267212
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183027.7313116,
+      "kind": "position",
+      "timestamp": 1790183027731111,
+      "ned": [
+        0.0022370945662260056,
+        0.04881772771477699,
+        -2.077881336212158
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183027.8432293,
+      "kind": "position",
+      "timestamp": 1790183027843111,
+      "ned": [
+        -0.002732292516157031,
+        0.03609107807278633,
+        -2.141779661178589
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183027.9516668,
+      "kind": "position",
+      "timestamp": 1790183027947111,
+      "ned": [
+        -0.010354981757700443,
+        0.02208704687654972,
+        -2.194474935531616
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183028.0510137,
+      "kind": "position",
+      "timestamp": 1790183028051111,
+      "ned": [
+        -0.019865164533257484,
+        0.008658429607748985,
+        -2.2423622608184814
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183028.163196,
+      "kind": "position",
+      "timestamp": 1790183028163111,
+      "ned": [
+        -0.031176958233118057,
+        -0.002742054872214794,
+        -2.2895631790161133
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183028.2716715,
+      "kind": "position",
+      "timestamp": 1790183028267111,
+      "ned": [
+        -0.04161298647522926,
+        -0.010501421056687832,
+        -2.3298182487487793
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183028.3710952,
+      "kind": "position",
+      "timestamp": 1790183028371111,
+      "ned": [
+        -0.05069999769330025,
+        -0.015871044248342514,
+        -2.3675432205200195
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183028.4837112,
+      "kind": "position",
+      "timestamp": 1790183028483111,
+      "ned": [
+        -0.05828305333852768,
+        -0.020012512803077698,
+        -2.4050803184509277
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183028.5916703,
+      "kind": "position",
+      "timestamp": 1790183028587114,
+      "ned": [
+        -0.06284655630588531,
+        -0.02354947105050087,
+        -2.437397003173828
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183028.691757,
+      "kind": "position",
+      "timestamp": 1790183028691114,
+      "ned": [
+        -0.06429942697286606,
+        -0.02752312831580639,
+        -2.467881679534912
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183028.8036995,
+      "kind": "position",
+      "timestamp": 1790183028795114,
+      "ned": [
+        -0.06342381238937378,
+        -0.03220181539654732,
+        -2.4966623783111572
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183028.9032774,
+      "kind": "position",
+      "timestamp": 1790183028899114,
+      "ned": [
+        -0.060510654002428055,
+        -0.0369463711977005,
+        -2.523770332336426
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183029.0029948,
+      "kind": "position",
+      "timestamp": 1790183029003114,
+      "ned": [
+        -0.055872198194265366,
+        -0.041865523904561996,
+        -2.5499050617218018
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183029.1113765,
+      "kind": "position",
+      "timestamp": 1790183029107114,
+      "ned": [
+        -0.0495089627802372,
+        -0.04640358313918114,
+        -2.5751991271972656
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183029.2111778,
+      "kind": "position",
+      "timestamp": 1790183029211114,
+      "ned": [
+        -0.04244014620780945,
+        -0.0503302626311779,
+        -2.5991554260253906
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183029.3234975,
+      "kind": "position",
+      "timestamp": 1790183029323114,
+      "ned": [
+        -0.035179633647203445,
+        -0.054506007581949234,
+        -2.6229734420776367
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183029.4315674,
+      "kind": "position",
+      "timestamp": 1790183029427114,
+      "ned": [
+        -0.02854776196181774,
+        -0.05791008844971657,
+        -2.6444554328918457
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183029.5312853,
+      "kind": "position",
+      "timestamp": 1790183029531118,
+      "ned": [
+        -0.01772749051451683,
+        -0.06042478606104851,
+        -2.66804838180542
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183029.6435952,
+      "kind": "position",
+      "timestamp": 1790183029643118,
+      "ned": [
+        0.009712910279631615,
+        -0.061691757291555405,
+        -2.6914143562316895
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183029.751609,
+      "kind": "position",
+      "timestamp": 1790183029747118,
+      "ned": [
+        0.05360988900065422,
+        -0.06213938072323799,
+        -2.709115505218506
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183029.851044,
+      "kind": "position",
+      "timestamp": 1790183029851118,
+      "ned": [
+        0.11197959631681442,
+        -0.06323608011007309,
+        -2.7236413955688477
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183029.9631004,
+      "kind": "position",
+      "timestamp": 1790183029955118,
+      "ned": [
+        0.18055827915668488,
+        -0.06620614975690842,
+        -2.736367702484131
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183030.063166,
+      "kind": "position",
+      "timestamp": 1790183030059118,
+      "ned": [
+        0.25576481223106384,
+        -0.07138470560312271,
+        -2.7477810382843018
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183030.1632762,
+      "kind": "position",
+      "timestamp": 1790183030163118,
+      "ned": [
+        0.3339998722076416,
+        -0.07929898053407669,
+        -2.758129835128784
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183030.2709873,
+      "kind": "position",
+      "timestamp": 1790183030267118,
+      "ned": [
+        0.412324458360672,
+        -0.08892127126455307,
+        -2.7677295207977295
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183030.3712232,
+      "kind": "position",
+      "timestamp": 1790183030371118,
+      "ned": [
+        0.4885280430316925,
+        -0.09829395264387131,
+        -2.7768073081970215
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183030.482985,
+      "kind": "position",
+      "timestamp": 1790183030483118,
+      "ned": [
+        0.5658456087112427,
+        -0.1070147454738617,
+        -2.7860493659973145
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183030.591274,
+      "kind": "position",
+      "timestamp": 1790183030587120,
+      "ned": [
+        0.6325835585594177,
+        -0.11315398663282394,
+        -2.7945609092712402
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183030.691588,
+      "kind": "position",
+      "timestamp": 1790183030691120,
+      "ned": [
+        0.6941303014755249,
+        -0.11689496785402298,
+        -2.8039257526397705
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183030.8033028,
+      "kind": "position",
+      "timestamp": 1790183030803120,
+      "ned": [
+        0.7537904381752014,
+        -0.11866351217031479,
+        -2.814422607421875
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183030.9118407,
+      "kind": "position",
+      "timestamp": 1790183030907120,
+      "ned": [
+        0.8050497770309448,
+        -0.11840219050645828,
+        -2.826697587966919
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183031.0113144,
+      "kind": "position",
+      "timestamp": 1790183031011120,
+      "ned": [
+        0.8631583452224731,
+        -0.11603867262601852,
+        -2.838674306869507
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183031.1231942,
+      "kind": "position",
+      "timestamp": 1790183031123120,
+      "ned": [
+        0.941179096698761,
+        -0.11160936951637268,
+        -2.8483669757843018
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183031.2312634,
+      "kind": "position",
+      "timestamp": 1790183031227120,
+      "ned": [
+        1.0281200408935547,
+        -0.10699406266212463,
+        -2.8548524379730225
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183031.3309712,
+      "kind": "position",
+      "timestamp": 1790183031331120,
+      "ned": [
+        1.1242882013320923,
+        -0.10245753079652786,
+        -2.86057448387146
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183031.4431324,
+      "kind": "position",
+      "timestamp": 1790183031443120,
+      "ned": [
+        1.232936143875122,
+        -0.09804388135671616,
+        -2.8660802841186523
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183031.5510392,
+      "kind": "position",
+      "timestamp": 1790183031547122,
+      "ned": [
+        1.3344550132751465,
+        -0.0938582792878151,
+        -2.87070894241333
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183031.6509607,
+      "kind": "position",
+      "timestamp": 1790183031651122,
+      "ned": [
+        1.4330333471298218,
+        -0.0894291028380394,
+        -2.87483286857605
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183031.7629874,
+      "kind": "position",
+      "timestamp": 1790183031763122,
+      "ned": [
+        1.5325207710266113,
+        -0.08387894183397293,
+        -2.8791213035583496
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183031.8709064,
+      "kind": "position",
+      "timestamp": 1790183031867122,
+      "ned": [
+        1.6171813011169434,
+        -0.07760579138994217,
+        -2.883338451385498
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183031.971036,
+      "kind": "position",
+      "timestamp": 1790183031971122,
+      "ned": [
+        1.6935385465621948,
+        -0.07052446156740189,
+        -2.887305974960327
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183032.0830424,
+      "kind": "position",
+      "timestamp": 1790183032083122,
+      "ned": [
+        1.7674518823623657,
+        -0.06213865056633949,
+        -2.893481731414795
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183032.1912274,
+      "kind": "position",
+      "timestamp": 1790183032187122,
+      "ned": [
+        1.8376989364624023,
+        -0.05375624820590019,
+        -2.8999850749969482
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183032.2913246,
+      "kind": "position",
+      "timestamp": 1790183032291122,
+      "ned": [
+        1.9184863567352295,
+        -0.045828212052583694,
+        -2.9045817852020264
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183032.4033864,
+      "kind": "position",
+      "timestamp": 1790183032395122,
+      "ned": [
+        2.0100784301757812,
+        -0.03908972069621086,
+        -2.9071099758148193
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183032.5029235,
+      "kind": "position",
+      "timestamp": 1790183032499122,
+      "ned": [
+        2.109187364578247,
+        -0.03341909497976303,
+        -2.9085397720336914
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183032.603009,
+      "kind": "position",
+      "timestamp": 1790183032603124,
+      "ned": [
+        2.2126729488372803,
+        -0.02875378169119358,
+        -2.908773422241211
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183032.7109637,
+      "kind": "position",
+      "timestamp": 1790183032707124,
+      "ned": [
+        2.316884994506836,
+        -0.02505459263920784,
+        -2.908555269241333
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183032.8111145,
+      "kind": "position",
+      "timestamp": 1790183032811124,
+      "ned": [
+        2.4190263748168945,
+        -0.021684303879737854,
+        -2.9081037044525146
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183032.9232407,
+      "kind": "position",
+      "timestamp": 1790183032923124,
+      "ned": [
+        2.5240256786346436,
+        -0.018450472503900528,
+        -2.907548189163208
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183033.031057,
+      "kind": "position",
+      "timestamp": 1790183033027124,
+      "ned": [
+        2.615422248840332,
+        -0.01579131744801998,
+        -2.907411575317383
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183033.1309404,
+      "kind": "position",
+      "timestamp": 1790183033131124,
+      "ned": [
+        2.699928045272827,
+        -0.013298893347382545,
+        -2.9081480503082275
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183033.2437243,
+      "kind": "position",
+      "timestamp": 1790183033243124,
+      "ned": [
+        2.7842178344726562,
+        -0.009854874573647976,
+        -2.9119482040405273
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183033.3509045,
+      "kind": "position",
+      "timestamp": 1790183033347124,
+      "ned": [
+        2.8652548789978027,
+        -0.0060295164585113525,
+        -2.9159860610961914
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183033.4510663,
+      "kind": "position",
+      "timestamp": 1790183033451124,
+      "ned": [
+        2.9560914039611816,
+        -0.002074847463518381,
+        -2.918168544769287
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183033.5628762,
+      "kind": "position",
+      "timestamp": 1790183033563126,
+      "ned": [
+        3.0644993782043457,
+        0.0018495552940294147,
+        -2.918790817260742
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183033.670892,
+      "kind": "position",
+      "timestamp": 1790183033667126,
+      "ned": [
+        3.1709485054016113,
+        0.005091703496873379,
+        -2.9186856746673584
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183033.7711933,
+      "kind": "position",
+      "timestamp": 1790183033771126,
+      "ned": [
+        3.2779669761657715,
+        0.007653063163161278,
+        -2.9186768531799316
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183033.8829193,
+      "kind": "position",
+      "timestamp": 1790183033883126,
+      "ned": [
+        3.3913981914520264,
+        0.010117725469172001,
+        -2.9194817543029785
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183033.990894,
+      "kind": "position",
+      "timestamp": 1790183033987126,
+      "ned": [
+        3.4913008213043213,
+        0.012210206128656864,
+        -2.920966625213623
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183034.0918813,
+      "kind": "position",
+      "timestamp": 1790183034091126,
+      "ned": [
+        3.5781431198120117,
+        0.014434919692575932,
+        -2.9213387966156006
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183034.2029088,
+      "kind": "position",
+      "timestamp": 1790183034203126,
+      "ned": [
+        3.6516427993774414,
+        0.01788576878607273,
+        -2.919867992401123
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183034.310866,
+      "kind": "position",
+      "timestamp": 1790183034307126,
+      "ned": [
+        3.7022626399993896,
+        0.02272113785147667,
+        -2.917905569076538
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183034.4109836,
+      "kind": "position",
+      "timestamp": 1790183034411126,
+      "ned": [
+        3.7396066188812256,
+        0.02926335111260414,
+        -2.9159016609191895
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183034.522984,
+      "kind": "position",
+      "timestamp": 1790183034523127,
+      "ned": [
+        3.7696731090545654,
+        0.03815385699272156,
+        -2.913562774658203
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183034.6309214,
+      "kind": "position",
+      "timestamp": 1790183034627127,
+      "ned": [
+        3.7904462814331055,
+        0.04758510738611221,
+        -2.9113969802856445
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183034.7309117,
+      "kind": "position",
+      "timestamp": 1790183034731127,
+      "ned": [
+        3.806225538253784,
+        0.057284023612737656,
+        -2.9100706577301025
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183034.8429809,
+      "kind": "position",
+      "timestamp": 1790183034843127,
+      "ned": [
+        3.819420099258423,
+        0.06721914559602737,
+        -2.909130811691284
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183034.9509506,
+      "kind": "position",
+      "timestamp": 1790183034947127,
+      "ned": [
+        3.8289754390716553,
+        0.07603734731674194,
+        -2.9082820415496826
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183035.0509973,
+      "kind": "position",
+      "timestamp": 1790183035051127,
+      "ned": [
+        3.8360495567321777,
+        0.08435221761465073,
+        -2.9081223011016846
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183035.1629484,
+      "kind": "position",
+      "timestamp": 1790183035163127,
+      "ned": [
+        3.8454439640045166,
+        0.09284888207912445,
+        -2.91593074798584
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183035.270946,
+      "kind": "position",
+      "timestamp": 1790183035267127,
+      "ned": [
+        3.8690292835235596,
+        0.09928308427333832,
+        -2.9265661239624023
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183035.3709924,
+      "kind": "position",
+      "timestamp": 1790183035371127,
+      "ned": [
+        3.9139349460601807,
+        0.10296167433261871,
+        -2.9353749752044678
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183035.4831321,
+      "kind": "position",
+      "timestamp": 1790183035483127,
+      "ned": [
+        3.9844131469726562,
+        0.10394150763750076,
+        -2.942136287689209
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183035.5909154,
+      "kind": "position",
+      "timestamp": 1790183035587130,
+      "ned": [
+        4.064324378967285,
+        0.10174631327390671,
+        -2.9463984966278076
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183035.690889,
+      "kind": "position",
+      "timestamp": 1790183035691130,
+      "ned": [
+        4.153798580169678,
+        0.09670302271842957,
+        -2.949033498764038
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183035.8030505,
+      "kind": "position",
+      "timestamp": 1790183035803130,
+      "ned": [
+        4.255949020385742,
+        0.08874022960662842,
+        -2.950951337814331
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183035.910914,
+      "kind": "position",
+      "timestamp": 1790183035907130,
+      "ned": [
+        4.352320194244385,
+        0.07968588173389435,
+        -2.95289945602417
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183036.0229387,
+      "kind": "position",
+      "timestamp": 1790183036019130,
+      "ned": [
+        4.454710483551025,
+        0.07000237703323364,
+        -2.955169200897217
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183036.122902,
+      "kind": "position",
+      "timestamp": 1790183036123130,
+      "ned": [
+        4.546054840087891,
+        0.061380334198474884,
+        -2.9570960998535156
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183036.2311602,
+      "kind": "position",
+      "timestamp": 1790183036227130,
+      "ned": [
+        4.631978511810303,
+        0.0531340055167675,
+        -2.9583113193511963
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183036.331112,
+      "kind": "position",
+      "timestamp": 1790183036331130,
+      "ned": [
+        4.711006164550781,
+        0.044597920030355453,
+        -2.958644390106201
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183036.4429195,
+      "kind": "position",
+      "timestamp": 1790183036443130,
+      "ned": [
+        4.7887067794799805,
+        0.035390205681324005,
+        -2.960456609725952
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183036.5509214,
+      "kind": "position",
+      "timestamp": 1790183036547131,
+      "ned": [
+        4.8632378578186035,
+        0.02616133540868759,
+        -2.961568593978882
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183036.650921,
+      "kind": "position",
+      "timestamp": 1790183036651131,
+      "ned": [
+        4.94746732711792,
+        0.016612740233540535,
+        -2.960711717605591
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183036.763153,
+      "kind": "position",
+      "timestamp": 1790183036763131,
+      "ned": [
+        5.048445224761963,
+        0.005971645470708609,
+        -2.958866834640503
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183036.8709335,
+      "kind": "position",
+      "timestamp": 1790183036867131,
+      "ned": [
+        5.148006916046143,
+        -0.0044408985413610935,
+        -2.9577558040618896
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183036.9709706,
+      "kind": "position",
+      "timestamp": 1790183036971131,
+      "ned": [
+        5.248568058013916,
+        -0.015360976569354534,
+        -2.9570746421813965
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183037.0828843,
+      "kind": "position",
+      "timestamp": 1790183037083131,
+      "ned": [
+        5.35432243347168,
+        -0.0272058192640543,
+        -2.9568681716918945
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183037.190947,
+      "kind": "position",
+      "timestamp": 1790183037187131,
+      "ned": [
+        5.448678970336914,
+        -0.037468668073415756,
+        -2.9575517177581787
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183037.2909067,
+      "kind": "position",
+      "timestamp": 1790183037291131,
+      "ned": [
+        5.5381364822387695,
+        -0.046651557087898254,
+        -2.9594380855560303
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183037.4030762,
+      "kind": "position",
+      "timestamp": 1790183037403131,
+      "ned": [
+        5.627765655517578,
+        -0.05453485995531082,
+        -2.962069034576416
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183037.5109367,
+      "kind": "position",
+      "timestamp": 1790183037507131,
+      "ned": [
+        5.703708648681641,
+        -0.05977954342961311,
+        -2.964714288711548
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183037.6109252,
+      "kind": "position",
+      "timestamp": 1790183037611133,
+      "ned": [
+        5.772441864013672,
+        -0.06331579387187958,
+        -2.9690513610839844
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183037.722926,
+      "kind": "position",
+      "timestamp": 1790183037723133,
+      "ned": [
+        5.846686840057373,
+        -0.06504852324724197,
+        -2.9750192165374756
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183037.8308756,
+      "kind": "position",
+      "timestamp": 1790183037827133,
+      "ned": [
+        5.925221920013428,
+        -0.06494573503732681,
+        -2.978767156600952
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183037.9308774,
+      "kind": "position",
+      "timestamp": 1790183037931133,
+      "ned": [
+        6.014398097991943,
+        -0.06346452981233597,
+        -2.980288505554199
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183038.043022,
+      "kind": "position",
+      "timestamp": 1790183038043133,
+      "ned": [
+        6.118990898132324,
+        -0.060652971267700195,
+        -2.9808237552642822
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183038.1509233,
+      "kind": "position",
+      "timestamp": 1790183038147133,
+      "ned": [
+        6.220370769500732,
+        -0.05749142915010452,
+        -2.9807920455932617
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183038.2509463,
+      "kind": "position",
+      "timestamp": 1790183038251133,
+      "ned": [
+        6.3229756355285645,
+        -0.05413930118083954,
+        -2.9806740283966064
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183038.3629088,
+      "kind": "position",
+      "timestamp": 1790183038363133,
+      "ned": [
+        6.431987762451172,
+        -0.05038243159651756,
+        -2.981006622314453
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183038.4709935,
+      "kind": "position",
+      "timestamp": 1790183038467133,
+      "ned": [
+        6.528996467590332,
+        -0.0471314936876297,
+        -2.9813497066497803
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183038.5709922,
+      "kind": "position",
+      "timestamp": 1790183038571135,
+      "ned": [
+        6.619266510009766,
+        -0.04414372518658638,
+        -2.9816465377807617
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183038.682984,
+      "kind": "position",
+      "timestamp": 1790183038683135,
+      "ned": [
+        6.706784248352051,
+        -0.04116176813840866,
+        -2.9818809032440186
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183038.791112,
+      "kind": "position",
+      "timestamp": 1790183038787135,
+      "ned": [
+        6.779618263244629,
+        -0.038084954023361206,
+        -2.983813762664795
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183038.8909247,
+      "kind": "position",
+      "timestamp": 1790183038891135,
+      "ned": [
+        6.853142261505127,
+        -0.03469684720039368,
+        -2.9864909648895264
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183039.0032966,
+      "kind": "position",
+      "timestamp": 1790183039003135,
+      "ned": [
+        6.9422736167907715,
+        -0.031071260571479797,
+        -2.9878621101379395
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183039.1109145,
+      "kind": "position",
+      "timestamp": 1790183039107135,
+      "ned": [
+        7.0348076820373535,
+        -0.02780105173587799,
+        -2.9868979454040527
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183039.2109966,
+      "kind": "position",
+      "timestamp": 1790183039211135,
+      "ned": [
+        7.134430408477783,
+        -0.025159474462270737,
+        -2.98483943939209
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183039.3229547,
+      "kind": "position",
+      "timestamp": 1790183039323135,
+      "ned": [
+        7.245475769042969,
+        -0.02340344525873661,
+        -2.9824931621551514
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183039.4311173,
+      "kind": "position",
+      "timestamp": 1790183039427135,
+      "ned": [
+        7.3484601974487305,
+        -0.022421300411224365,
+        -2.980602264404297
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183039.5313516,
+      "kind": "position",
+      "timestamp": 1790183039531135,
+      "ned": [
+        7.448523044586182,
+        -0.021702593192458153,
+        -2.978548049926758
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183039.6430745,
+      "kind": "position",
+      "timestamp": 1790183039643137,
+      "ned": [
+        7.550947189331055,
+        -0.02098904177546501,
+        -2.976705312728882
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183039.7508674,
+      "kind": "position",
+      "timestamp": 1790183039747137,
+      "ned": [
+        7.6399431228637695,
+        -0.0199545007199049,
+        -2.9748215675354004
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183039.8508892,
+      "kind": "position",
+      "timestamp": 1790183039851137,
+      "ned": [
+        7.721651554107666,
+        -0.018183445557951927,
+        -2.9731850624084473
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183039.9629292,
+      "kind": "position",
+      "timestamp": 1790183039955137,
+      "ned": [
+        7.798074722290039,
+        -0.01624988205730915,
+        -2.9734292030334473
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183040.0629964,
+      "kind": "position",
+      "timestamp": 1790183040059137,
+      "ned": [
+        7.879639625549316,
+        -0.014341791160404682,
+        -2.973325729370117
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183040.1629448,
+      "kind": "position",
+      "timestamp": 1790183040163137,
+      "ned": [
+        7.972204685211182,
+        -0.01269818190485239,
+        -2.9711833000183105
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183040.271684,
+      "kind": "position",
+      "timestamp": 1790183040267137,
+      "ned": [
+        8.07415771484375,
+        -0.01174335926771164,
+        -2.967919111251831
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183040.370937,
+      "kind": "position",
+      "timestamp": 1790183040371137,
+      "ned": [
+        8.180292129516602,
+        -0.01076183095574379,
+        -2.9647622108459473
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183040.4829268,
+      "kind": "position",
+      "timestamp": 1790183040483137,
+      "ned": [
+        8.294589042663574,
+        -0.008990920148789883,
+        -2.9623825550079346
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183040.5910518,
+      "kind": "position",
+      "timestamp": 1790183040587139,
+      "ned": [
+        8.397618293762207,
+        -0.007168429438024759,
+        -2.961467981338501
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183040.6909785,
+      "kind": "position",
+      "timestamp": 1790183040691139,
+      "ned": [
+        8.494606971740723,
+        -0.005066022276878357,
+        -2.9620940685272217
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183040.8034923,
+      "kind": "position",
+      "timestamp": 1790183040795139,
+      "ned": [
+        8.58462905883789,
+        -0.0030934216920286417,
+        -2.963752508163452
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183040.9028988,
+      "kind": "position",
+      "timestamp": 1790183040899139,
+      "ned": [
+        8.667634010314941,
+        -0.001230999012477696,
+        -2.965841293334961
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183041.003014,
+      "kind": "position",
+      "timestamp": 1790183041003139,
+      "ned": [
+        8.743508338928223,
+        0.00014462022227235138,
+        -2.9689841270446777
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183041.1109874,
+      "kind": "position",
+      "timestamp": 1790183041107139,
+      "ned": [
+        8.812017440795898,
+        0.006742794066667557,
+        -2.97409987449646
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183041.2109127,
+      "kind": "position",
+      "timestamp": 1790183041211139,
+      "ned": [
+        8.872912406921387,
+        0.029356643557548523,
+        -2.9780502319335938
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183041.322927,
+      "kind": "position",
+      "timestamp": 1790183041323139,
+      "ned": [
+        8.931024551391602,
+        0.07658188045024872,
+        -2.979825735092163
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183041.431115,
+      "kind": "position",
+      "timestamp": 1790183041427139,
+      "ned": [
+        8.97807788848877,
+        0.13817425072193146,
+        -2.9799253940582275
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183041.5309973,
+      "kind": "position",
+      "timestamp": 1790183041531139,
+      "ned": [
+        9.018122673034668,
+        0.21056386828422546,
+        -2.979314088821411
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183041.643032,
+      "kind": "position",
+      "timestamp": 1790183041635141,
+      "ned": [
+        9.051034927368164,
+        0.2885883152484894,
+        -2.9785118103027344
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183041.7429676,
+      "kind": "position",
+      "timestamp": 1790183041739141,
+      "ned": [
+        9.077359199523926,
+        0.369173139333725,
+        -2.9775476455688477
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183041.8509562,
+      "kind": "position",
+      "timestamp": 1790183041851141,
+      "ned": [
+        9.098737716674805,
+        0.45630520582199097,
+        -2.976550579071045
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183041.9630039,
+      "kind": "position",
+      "timestamp": 1790183041963141,
+      "ned": [
+        9.113740921020508,
+        0.5421921014785767,
+        -2.975341320037842
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183042.0709825,
+      "kind": "position",
+      "timestamp": 1790183042067141,
+      "ned": [
+        9.122604370117188,
+        0.6192454099655151,
+        -2.9739468097686768
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183042.170983,
+      "kind": "position",
+      "timestamp": 1790183042171141,
+      "ned": [
+        9.12775993347168,
+        0.6923119425773621,
+        -2.9721012115478516
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183042.282939,
+      "kind": "position",
+      "timestamp": 1790183042283141,
+      "ned": [
+        9.129878044128418,
+        0.7658286094665527,
+        -2.9714624881744385
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183042.390914,
+      "kind": "position",
+      "timestamp": 1790183042387141,
+      "ned": [
+        9.129263877868652,
+        0.8365353345870972,
+        -2.9721477031707764
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183042.4909189,
+      "kind": "position",
+      "timestamp": 1790183042491141,
+      "ned": [
+        9.126760482788086,
+        0.9189653396606445,
+        -2.972029209136963
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183042.6029081,
+      "kind": "position",
+      "timestamp": 1790183042603142,
+      "ned": [
+        9.122356414794922,
+        1.0227394104003906,
+        -2.9708733558654785
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183042.7108998,
+      "kind": "position",
+      "timestamp": 1790183042707142,
+      "ned": [
+        9.116496086120605,
+        1.1274893283843994,
+        -2.9691851139068604
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183042.8109033,
+      "kind": "position",
+      "timestamp": 1790183042811142,
+      "ned": [
+        9.10992431640625,
+        1.2347760200500488,
+        -2.9669432640075684
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183042.922931,
+      "kind": "position",
+      "timestamp": 1790183042923142,
+      "ned": [
+        9.103025436401367,
+        1.3484642505645752,
+        -2.965144157409668
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183043.0308888,
+      "kind": "position",
+      "timestamp": 1790183043027142,
+      "ned": [
+        9.096653938293457,
+        1.44955313205719,
+        -2.9644975662231445
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183043.1309059,
+      "kind": "position",
+      "timestamp": 1790183043131142,
+      "ned": [
+        9.090348243713379,
+        1.5448647737503052,
+        -2.964911937713623
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183043.242903,
+      "kind": "position",
+      "timestamp": 1790183043243142,
+      "ned": [
+        9.08382797241211,
+        1.639723539352417,
+        -2.965911626815796
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183043.3510032,
+      "kind": "position",
+      "timestamp": 1790183043347142,
+      "ned": [
+        9.077653884887695,
+        1.7193670272827148,
+        -2.9673244953155518
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183043.4509194,
+      "kind": "position",
+      "timestamp": 1790183043451142,
+      "ned": [
+        9.071274757385254,
+        1.791243553161621,
+        -2.970482349395752
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183043.5629828,
+      "kind": "position",
+      "timestamp": 1790183043563144,
+      "ned": [
+        9.064580917358398,
+        1.8702771663665771,
+        -2.9742186069488525
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183043.670849,
+      "kind": "position",
+      "timestamp": 1790183043667144,
+      "ned": [
+        9.05840015411377,
+        1.954676866531372,
+        -2.975857734680176
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183043.770923,
+      "kind": "position",
+      "timestamp": 1790183043771144,
+      "ned": [
+        9.052372932434082,
+        2.0505590438842773,
+        -2.9762580394744873
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183043.882956,
+      "kind": "position",
+      "timestamp": 1790183043883144,
+      "ned": [
+        9.045588493347168,
+        2.161278009414673,
+        -2.9756269454956055
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183043.9909048,
+      "kind": "position",
+      "timestamp": 1790183043987144,
+      "ned": [
+        9.039071083068848,
+        2.2657010555267334,
+        -2.974881172180176
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183044.0909107,
+      "kind": "position",
+      "timestamp": 1790183044091144,
+      "ned": [
+        9.032426834106445,
+        2.3677525520324707,
+        -2.974040985107422
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183044.202925,
+      "kind": "position",
+      "timestamp": 1790183044203144,
+      "ned": [
+        9.024993896484375,
+        2.472482681274414,
+        -2.973336935043335
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183044.3112493,
+      "kind": "position",
+      "timestamp": 1790183044307144,
+      "ned": [
+        9.018287658691406,
+        2.564088821411133,
+        -2.9732673168182373
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183044.4111326,
+      "kind": "position",
+      "timestamp": 1790183044411144,
+      "ned": [
+        9.01153564453125,
+        2.6485841274261475,
+        -2.973825693130493
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183044.5230742,
+      "kind": "position",
+      "timestamp": 1790183044523144,
+      "ned": [
+        9.0040283203125,
+        2.7309975624084473,
+        -2.975942611694336
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183044.6309204,
+      "kind": "position",
+      "timestamp": 1790183044627147,
+      "ned": [
+        8.99671459197998,
+        2.805762767791748,
+        -2.9795217514038086
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183044.730874,
+      "kind": "position",
+      "timestamp": 1790183044731147,
+      "ned": [
+        8.988883018493652,
+        2.8892040252685547,
+        -2.981602668762207
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183044.8429594,
+      "kind": "position",
+      "timestamp": 1790183044843147,
+      "ned": [
+        8.980318069458008,
+        2.991483211517334,
+        -2.981912851333618
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183044.950888,
+      "kind": "position",
+      "timestamp": 1790183044947147,
+      "ned": [
+        8.97281265258789,
+        3.094386339187622,
+        -2.980997085571289
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183045.0509396,
+      "kind": "position",
+      "timestamp": 1790183045051147,
+      "ned": [
+        8.965896606445312,
+        3.1995890140533447,
+        -2.9797427654266357
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183045.1629894,
+      "kind": "position",
+      "timestamp": 1790183045163147,
+      "ned": [
+        8.959466934204102,
+        3.310717821121216,
+        -2.978482723236084
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183045.2709923,
+      "kind": "position",
+      "timestamp": 1790183045267147,
+      "ned": [
+        8.954083442687988,
+        3.409635066986084,
+        -2.977259397506714
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183045.3710024,
+      "kind": "position",
+      "timestamp": 1790183045371147,
+      "ned": [
+        8.949101448059082,
+        3.5026981830596924,
+        -2.9761176109313965
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183045.4829152,
+      "kind": "position",
+      "timestamp": 1790183045483147,
+      "ned": [
+        8.9439115524292,
+        3.5946829319000244,
+        -2.974978446960449
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183045.5909626,
+      "kind": "position",
+      "timestamp": 1790183045587148,
+      "ned": [
+        8.939858436584473,
+        3.672159194946289,
+        -2.9735195636749268
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183045.6910248,
+      "kind": "position",
+      "timestamp": 1790183045691148,
+      "ned": [
+        8.936741828918457,
+        3.7428297996520996,
+        -2.9731979370117188
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183045.8030298,
+      "kind": "position",
+      "timestamp": 1790183045803148,
+      "ned": [
+        8.933845520019531,
+        3.8208422660827637,
+        -2.973227024078369
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183045.9108808,
+      "kind": "position",
+      "timestamp": 1790183045907148,
+      "ned": [
+        8.9321870803833,
+        3.905661106109619,
+        -2.971586227416992
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183046.0111065,
+      "kind": "position",
+      "timestamp": 1790183046011148,
+      "ned": [
+        8.932272911071777,
+        4.0039873123168945,
+        -2.9685354232788086
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183046.1230314,
+      "kind": "position",
+      "timestamp": 1790183046123148,
+      "ned": [
+        8.933793067932129,
+        4.1187357902526855,
+        -2.965088129043579
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183046.2308803,
+      "kind": "position",
+      "timestamp": 1790183046227148,
+      "ned": [
+        8.936071395874023,
+        4.2275238037109375,
+        -2.9621355533599854
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183046.3309526,
+      "kind": "position",
+      "timestamp": 1790183046331148,
+      "ned": [
+        8.939335823059082,
+        4.334095001220703,
+        -2.959893226623535
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183046.4430614,
+      "kind": "position",
+      "timestamp": 1790183046443148,
+      "ned": [
+        8.94377613067627,
+        4.442714214324951,
+        -2.9583301544189453
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183046.5508978,
+      "kind": "position",
+      "timestamp": 1790183046547148,
+      "ned": [
+        8.948994636535645,
+        4.535598278045654,
+        -2.9578542709350586
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183046.6509316,
+      "kind": "position",
+      "timestamp": 1790183046651150,
+      "ned": [
+        8.954463958740234,
+        4.62043571472168,
+        -2.9584462642669678
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183046.7628994,
+      "kind": "position",
+      "timestamp": 1790183046763150,
+      "ned": [
+        8.95969295501709,
+        4.702339172363281,
+        -2.959625005722046
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183046.8708873,
+      "kind": "position",
+      "timestamp": 1790183046867150,
+      "ned": [
+        8.963531494140625,
+        4.771978855133057,
+        -2.9623284339904785
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183046.9710014,
+      "kind": "position",
+      "timestamp": 1790183046971150,
+      "ned": [
+        8.965700149536133,
+        4.84618616104126,
+        -2.9650938510894775
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183047.0829055,
+      "kind": "position",
+      "timestamp": 1790183047083150,
+      "ned": [
+        8.965863227844238,
+        4.940541744232178,
+        -2.966578722000122
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183047.1909432,
+      "kind": "position",
+      "timestamp": 1790183047187150,
+      "ned": [
+        8.964802742004395,
+        5.0407209396362305,
+        -2.9669973850250244
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183047.2909324,
+      "kind": "position",
+      "timestamp": 1790183047291150,
+      "ned": [
+        8.963181495666504,
+        5.147411823272705,
+        -2.9668588638305664
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183047.4030674,
+      "kind": "position",
+      "timestamp": 1790183047403150,
+      "ned": [
+        8.961453437805176,
+        5.263400077819824,
+        -2.967241048812866
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183047.5109086,
+      "kind": "position",
+      "timestamp": 1790183047507150,
+      "ned": [
+        8.959807395935059,
+        5.367623805999756,
+        -2.9683735370635986
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183047.6111608,
+      "kind": "position",
+      "timestamp": 1790183047611152,
+      "ned": [
+        8.957904815673828,
+        5.46589994430542,
+        -2.970045328140259
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183047.7230458,
+      "kind": "position",
+      "timestamp": 1790183047723152,
+      "ned": [
+        8.955767631530762,
+        5.563841819763184,
+        -2.972024917602539
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183047.830974,
+      "kind": "position",
+      "timestamp": 1790183047827152,
+      "ned": [
+        8.954353332519531,
+        5.646645545959473,
+        -2.973991870880127
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183047.9310431,
+      "kind": "position",
+      "timestamp": 1790183047931152,
+      "ned": [
+        8.953489303588867,
+        5.721418857574463,
+        -2.975900173187256
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183048.0429306,
+      "kind": "position",
+      "timestamp": 1790183048043152,
+      "ned": [
+        8.953178405761719,
+        5.797188758850098,
+        -2.9796600341796875
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183048.15104,
+      "kind": "position",
+      "timestamp": 1790183048147152,
+      "ned": [
+        8.953434944152832,
+        5.8738837242126465,
+        -2.9825544357299805
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183048.2509747,
+      "kind": "position",
+      "timestamp": 1790183048251152,
+      "ned": [
+        8.954343795776367,
+        5.963364124298096,
+        -2.9830515384674072
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183048.3630426,
+      "kind": "position",
+      "timestamp": 1790183048363152,
+      "ned": [
+        8.95513916015625,
+        6.071688175201416,
+        -2.981335163116455
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183048.4709055,
+      "kind": "position",
+      "timestamp": 1790183048467152,
+      "ned": [
+        8.955323219299316,
+        6.177074909210205,
+        -2.978919267654419
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183048.570899,
+      "kind": "position",
+      "timestamp": 1790183048571152,
+      "ned": [
+        8.955096244812012,
+        6.28223991394043,
+        -2.9762439727783203
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183048.682901,
+      "kind": "position",
+      "timestamp": 1790183048683154,
+      "ned": [
+        8.954351425170898,
+        6.392096996307373,
+        -2.972858428955078
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183048.7909563,
+      "kind": "position",
+      "timestamp": 1790183048787154,
+      "ned": [
+        8.953859329223633,
+        6.488874435424805,
+        -2.970353841781616
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183048.8917687,
+      "kind": "position",
+      "timestamp": 1790183048891154,
+      "ned": [
+        8.953634262084961,
+        6.579561233520508,
+        -2.968773365020752
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183049.004167,
+      "kind": "position",
+      "timestamp": 1790183048995154,
+      "ned": [
+        8.95388126373291,
+        6.663362503051758,
+        -2.96823787689209
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183049.1029499,
+      "kind": "position",
+      "timestamp": 1790183049099154,
+      "ned": [
+        8.954662322998047,
+        6.7388458251953125,
+        -2.9695215225219727
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183049.2109885,
+      "kind": "position",
+      "timestamp": 1790183049211154,
+      "ned": [
+        8.956192016601562,
+        6.8171820640563965,
+        -2.972862958908081
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183049.3231874,
+      "kind": "position",
+      "timestamp": 1790183049323154,
+      "ned": [
+        8.958352088928223,
+        6.905117034912109,
+        -2.9750890731811523
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183049.4310048,
+      "kind": "position",
+      "timestamp": 1790183049427154,
+      "ned": [
+        8.960413932800293,
+        7.000014781951904,
+        -2.975252389907837
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183049.5309172,
+      "kind": "position",
+      "timestamp": 1790183049531154,
+      "ned": [
+        8.962308883666992,
+        7.104249477386475,
+        -2.974210739135742
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183049.642942,
+      "kind": "position",
+      "timestamp": 1790183049643155,
+      "ned": [
+        8.963765144348145,
+        7.2197747230529785,
+        -2.9726452827453613
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183049.750881,
+      "kind": "position",
+      "timestamp": 1790183049747155,
+      "ned": [
+        8.964004516601562,
+        7.325282096862793,
+        -2.9716079235076904
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183049.8508954,
+      "kind": "position",
+      "timestamp": 1790183049851155,
+      "ned": [
+        8.963045120239258,
+        7.426422119140625,
+        -2.9709739685058594
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183049.9629312,
+      "kind": "position",
+      "timestamp": 1790183049963155,
+      "ned": [
+        8.961572647094727,
+        7.528113842010498,
+        -2.9712014198303223
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183050.071084,
+      "kind": "position",
+      "timestamp": 1790183050067155,
+      "ned": [
+        8.960074424743652,
+        7.614670276641846,
+        -2.971754312515259
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183050.1710918,
+      "kind": "position",
+      "timestamp": 1790183050171155,
+      "ned": [
+        8.958406448364258,
+        7.693109035491943,
+        -2.972501754760742
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183050.2829707,
+      "kind": "position",
+      "timestamp": 1790183050283155,
+      "ned": [
+        8.95579719543457,
+        7.771456241607666,
+        -2.974179744720459
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183050.3910525,
+      "kind": "position",
+      "timestamp": 1790183050387155,
+      "ned": [
+        8.953110694885254,
+        7.849908828735352,
+        -2.974881172180176
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183050.4908838,
+      "kind": "position",
+      "timestamp": 1790183050491155,
+      "ned": [
+        8.950431823730469,
+        7.940817356109619,
+        -2.9740288257598877
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183050.602945,
+      "kind": "position",
+      "timestamp": 1790183050603157,
+      "ned": [
+        8.948502540588379,
+        8.050439834594727,
+        -2.972010612487793
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183050.7109175,
+      "kind": "position",
+      "timestamp": 1790183050707157,
+      "ned": [
+        8.948102951049805,
+        8.157496452331543,
+        -2.9704043865203857
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183050.811011,
+      "kind": "position",
+      "timestamp": 1790183050811157,
+      "ned": [
+        8.948959350585938,
+        8.265012741088867,
+        -2.9692773818969727
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183050.9229228,
+      "kind": "position",
+      "timestamp": 1790183050923157,
+      "ned": [
+        8.950669288635254,
+        8.377402305603027,
+        -2.9684994220733643
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183051.0309207,
+      "kind": "position",
+      "timestamp": 1790183051027157,
+      "ned": [
+        8.95285701751709,
+        8.475977897644043,
+        -2.9679832458496094
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183051.1309803,
+      "kind": "position",
+      "timestamp": 1790183051131157,
+      "ned": [
+        8.95532512664795,
+        8.567778587341309,
+        -2.967750310897827
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183051.2429109,
+      "kind": "position",
+      "timestamp": 1790183051243157,
+      "ned": [
+        8.958150863647461,
+        8.657459259033203,
+        -2.967268943786621
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183051.3510664,
+      "kind": "position",
+      "timestamp": 1790183051347157,
+      "ned": [
+        8.961189270019531,
+        8.731390953063965,
+        -2.966014862060547
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183051.4509573,
+      "kind": "position",
+      "timestamp": 1790183051451157,
+      "ned": [
+        8.96438217163086,
+        8.798121452331543,
+        -2.9620161056518555
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183051.5629442,
+      "kind": "position",
+      "timestamp": 1790183051563157,
+      "ned": [
+        8.966928482055664,
+        8.865730285644531,
+        -2.946849822998047
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183051.6709366,
+      "kind": "position",
+      "timestamp": 1790183051667159,
+      "ned": [
+        8.96815299987793,
+        8.925609588623047,
+        -2.9159727096557617
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183051.7709339,
+      "kind": "position",
+      "timestamp": 1790183051771159,
+      "ned": [
+        8.968550682067871,
+        8.980056762695312,
+        -2.863565444946289
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183051.8830266,
+      "kind": "position",
+      "timestamp": 1790183051883159,
+      "ned": [
+        8.968483924865723,
+        9.028383255004883,
+        -2.7854082584381104
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183051.9909258,
+      "kind": "position",
+      "timestamp": 1790183051987159,
+      "ned": [
+        8.967628479003906,
+        9.0601224899292,
+        -2.702061653137207
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183052.0909088,
+      "kind": "position",
+      "timestamp": 1790183052091159,
+      "ned": [
+        8.965252876281738,
+        9.078383445739746,
+        -2.617171049118042
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183052.2028964,
+      "kind": "position",
+      "timestamp": 1790183052203159,
+      "ned": [
+        8.961272239685059,
+        9.086352348327637,
+        -2.5319321155548096
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183052.311116,
+      "kind": "position",
+      "timestamp": 1790183052307159,
+      "ned": [
+        8.956382751464844,
+        9.088751792907715,
+        -2.463677406311035
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183052.4111795,
+      "kind": "position",
+      "timestamp": 1790183052411159,
+      "ned": [
+        8.950970649719238,
+        9.092475891113281,
+        -2.4029054641723633
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183052.523216,
+      "kind": "position",
+      "timestamp": 1790183052523159,
+      "ned": [
+        8.944822311401367,
+        9.100837707519531,
+        -2.337228775024414
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183052.6309187,
+      "kind": "position",
+      "timestamp": 1790183052627163,
+      "ned": [
+        8.939027786254883,
+        9.111923217773438,
+        -2.2740511894226074
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183052.7310152,
+      "kind": "position",
+      "timestamp": 1790183052731163,
+      "ned": [
+        8.9337158203125,
+        9.124693870544434,
+        -2.208937168121338
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183052.8431747,
+      "kind": "position",
+      "timestamp": 1790183052843163,
+      "ned": [
+        8.928982734680176,
+        9.139190673828125,
+        -2.1377179622650146
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183052.9510643,
+      "kind": "position",
+      "timestamp": 1790183052947163,
+      "ned": [
+        8.926017761230469,
+        9.152835845947266,
+        -2.0711653232574463
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183053.05151,
+      "kind": "position",
+      "timestamp": 1790183053051163,
+      "ned": [
+        8.923850059509277,
+        9.166478157043457,
+        -2.00386118888855
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183053.163417,
+      "kind": "position",
+      "timestamp": 1790183053163163,
+      "ned": [
+        8.922233581542969,
+        9.181041717529297,
+        -1.9311274290084839
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183053.2713833,
+      "kind": "position",
+      "timestamp": 1790183053267163,
+      "ned": [
+        8.921049118041992,
+        9.194597244262695,
+        -1.8632088899612427
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183053.3712409,
+      "kind": "position",
+      "timestamp": 1790183053371163,
+      "ned": [
+        8.920236587524414,
+        9.207886695861816,
+        -1.7945281267166138
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183053.4832032,
+      "kind": "position",
+      "timestamp": 1790183053483163,
+      "ned": [
+        8.9199800491333,
+        9.221151351928711,
+        -1.719570517539978
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183053.5915525,
+      "kind": "position",
+      "timestamp": 1790183053587163,
+      "ned": [
+        8.91999626159668,
+        9.232205390930176,
+        -1.6491565704345703
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183053.6916199,
+      "kind": "position",
+      "timestamp": 1790183053691166,
+      "ned": [
+        8.920069694519043,
+        9.24190902709961,
+        -1.5783441066741943
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183053.8030784,
+      "kind": "position",
+      "timestamp": 1790183053803166,
+      "ned": [
+        8.920929908752441,
+        9.250577926635742,
+        -1.50224769115448
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183053.9109344,
+      "kind": "position",
+      "timestamp": 1790183053907166,
+      "ned": [
+        8.92228889465332,
+        9.257379531860352,
+        -1.431960940361023
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183054.011145,
+      "kind": "position",
+      "timestamp": 1790183054011166,
+      "ned": [
+        8.92352294921875,
+        9.263236999511719,
+        -1.3614264726638794
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183054.1228955,
+      "kind": "position",
+      "timestamp": 1790183054123166,
+      "ned": [
+        8.924971580505371,
+        9.269317626953125,
+        -1.2847727537155151
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183054.230902,
+      "kind": "position",
+      "timestamp": 1790183054227166,
+      "ned": [
+        8.926542282104492,
+        9.275102615356445,
+        -1.2130368947982788
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183054.330914,
+      "kind": "position",
+      "timestamp": 1790183054331166,
+      "ned": [
+        8.928115844726562,
+        9.280077934265137,
+        -1.1407724618911743
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183054.44321,
+      "kind": "position",
+      "timestamp": 1790183054443166,
+      "ned": [
+        8.929489135742188,
+        9.283638000488281,
+        -1.0626531839370728
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183054.5509183,
+      "kind": "position",
+      "timestamp": 1790183054547166,
+      "ned": [
+        8.930133819580078,
+        9.284995079040527,
+        -0.9904358386993408
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183054.6511521,
+      "kind": "position",
+      "timestamp": 1790183054651167,
+      "ned": [
+        8.930278778076172,
+        9.285436630249023,
+        -0.9181344509124756
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183054.7629323,
+      "kind": "position",
+      "timestamp": 1790183054763167,
+      "ned": [
+        8.930586814880371,
+        9.285049438476562,
+        -0.8402613401412964
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183054.8709855,
+      "kind": "position",
+      "timestamp": 1790183054867167,
+      "ned": [
+        8.931035041809082,
+        9.284627914428711,
+        -0.7678728103637695
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183054.9709563,
+      "kind": "position",
+      "timestamp": 1790183054971167,
+      "ned": [
+        8.931656837463379,
+        9.284262657165527,
+        -0.6954960227012634
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183055.0839994,
+      "kind": "position",
+      "timestamp": 1790183055083167,
+      "ned": [
+        8.932908058166504,
+        9.28322982788086,
+        -0.6172493100166321
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183055.191034,
+      "kind": "position",
+      "timestamp": 1790183055187167,
+      "ned": [
+        8.934842109680176,
+        9.282341957092285,
+        -0.5446452498435974
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183055.2909226,
+      "kind": "position",
+      "timestamp": 1790183055291167,
+      "ned": [
+        8.938023567199707,
+        9.281878471374512,
+        -0.47269606590270996
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183055.4031055,
+      "kind": "position",
+      "timestamp": 1790183055403167,
+      "ned": [
+        8.942063331604004,
+        9.281790733337402,
+        -0.39568591117858887
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183055.5109751,
+      "kind": "position",
+      "timestamp": 1790183055507167,
+      "ned": [
+        8.946423530578613,
+        9.282562255859375,
+        -0.3244962692260742
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183055.611257,
+      "kind": "position",
+      "timestamp": 1790183055611169,
+      "ned": [
+        8.951982498168945,
+        9.283099174499512,
+        -0.2531469464302063
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183055.7228901,
+      "kind": "position",
+      "timestamp": 1790183055723169,
+      "ned": [
+        8.959551811218262,
+        9.282657623291016,
+        -0.17584095895290375
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183055.8309376,
+      "kind": "position",
+      "timestamp": 1790183055827169,
+      "ned": [
+        8.96757984161377,
+        9.281739234924316,
+        -0.1034434586763382
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183055.9309316,
+      "kind": "position",
+      "timestamp": 1790183055931169,
+      "ned": [
+        8.97530460357666,
+        9.280210494995117,
+        -0.030603840947151184
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183056.042965,
+      "kind": "position",
+      "timestamp": 1790183056043169,
+      "ned": [
+        8.982596397399902,
+        9.277787208557129,
+        0.04788102209568024
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183056.151312,
+      "kind": "position",
+      "timestamp": 1790183056147169,
+      "ned": [
+        8.986309051513672,
+        9.275617599487305,
+        0.09205099940299988
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183056.2518408,
+      "kind": "position",
+      "timestamp": 1790183056251169,
+      "ned": [
+        8.986113548278809,
+        9.274869918823242,
+        0.08466161787509918
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183056.364182,
+      "kind": "position",
+      "timestamp": 1790183056363169,
+      "ned": [
+        8.985626220703125,
+        9.273961067199707,
+        0.07178826630115509
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183056.471058,
+      "kind": "position",
+      "timestamp": 1790183056467169,
+      "ned": [
+        8.985782623291016,
+        9.272615432739258,
+        0.06224694848060608
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183056.5718951,
+      "kind": "position",
+      "timestamp": 1790183056571169,
+      "ned": [
+        8.98646354675293,
+        9.270774841308594,
+        0.05417150259017944
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183056.683029,
+      "kind": "position",
+      "timestamp": 1790183056683171,
+      "ned": [
+        8.987929344177246,
+        9.26912784576416,
+        0.04665173590183258
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183056.7912858,
+      "kind": "position",
+      "timestamp": 1790183056787171,
+      "ned": [
+        8.989919662475586,
+        9.267773628234863,
+        0.040367498993873596
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183056.8914464,
+      "kind": "position",
+      "timestamp": 1790183056891171,
+      "ned": [
+        8.992228507995605,
+        9.266292572021484,
+        0.03474293649196625
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183057.0030408,
+      "kind": "position",
+      "timestamp": 1790183057003171,
+      "ned": [
+        8.994775772094727,
+        9.264825820922852,
+        0.029552698135375977
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183057.1111832,
+      "kind": "position",
+      "timestamp": 1790183057107171,
+      "ned": [
+        8.996881484985352,
+        9.263893127441406,
+        0.025534525513648987
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183057.2113235,
+      "kind": "position",
+      "timestamp": 1790183057211171,
+      "ned": [
+        8.998794555664062,
+        9.263740539550781,
+        0.022653236985206604
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183057.324293,
+      "kind": "position",
+      "timestamp": 1790183057323171,
+      "ned": [
+        9.001334190368652,
+        9.264276504516602,
+        0.020194202661514282
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183057.4318316,
+      "kind": "position",
+      "timestamp": 1790183057427171,
+      "ned": [
+        9.00351333618164,
+        9.265226364135742,
+        0.017986536026000977
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183057.5311282,
+      "kind": "position",
+      "timestamp": 1790183057531171,
+      "ned": [
+        9.005280494689941,
+        9.266552925109863,
+        0.01576140522956848
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183057.6430724,
+      "kind": "position",
+      "timestamp": 1790183057643173,
+      "ned": [
+        9.006319046020508,
+        9.267451286315918,
+        0.013887971639633179
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183057.7515996,
+      "kind": "position",
+      "timestamp": 1790183057747173,
+      "ned": [
+        9.006658554077148,
+        9.267672538757324,
+        0.012373790144920349
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183057.8510547,
+      "kind": "position",
+      "timestamp": 1790183057851173,
+      "ned": [
+        9.006688117980957,
+        9.268319129943848,
+        0.011041715741157532
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183057.9634695,
+      "kind": "position",
+      "timestamp": 1790183057963173,
+      "ned": [
+        9.00705337524414,
+        9.268961906433105,
+        0.009732291102409363
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183058.071989,
+      "kind": "position",
+      "timestamp": 1790183058067173,
+      "ned": [
+        9.007927894592285,
+        9.269375801086426,
+        0.008806213736534119
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183058.1713421,
+      "kind": "position",
+      "timestamp": 1790183058171173,
+      "ned": [
+        9.009160041809082,
+        9.269654273986816,
+        0.007902756333351135
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183058.28328,
+      "kind": "position",
+      "timestamp": 1790183058283173,
+      "ned": [
+        9.010108947753906,
+        9.269976615905762,
+        0.006668716669082642
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183058.3916912,
+      "kind": "position",
+      "timestamp": 1790183058387173,
+      "ned": [
+        9.010631561279297,
+        9.270183563232422,
+        0.005059882998466492
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183058.4910846,
+      "kind": "position",
+      "timestamp": 1790183058491173,
+      "ned": [
+        9.011012077331543,
+        9.269932746887207,
+        0.002752557396888733
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183058.6033432,
+      "kind": "position",
+      "timestamp": 1790183058603173,
+      "ned": [
+        9.011285781860352,
+        9.268980026245117,
+        2.937018871307373e-05
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183058.7110646,
+      "kind": "position",
+      "timestamp": 1790183058707175,
+      "ned": [
+        9.010998725891113,
+        9.267940521240234,
+        -0.002788037061691284
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183058.8117332,
+      "kind": "position",
+      "timestamp": 1790183058811175,
+      "ned": [
+        9.010502815246582,
+        9.267654418945312,
+        -0.00566709041595459
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183058.9232621,
+      "kind": "position",
+      "timestamp": 1790183058923175,
+      "ned": [
+        9.010167121887207,
+        9.26856517791748,
+        -0.008336275815963745
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183059.0311842,
+      "kind": "position",
+      "timestamp": 1790183059027175,
+      "ned": [
+        9.009764671325684,
+        9.269529342651367,
+        -0.009796470403671265
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183059.1314619,
+      "kind": "position",
+      "timestamp": 1790183059131175,
+      "ned": [
+        9.00979232788086,
+        9.270541191101074,
+        -0.010383382439613342
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183059.2430816,
+      "kind": "position",
+      "timestamp": 1790183059243175,
+      "ned": [
+        9.009878158569336,
+        9.271270751953125,
+        -0.010551989078521729
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183059.3511598,
+      "kind": "position",
+      "timestamp": 1790183059347175,
+      "ned": [
+        9.009861946105957,
+        9.271834373474121,
+        -0.010785222053527832
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183059.4514706,
+      "kind": "position",
+      "timestamp": 1790183059451175,
+      "ned": [
+        9.009300231933594,
+        9.272507667541504,
+        -0.011336863040924072
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183059.563134,
+      "kind": "position",
+      "timestamp": 1790183059555175,
+      "ned": [
+        9.007770538330078,
+        9.273140907287598,
+        -0.011801257729530334
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183059.6635695,
+      "kind": "position",
+      "timestamp": 1790183059659178,
+      "ned": [
+        9.006026268005371,
+        9.27325439453125,
+        -0.012334942817687988
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183059.7716358,
+      "kind": "position",
+      "timestamp": 1790183059771178,
+      "ned": [
+        9.004044532775879,
+        9.273344993591309,
+        -0.01294107735157013
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    },
+    {
+      "wall_time": 1790183059.8836722,
+      "kind": "position",
+      "timestamp": 1790183059883178,
+      "ned": [
+        9.001832962036133,
+        9.273963928222656,
+        -0.013192787766456604
+      ],
+      "valid": true,
+      "xy_valid": true,
+      "z_valid": true
+    }
+  ],
+  "decisions": [
+    {
+      "wall_time": 1790183020.4922132,
+      "kind": "decision",
+      "sequence": 0,
+      "mode": "INIT",
+      "reason": "preflight_dwell",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "waypoint": 0,
+      "camera_age": 0.07245393097400665
+    },
+    {
+      "wall_time": 1790183020.7420037,
+      "kind": "decision",
+      "sequence": 5,
+      "mode": "INIT",
+      "reason": "preflight_dwell",
+      "position": [
+        0.0023660417646169662,
+        -0.006179935298860073,
+        -0.002030119299888611
+      ],
+      "waypoint": 0,
+      "camera_age": 0.022668739780783653
+    },
+    {
+      "wall_time": 1790183020.9920166,
+      "kind": "decision",
+      "sequence": 10,
+      "mode": "INIT",
+      "reason": "preflight_dwell",
+      "position": [
+        0.005279539152979851,
+        -0.010779946111142635,
+        0.003139480948448181
+      ],
+      "waypoint": 0,
+      "camera_age": 0.07260753214359283
+    },
+    {
+      "wall_time": 1790183021.242313,
+      "kind": "decision",
+      "sequence": 15,
+      "mode": "INIT",
+      "reason": "preflight_dwell",
+      "position": [
+        0.011103115044534206,
+        -0.013319059275090694,
+        0.013344749808311462
+      ],
+      "waypoint": 0,
+      "camera_age": 0.02264239639043808
+    },
+    {
+      "wall_time": 1790183021.4917297,
+      "kind": "decision",
+      "sequence": 20,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.014277173206210136,
+        -0.010041630826890469,
+        0.022026553750038147
+      ],
+      "waypoint": 0,
+      "camera_age": 0.0725453570485115
+    },
+    {
+      "wall_time": 1790183021.742298,
+      "kind": "decision",
+      "sequence": 25,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.010811040177941322,
+        -0.011351369321346283,
+        0.031244367361068726
+      ],
+      "waypoint": 0,
+      "camera_age": 0.02264629676938057
+    },
+    {
+      "wall_time": 1790183021.991686,
+      "kind": "decision",
+      "sequence": 30,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.004700670018792152,
+        -0.014054459519684315,
+        0.040788620710372925
+      ],
+      "waypoint": 0,
+      "camera_age": 0.0723574310541153
+    },
+    {
+      "wall_time": 1790183022.2419488,
+      "kind": "decision",
+      "sequence": 35,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.002048362046480179,
+        -0.01240688469260931,
+        0.04932329058647156
+      ],
+      "waypoint": 0,
+      "camera_age": 0.022681502625346184
+    },
+    {
+      "wall_time": 1790183022.4917805,
+      "kind": "decision",
+      "sequence": 40,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.003053661435842514,
+        -0.009031102061271667,
+        0.056498557329177856
+      ],
+      "waypoint": 0,
+      "camera_age": 0.07256554067134857
+    },
+    {
+      "wall_time": 1790183022.7421696,
+      "kind": "decision",
+      "sequence": 45,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.007247462868690491,
+        -0.005940982140600681,
+        0.05987313389778137
+      ],
+      "waypoint": 0,
+      "camera_age": 0.02273217774927616
+    },
+    {
+      "wall_time": 1790183022.991703,
+      "kind": "decision",
+      "sequence": 50,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.016122709959745407,
+        -0.004899783059954643,
+        0.05996820330619812
+      ],
+      "waypoint": 0,
+      "camera_age": 0.07252310961484909
+    },
+    {
+      "wall_time": 1790183023.2419462,
+      "kind": "decision",
+      "sequence": 55,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.02147670090198517,
+        -0.004291585646569729,
+        0.05944386124610901
+      ],
+      "waypoint": 0,
+      "camera_age": 0.02271082065999508
+    },
+    {
+      "wall_time": 1790183023.4920034,
+      "kind": "decision",
+      "sequence": 60,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.024231484159827232,
+        -0.0013283300213515759,
+        0.05984577536582947
+      ],
+      "waypoint": 0,
+      "camera_age": 0.07263271510601044
+    },
+    {
+      "wall_time": 1790183023.7421782,
+      "kind": "decision",
+      "sequence": 65,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.026440374553203583,
+        0.0037798923440277576,
+        0.06106334924697876
+      ],
+      "waypoint": 0,
+      "camera_age": 0.02271529659628868
+    },
+    {
+      "wall_time": 1790183023.9921732,
+      "kind": "decision",
+      "sequence": 70,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.027611084282398224,
+        0.009776398539543152,
+        0.060888469219207764
+      ],
+      "waypoint": 0,
+      "camera_age": 0.07284955680370331
+    },
+    {
+      "wall_time": 1790183024.2420418,
+      "kind": "decision",
+      "sequence": 75,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.029926953837275505,
+        0.014589889906346798,
+        0.05987921357154846
+      ],
+      "waypoint": 0,
+      "camera_age": 0.022715123370289803
+    },
+    {
+      "wall_time": 1790183024.49188,
+      "kind": "decision",
+      "sequence": 80,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.033808592706918716,
+        0.020370732992887497,
+        0.0603213906288147
+      ],
+      "waypoint": 0,
+      "camera_age": 0.07258021086454391
+    },
+    {
+      "wall_time": 1790183024.7420151,
+      "kind": "decision",
+      "sequence": 85,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.035139549523591995,
+        0.0234990194439888,
+        0.06023326516151428
+      ],
+      "waypoint": 0,
+      "camera_age": 0.022700589150190353
+    },
+    {
+      "wall_time": 1790183024.992015,
+      "kind": "decision",
+      "sequence": 90,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.033929355442523956,
+        0.018829265609383583,
+        0.05727994441986084
+      ],
+      "waypoint": 0,
+      "camera_age": 0.07264655083417892
+    },
+    {
+      "wall_time": 1790183025.2423108,
+      "kind": "decision",
+      "sequence": 95,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.032211966812610626,
+        0.009648719802498817,
+        0.055535078048706055
+      ],
+      "waypoint": 0,
+      "camera_age": 0.02271532639861107
+    },
+    {
+      "wall_time": 1790183025.4920151,
+      "kind": "decision",
+      "sequence": 100,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.03253386169672012,
+        0.0026582537684589624,
+        0.055691272020339966
+      ],
+      "waypoint": 0,
+      "camera_age": 0.0726986676454544
+    },
+    {
+      "wall_time": 1790183025.741965,
+      "kind": "decision",
+      "sequence": 105,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.03103969804942608,
+        -0.0010039298795163631,
+        0.05732133984565735
+      ],
+      "waypoint": 0,
+      "camera_age": 0.022586438804864883
+    },
+    {
+      "wall_time": 1790183025.9922001,
+      "kind": "decision",
+      "sequence": 110,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.029039248824119568,
+        0.0039025077130645514,
+        0.08728012442588806
+      ],
+      "waypoint": 0,
+      "camera_age": 0.072776660323143
+    },
+    {
+      "wall_time": 1790183026.241951,
+      "kind": "decision",
+      "sequence": 115,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.01870540902018547,
+        0.021777886897325516,
+        0.23094668984413147
+      ],
+      "waypoint": 0,
+      "camera_age": 0.02266177348792553
+    },
+    {
+      "wall_time": 1790183026.4920704,
+      "kind": "decision",
+      "sequence": 120,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.0029581617563962936,
+        0.03914983198046684,
+        0.5130202174186707
+      ],
+      "waypoint": 0,
+      "camera_age": 0.07266312837600708
+    },
+    {
+      "wall_time": 1790183026.742197,
+      "kind": "decision",
+      "sequence": 125,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.002717694267630577,
+        0.04188700020313263,
+        0.8883442282676697
+      ],
+      "waypoint": 0,
+      "camera_age": 0.0227285698056221
+    },
+    {
+      "wall_time": 1790183026.9921105,
+      "kind": "decision",
+      "sequence": 130,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.02891913801431656,
+        0.03142320737242699,
+        1.3133341073989868
+      ],
+      "waypoint": 0,
+      "camera_age": 0.07254908233880997
+    },
+    {
+      "wall_time": 1790183027.2420113,
+      "kind": "decision",
+      "sequence": 135,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.06283388286828995,
+        0.016109773889183998,
+        1.681840181350708
+      ],
+      "waypoint": 0,
+      "camera_age": 0.022747110575437546
+    },
+    {
+      "wall_time": 1790183027.4918177,
+      "kind": "decision",
+      "sequence": 140,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.08133548498153687,
+        0.007394016720354557,
+        1.933379888534546
+      ],
+      "waypoint": 0,
+      "camera_age": 0.07262872904539108
+    },
+    {
+      "wall_time": 1790183027.742201,
+      "kind": "decision",
+      "sequence": 145,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.07298500090837479,
+        0.0058484626933932304,
+        2.106149196624756
+      ],
+      "waypoint": 0,
+      "camera_age": 0.022637827321887016
+    },
+    {
+      "wall_time": 1790183027.992446,
+      "kind": "decision",
+      "sequence": 150,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.040860068053007126,
+        -0.010295857675373554,
+        2.2416446208953857
+      ],
+      "waypoint": 0,
+      "camera_age": 0.07304693758487701
+    },
+    {
+      "wall_time": 1790183028.2423027,
+      "kind": "decision",
+      "sequence": 155,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.016379311680793762,
+        -0.03407002612948418,
+        2.342918872833252
+      ],
+      "waypoint": 0,
+      "camera_age": 0.02272605709731579
+    },
+    {
+      "wall_time": 1790183028.4919574,
+      "kind": "decision",
+      "sequence": 160,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.004154758527874947,
+        -0.05467168614268303,
+        2.4333481788635254
+      ],
+      "waypoint": 0,
+      "camera_age": 0.0726628378033638
+    },
+    {
+      "wall_time": 1790183028.74227,
+      "kind": "decision",
+      "sequence": 165,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.005116714164614677,
+        -0.06058824434876442,
+        2.507434844970703
+      ],
+      "waypoint": 0,
+      "camera_age": 0.022555770352482796
+    },
+    {
+      "wall_time": 1790183028.9917634,
+      "kind": "decision",
+      "sequence": 170,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.01694880984723568,
+        -0.05309563875198364,
+        2.574190378189087
+      ],
+      "waypoint": 0,
+      "camera_age": 0.0726003646850586
+    },
+    {
+      "wall_time": 1790183029.242357,
+      "kind": "decision",
+      "sequence": 175,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.026764919981360435,
+        -0.03777201846241951,
+        2.63096284866333
+      ],
+      "waypoint": 0,
+      "camera_age": 0.02273786999285221
+    },
+    {
+      "wall_time": 1790183029.492212,
+      "kind": "decision",
+      "sequence": 180,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.03526359051465988,
+        -0.0202934667468071,
+        2.685347557067871
+      ],
+      "waypoint": 1,
+      "camera_age": 0.07263805717229843
+    },
+    {
+      "wall_time": 1790183029.742269,
+      "kind": "decision",
+      "sequence": 185,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.037896305322647095,
+        0.04941899701952934,
+        2.7348954677581787
+      ],
+      "waypoint": 1,
+      "camera_age": 0.02275012619793415
+    },
+    {
+      "wall_time": 1790183029.9918242,
+      "kind": "decision",
+      "sequence": 190,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.04336059093475342,
+        0.2067587673664093,
+        2.768289566040039
+      ],
+      "waypoint": 1,
+      "camera_age": 0.07263846695423126
+    },
+    {
+      "wall_time": 1790183030.2417846,
+      "kind": "decision",
+      "sequence": 195,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.061051324009895325,
+        0.38588210940361023,
+        2.7923800945281982
+      ],
+      "waypoint": 1,
+      "camera_age": 0.022653600201010704
+    },
+    {
+      "wall_time": 1790183030.4917452,
+      "kind": "decision",
+      "sequence": 200,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.08337932825088501,
+        0.5747856497764587,
+        2.8149573802948
+      ],
+      "waypoint": 1,
+      "camera_age": 0.07263479381799698
+    },
+    {
+      "wall_time": 1790183030.7420368,
+      "kind": "decision",
+      "sequence": 205,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.09358062595129013,
+        0.7198523283004761,
+        2.8358912467956543
+      ],
+      "waypoint": 2,
+      "camera_age": 0.022781971842050552
+    },
+    {
+      "wall_time": 1790183030.992041,
+      "kind": "decision",
+      "sequence": 210,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.09279627352952957,
+        0.8475397825241089,
+        2.8635060787200928
+      ],
+      "waypoint": 2,
+      "camera_age": 0.07252698391675949
+    },
+    {
+      "wall_time": 1790183031.242313,
+      "kind": "decision",
+      "sequence": 215,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.08282679319381714,
+        1.031731367111206,
+        2.88312029838562
+      ],
+      "waypoint": 2,
+      "camera_age": 0.0226995050907135
+    },
+    {
+      "wall_time": 1790183031.491757,
+      "kind": "decision",
+      "sequence": 220,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.07230516523122787,
+        1.2757437229156494,
+        2.896190643310547
+      ],
+      "waypoint": 2,
+      "camera_age": 0.07263924181461334
+    },
+    {
+      "wall_time": 1790183031.7417643,
+      "kind": "decision",
+      "sequence": 225,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.061426788568496704,
+        1.508560299873352,
+        2.9061362743377686
+      ],
+      "waypoint": 2,
+      "camera_age": 0.022615564987063408
+    },
+    {
+      "wall_time": 1790183031.991839,
+      "kind": "decision",
+      "sequence": 230,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.045207709074020386,
+        1.7081232070922852,
+        2.916224241256714
+      ],
+      "waypoint": 3,
+      "camera_age": 0.07275798171758652
+    },
+    {
+      "wall_time": 1790183032.2420385,
+      "kind": "decision",
+      "sequence": 235,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.026429874822497368,
+        1.8709540367126465,
+        2.9303154945373535
+      ],
+      "waypoint": 3,
+      "camera_age": 0.022608894854784012
+    },
+    {
+      "wall_time": 1790183032.4916573,
+      "kind": "decision",
+      "sequence": 240,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.009663054719567299,
+        2.104978084564209,
+        2.9367311000823975
+      ],
+      "waypoint": 3,
+      "camera_age": 0.07254360616207123
+    },
+    {
+      "wall_time": 1790183032.7416499,
+      "kind": "decision",
+      "sequence": 245,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -8.697435259819031e-05,
+        2.3443374633789062,
+        2.936732292175293
+      ],
+      "waypoint": 3,
+      "camera_age": 0.022654063999652863
+    },
+    {
+      "wall_time": 1790183032.9917417,
+      "kind": "decision",
+      "sequence": 250,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.007430490106344223,
+        2.584636688232422,
+        2.935634136199951
+      ],
+      "waypoint": 3,
+      "camera_age": 0.07248856127262115
+    },
+    {
+      "wall_time": 1790183033.2418456,
+      "kind": "decision",
+      "sequence": 255,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.013774645514786243,
+        2.775886297225952,
+        2.9395012855529785
+      ],
+      "waypoint": 4,
+      "camera_age": 0.022645942866802216
+    },
+    {
+      "wall_time": 1790183033.4916658,
+      "kind": "decision",
+      "sequence": 260,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.02355714701116085,
+        2.9973416328430176,
+        2.946802854537964
+      ],
+      "waypoint": 4,
+      "camera_age": 0.07257482409477234
+    },
+    {
+      "wall_time": 1790183033.7419026,
+      "kind": "decision",
+      "sequence": 265,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.030884873121976852,
+        3.240546226501465,
+        2.946887493133545
+      ],
+      "waypoint": 4,
+      "camera_age": 0.22274060547351837
+    },
+    {
+      "wall_time": 1790183033.9917045,
+      "kind": "decision",
+      "sequence": 270,
+      "mode": "HOLD",
+      "reason": "vision_stale",
+      "position": [
+        0.03637747839093208,
+        3.4949121475219727,
+        2.9492344856262207
+      ],
+      "waypoint": 4,
+      "camera_age": 0.4726622402667999
+    },
+    {
+      "wall_time": 1790183034.2419715,
+      "kind": "decision",
+      "sequence": 275,
+      "mode": "HOLD",
+      "reason": "vision_stale",
+      "position": [
+        0.04298023879528046,
+        3.668424129486084,
+        2.947687864303589
+      ],
+      "waypoint": 5,
+      "camera_age": 0.7227522134780884
+    },
+    {
+      "wall_time": 1790183034.4917686,
+      "kind": "decision",
+      "sequence": 280,
+      "mode": "HOLD",
+      "reason": "recovery_dwell",
+      "position": [
+        0.05960211157798767,
+        3.7655835151672363,
+        2.9425179958343506
+      ],
+      "waypoint": 5,
+      "camera_age": 0.07269690185785294
+    },
+    {
+      "wall_time": 1790183034.7416413,
+      "kind": "decision",
+      "sequence": 285,
+      "mode": "HOLD",
+      "reason": "recovery_dwell",
+      "position": [
+        0.08145129680633545,
+        3.8098368644714355,
+        2.9383385181427
+      ],
+      "waypoint": 5,
+      "camera_age": 0.022629639133810997
+    },
+    {
+      "wall_time": 1790183034.9917789,
+      "kind": "decision",
+      "sequence": 290,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.10344088822603226,
+        3.8355956077575684,
+        2.9362714290618896
+      ],
+      "waypoint": 5,
+      "camera_age": 0.07271812856197357
+    },
+    {
+      "wall_time": 1790183035.2417312,
+      "kind": "decision",
+      "sequence": 295,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.12126217782497406,
+        3.8612585067749023,
+        2.9508161544799805
+      ],
+      "waypoint": 5,
+      "camera_age": 0.022615617141127586
+    },
+    {
+      "wall_time": 1790183035.4916809,
+      "kind": "decision",
+      "sequence": 300,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.12806019186973572,
+        3.9937732219696045,
+        2.970799684524536
+      ],
+      "waypoint": 5,
+      "camera_age": 0.07250598073005676
+    },
+    {
+      "wall_time": 1790183035.7416859,
+      "kind": "decision",
+      "sequence": 305,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.11832257360219955,
+        4.193432807922363,
+        2.9780259132385254
+      ],
+      "waypoint": 5,
+      "camera_age": 0.022673819214105606
+    },
+    {
+      "wall_time": 1790183035.991819,
+      "kind": "decision",
+      "sequence": 310,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.096884585916996,
+        4.429382801055908,
+        2.982818365097046
+      ],
+      "waypoint": 5,
+      "camera_age": 0.07267654687166214
+    },
+    {
+      "wall_time": 1790183036.2419605,
+      "kind": "decision",
+      "sequence": 315,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.0773012787103653,
+        4.635590076446533,
+        2.986579179763794
+      ],
+      "waypoint": 5,
+      "camera_age": 0.022708823904395103
+    },
+    {
+      "wall_time": 1790183036.4919453,
+      "kind": "decision",
+      "sequence": 320,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.05537423491477966,
+        4.825747489929199,
+        2.9894979000091553
+      ],
+      "waypoint": 6,
+      "camera_age": 0.07281512022018433
+    },
+    {
+      "wall_time": 1790183036.7418115,
+      "kind": "decision",
+      "sequence": 325,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.03323941305279732,
+        5.022346019744873,
+        2.9876151084899902
+      ],
+      "waypoint": 6,
+      "camera_age": 0.02266250178217888
+    },
+    {
+      "wall_time": 1790183036.991714,
+      "kind": "decision",
+      "sequence": 330,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.007095562294125557,
+        5.2675275802612305,
+        2.985286235809326
+      ],
+      "waypoint": 6,
+      "camera_age": 0.07263688743114471
+    },
+    {
+      "wall_time": 1790183037.2416887,
+      "kind": "decision",
+      "sequence": 335,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.016976097598671913,
+        5.487354755401611,
+        2.986395835876465
+      ],
+      "waypoint": 6,
+      "camera_age": 0.02265695482492447
+    },
+    {
+      "wall_time": 1790183037.4916961,
+      "kind": "decision",
+      "sequence": 340,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.03490542620420456,
+        5.696166515350342,
+        2.9925503730773926
+      ],
+      "waypoint": 7,
+      "camera_age": 0.07259134948253632
+    },
+    {
+      "wall_time": 1790183037.7416103,
+      "kind": "decision",
+      "sequence": 345,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.04092036932706833,
+        5.855949401855469,
+        3.0036659240722656
+      ],
+      "waypoint": 7,
+      "camera_age": 0.022647367790341377
+    },
+    {
+      "wall_time": 1790183037.9916713,
+      "kind": "decision",
+      "sequence": 350,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.03798423707485199,
+        6.069437026977539,
+        3.008855104446411
+      ],
+      "waypoint": 7,
+      "camera_age": 0.07268555462360382
+    },
+    {
+      "wall_time": 1790183038.2418113,
+      "kind": "decision",
+      "sequence": 355,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.03074938990175724,
+        6.302917003631592,
+        3.008939504623413
+      ],
+      "waypoint": 7,
+      "camera_age": 0.0226312093436718
+    },
+    {
+      "wall_time": 1790183038.4916792,
+      "kind": "decision",
+      "sequence": 360,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.022230414673686028,
+        6.554110050201416,
+        3.0096774101257324
+      ],
+      "waypoint": 7,
+      "camera_age": 0.07261274009943008
+    },
+    {
+      "wall_time": 1790183038.7417293,
+      "kind": "decision",
+      "sequence": 365,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.015609877184033394,
+        6.7446489334106445,
+        3.0107333660125732
+      ],
+      "waypoint": 8,
+      "camera_age": 0.022665536031126976
+    },
+    {
+      "wall_time": 1790183038.9917219,
+      "kind": "decision",
+      "sequence": 370,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.007419513538479805,
+        6.932427406311035,
+        3.016101598739624
+      ],
+      "waypoint": 8,
+      "camera_age": 0.0726160779595375
+    },
+    {
+      "wall_time": 1790183039.2416294,
+      "kind": "decision",
+      "sequence": 375,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        -0.0006920211017131805,
+        7.153810977935791,
+        3.0127499103546143
+      ],
+      "waypoint": 8,
+      "camera_age": 0.022647608071565628
+    },
+    {
+      "wall_time": 1790183039.491681,
+      "kind": "decision",
+      "sequence": 380,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.0022122226655483246,
+        7.414180755615234,
+        3.0075671672821045
+      ],
+      "waypoint": 8,
+      "camera_age": 0.07266686111688614
+    },
+    {
+      "wall_time": 1790183039.7416792,
+      "kind": "decision",
+      "sequence": 385,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.004008082672953606,
+        7.630306720733643,
+        3.0033676624298096
+      ],
+      "waypoint": 8,
+      "camera_age": 0.022660112008452415
+    },
+    {
+      "wall_time": 1790183039.9916866,
+      "kind": "decision",
+      "sequence": 390,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.00851382501423359,
+        7.825786590576172,
+        3.0018317699432373
+      ],
+      "waypoint": 9,
+      "camera_age": 0.0726686641573906
+    },
+    {
+      "wall_time": 1790183040.2416837,
+      "kind": "decision",
+      "sequence": 395,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.01210272591561079,
+        8.037775039672852,
+        2.997453212738037
+      ],
+      "waypoint": 9,
+      "camera_age": 0.022591084241867065
+    },
+    {
+      "wall_time": 1790183040.4916842,
+      "kind": "decision",
+      "sequence": 400,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.015300113707780838,
+        8.30628490447998,
+        2.9905409812927246
+      ],
+      "waypoint": 9,
+      "camera_age": 0.0726853683590889
+    },
+    {
+      "wall_time": 1790183040.742069,
+      "kind": "decision",
+      "sequence": 405,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.01987321861088276,
+        8.533634185791016,
+        2.990952491760254
+      ],
+      "waypoint": 9,
+      "camera_age": 0.022731713950634003
+    },
+    {
+      "wall_time": 1790183040.9917183,
+      "kind": "decision",
+      "sequence": 410,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.024026092141866684,
+        8.735926628112793,
+        2.996579170227051
+      ],
+      "waypoint": 10,
+      "camera_age": 0.07270731031894684
+    },
+    {
+      "wall_time": 1790183041.2417305,
+      "kind": "decision",
+      "sequence": 415,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.05883793532848358,
+        8.88527774810791,
+        3.006723403930664
+      ],
+      "waypoint": 10,
+      "camera_age": 0.02265634946525097
+    },
+    {
+      "wall_time": 1790183041.491734,
+      "kind": "decision",
+      "sequence": 420,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.20596446096897125,
+        9.00716495513916,
+        3.007870674133301
+      ],
+      "waypoint": 10,
+      "camera_age": 0.07262617349624634
+    },
+    {
+      "wall_time": 1790183041.7417896,
+      "kind": "decision",
+      "sequence": 425,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.3871068060398102,
+        9.079174995422363,
+        3.005892038345337
+      ],
+      "waypoint": 10,
+      "camera_age": 0.02258146181702614
+    },
+    {
+      "wall_time": 1790183041.9916806,
+      "kind": "decision",
+      "sequence": 430,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.5844137668609619,
+        9.119776725769043,
+        3.0033230781555176
+      ],
+      "waypoint": 10,
+      "camera_age": 0.07264669984579086
+    },
+    {
+      "wall_time": 1790183042.2417352,
+      "kind": "decision",
+      "sequence": 435,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.7536470293998718,
+        9.132855415344238,
+        2.9996581077575684
+      ],
+      "waypoint": 11,
+      "camera_age": 0.022662928327918053
+    },
+    {
+      "wall_time": 1790183042.491727,
+      "kind": "decision",
+      "sequence": 440,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        0.9431326389312744,
+        9.130372047424316,
+        3.0002970695495605
+      ],
+      "waypoint": 11,
+      "camera_age": 0.07266713678836823
+    },
+    {
+      "wall_time": 1790183042.7416615,
+      "kind": "decision",
+      "sequence": 445,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        1.1763755083084106,
+        9.118635177612305,
+        2.9969449043273926
+      ],
+      "waypoint": 11,
+      "camera_age": 0.022662458941340446
+    },
+    {
+      "wall_time": 1790183042.9917421,
+      "kind": "decision",
+      "sequence": 450,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        1.4354678392410278,
+        9.102762222290039,
+        2.9928646087646484
+      ],
+      "waypoint": 11,
+      "camera_age": 0.0726885199546814
+    },
+    {
+      "wall_time": 1790183043.2416255,
+      "kind": "decision",
+      "sequence": 455,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        1.6508796215057373,
+        9.088367462158203,
+        2.9940130710601807
+      ],
+      "waypoint": 11,
+      "camera_age": 0.022634435445070267
+    },
+    {
+      "wall_time": 1790183043.4917176,
+      "kind": "decision",
+      "sequence": 460,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        1.8427503108978271,
+        9.072488784790039,
+        3.0002059936523438
+      ],
+      "waypoint": 12,
+      "camera_age": 0.07266892492771149
+    },
+    {
+      "wall_time": 1790183043.7416673,
+      "kind": "decision",
+      "sequence": 465,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        2.0366945266723633,
+        9.058286666870117,
+        3.004491090774536
+      ],
+      "waypoint": 12,
+      "camera_age": 0.022655636072158813
+    },
+    {
+      "wall_time": 1790183043.9916835,
+      "kind": "decision",
+      "sequence": 470,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        2.2898683547973633,
+        9.042682647705078,
+        3.0031490325927734
+      ],
+      "waypoint": 12,
+      "camera_age": 0.07266563922166824
+    },
+    {
+      "wall_time": 1790183044.2417097,
+      "kind": "decision",
+      "sequence": 475,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        2.518331527709961,
+        9.027040481567383,
+        3.0015087127685547
+      ],
+      "waypoint": 12,
+      "camera_age": 0.02271251752972603
+    },
+    {
+      "wall_time": 1790183044.4917526,
+      "kind": "decision",
+      "sequence": 480,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        2.7323527336120605,
+        9.009804725646973,
+        3.003322124481201
+      ],
+      "waypoint": 13,
+      "camera_age": 0.07261207699775696
+    },
+    {
+      "wall_time": 1790183044.7416375,
+      "kind": "decision",
+      "sequence": 485,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        2.9133713245391846,
+        8.992494583129883,
+        3.0098705291748047
+      ],
+      "waypoint": 13,
+      "camera_age": 0.022646112367510796
+    },
+    {
+      "wall_time": 1790183044.991661,
+      "kind": "decision",
+      "sequence": 490,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        3.1590254306793213,
+        8.973677635192871,
+        3.008756160736084
+      ],
+      "waypoint": 13,
+      "camera_age": 0.07267868518829346
+    },
+    {
+      "wall_time": 1790183045.2419484,
+      "kind": "decision",
+      "sequence": 495,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        3.3963687419891357,
+        8.95970630645752,
+        3.0059895515441895
+      ],
+      "waypoint": 13,
+      "camera_age": 0.022745518013834953
+    },
+    {
+      "wall_time": 1790183045.4917164,
+      "kind": "decision",
+      "sequence": 500,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        3.6250646114349365,
+        8.94717025756836,
+        3.0031423568725586
+      ],
+      "waypoint": 13,
+      "camera_age": 0.07267298549413681
+    },
+    {
+      "wall_time": 1790183045.7416,
+      "kind": "decision",
+      "sequence": 505,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        3.7938878536224365,
+        8.939258575439453,
+        3.0015952587127686
+      ],
+      "waypoint": 14,
+      "camera_age": 0.022629378363490105
+    },
+    {
+      "wall_time": 1790183045.991831,
+      "kind": "decision",
+      "sequence": 510,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        4.004516124725342,
+        8.935712814331055,
+        2.9975485801696777
+      ],
+      "waypoint": 14,
+      "camera_age": 0.07272808998823166
+    },
+    {
+      "wall_time": 1790183046.2416549,
+      "kind": "decision",
+      "sequence": 515,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        4.251690864562988,
+        8.939682960510254,
+        2.990403413772583
+      ],
+      "waypoint": 14,
+      "camera_age": 0.02266397699713707
+    },
+    {
+      "wall_time": 1790183046.491641,
+      "kind": "decision",
+      "sequence": 520,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        4.510776996612549,
+        8.94968032836914,
+        2.9862382411956787
+      ],
+      "waypoint": 14,
+      "camera_age": 0.07263176888227463
+    },
+    {
+      "wall_time": 1790183046.7418308,
+      "kind": "decision",
+      "sequence": 525,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        4.704196453094482,
+        8.961905479431152,
+        2.9873924255371094
+      ],
+      "waypoint": 15,
+      "camera_age": 0.022658634930849075
+    },
+    {
+      "wall_time": 1790183046.9917076,
+      "kind": "decision",
+      "sequence": 530,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        4.8827972412109375,
+        8.969450950622559,
+        2.9936580657958984
+      ],
+      "waypoint": 15,
+      "camera_age": 0.07268577069044113
+    },
+    {
+      "wall_time": 1790183047.2416558,
+      "kind": "decision",
+      "sequence": 535,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        5.105435371398926,
+        8.967836380004883,
+        2.9952149391174316
+      ],
+      "waypoint": 15,
+      "camera_age": 0.022660043090581894
+    },
+    {
+      "wall_time": 1790183047.4917321,
+      "kind": "decision",
+      "sequence": 540,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        5.376124858856201,
+        8.963688850402832,
+        2.996403217315674
+      ],
+      "waypoint": 15,
+      "camera_age": 0.07265172898769379
+    },
+    {
+      "wall_time": 1790183047.741764,
+      "kind": "decision",
+      "sequence": 545,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        5.59464693069458,
+        8.959246635437012,
+        3.0004541873931885
+      ],
+      "waypoint": 15,
+      "camera_age": 0.022639088332653046
+    },
+    {
+      "wall_time": 1790183047.9918394,
+      "kind": "decision",
+      "sequence": 550,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        5.783391952514648,
+        8.956871032714844,
+        3.0059022903442383
+      ],
+      "waypoint": 16,
+      "camera_age": 0.07264776527881622
+    },
+    {
+      "wall_time": 1790183048.2417529,
+      "kind": "decision",
+      "sequence": 555,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        5.965783596038818,
+        8.957722663879395,
+        3.011427879333496
+      ],
+      "waypoint": 16,
+      "camera_age": 0.022528905421495438
+    },
+    {
+      "wall_time": 1790183048.491693,
+      "kind": "decision",
+      "sequence": 560,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        6.225638389587402,
+        8.958922386169434,
+        3.0066051483154297
+      ],
+      "waypoint": 16,
+      "camera_age": 0.07255220413208008
+    },
+    {
+      "wall_time": 1790183048.7416863,
+      "kind": "decision",
+      "sequence": 565,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        6.461648941040039,
+        8.957731246948242,
+        2.9998576641082764
+      ],
+      "waypoint": 16,
+      "camera_age": 0.02263275533914566
+    },
+    {
+      "wall_time": 1790183048.9920225,
+      "kind": "decision",
+      "sequence": 570,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        6.681371212005615,
+        8.957451820373535,
+        2.996511697769165
+      ],
+      "waypoint": 17,
+      "camera_age": 0.07253282517194748
+    },
+    {
+      "wall_time": 1790183049.2416437,
+      "kind": "decision",
+      "sequence": 575,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        6.853095054626465,
+        8.960092544555664,
+        3.0015792846679688
+      ],
+      "waypoint": 17,
+      "camera_age": 0.02265409752726555
+    },
+    {
+      "wall_time": 1790183049.4917042,
+      "kind": "decision",
+      "sequence": 580,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        7.087655544281006,
+        8.965219497680664,
+        3.002945899963379
+      ],
+      "waypoint": 17,
+      "camera_age": 0.07263724505901337
+    },
+    {
+      "wall_time": 1790183049.7417336,
+      "kind": "decision",
+      "sequence": 585,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        7.333440780639648,
+        8.96770191192627,
+        3.000023126602173
+      ],
+      "waypoint": 17,
+      "camera_age": 0.022660113871097565
+    },
+    {
+      "wall_time": 1790183049.9917014,
+      "kind": "decision",
+      "sequence": 590,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        7.572915554046631,
+        8.96483325958252,
+        2.999588966369629
+      ],
+      "waypoint": 17,
+      "camera_age": 0.07266494631767273
+    },
+    {
+      "wall_time": 1790183050.2423294,
+      "kind": "decision",
+      "sequence": 595,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        7.756559371948242,
+        8.960859298706055,
+        3.0015974044799805
+      ],
+      "waypoint": 18,
+      "camera_age": 0.02264939248561859
+    },
+    {
+      "wall_time": 1790183050.4916992,
+      "kind": "decision",
+      "sequence": 600,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        7.96498441696167,
+        8.9540433883667,
+        3.0022966861724854
+      ],
+      "waypoint": 18,
+      "camera_age": 0.07264357060194016
+    },
+    {
+      "wall_time": 1790183050.741895,
+      "kind": "decision",
+      "sequence": 605,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        8.206570625305176,
+        8.951827049255371,
+        2.9983696937561035
+      ],
+      "waypoint": 18,
+      "camera_age": 0.02272583730518818
+    },
+    {
+      "wall_time": 1790183050.9920049,
+      "kind": "decision",
+      "sequence": 610,
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "position": [
+        8.462966918945312,
+        8.95556640625,
+        2.9964439868927
+      ],
+      "waypoint": 18,
+      "camera_age": 0.07268993556499481
+    },
+    {
+      "wall_time": 1790183051.241665,
+      "kind": "decision",
+      "sequence": 615,
+      "mode": "COMPLETE",
+      "reason": "mission_complete",
+      "position": [
+        8.669449806213379,
+        8.961338996887207,
+        2.9956603050231934
+      ],
+      "waypoint": 19,
+      "camera_age": 0.02266528457403183
+    }
+  ],
+  "mission_transitions": [
+    {
+      "wall_time": 1790183020.4920015,
+      "kind": "transition",
+      "mode": "INIT",
+      "reason": "preflight_dwell",
+      "uptime": 4.931091348999999
+    },
+    {
+      "wall_time": 1790183021.491571,
+      "kind": "transition",
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "uptime": 5.931107382
+    },
+    {
+      "wall_time": 1790183033.8417282,
+      "kind": "transition",
+      "mode": "HOLD",
+      "reason": "vision_stale",
+      "uptime": 18.281208537999994
+    },
+    {
+      "wall_time": 1790183034.9916122,
+      "kind": "transition",
+      "mode": "ACTIVE",
+      "reason": "healthy",
+      "uptime": 19.431173848999997
+    },
+    {
+      "wall_time": 1790183051.2415378,
+      "kind": "transition",
+      "mode": "COMPLETE",
+      "reason": "mission_complete",
+      "uptime": 35.681104431
+    }
+  ],
+  "gps_states": [
+    {
+      "wall_time": 1790183020.4541695,
+      "kind": "gps",
+      "fix_type": 3,
+      "velocity_valid": true,
+      "satellites": 10,
+      "timestamp": 1790183020427079
+    }
+  ],
+  "plan": {
+    "wall_time": 1790183020.491616,
+    "kind": "plan",
+    "path": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        0,
+        3
+      ],
+      [
+        0,
+        4
+      ],
+      [
+        0,
+        5
+      ],
+      [
+        0,
+        6
+      ],
+      [
+        0,
+        7
+      ],
+      [
+        0,
+        8
+      ],
+      [
+        0,
+        9
+      ],
+      [
+        1,
+        9
+      ],
+      [
+        2,
+        9
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        5,
+        9
+      ],
+      [
+        6,
+        9
+      ],
+      [
+        7,
+        9
+      ],
+      [
+        8,
+        9
+      ],
+      [
+        9,
+        9
+      ]
+    ],
+    "source": "ROS LaserScan",
+    "origin": [
+      -0.024167271330952644,
+      -0.003611368127167225,
+      0.028267785906791687
+    ]
+  }
+}

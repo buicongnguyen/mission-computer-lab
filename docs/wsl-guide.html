@@ -1,0 +1,184 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WSL runbook and extension guide</title><style>:root{color-scheme:light;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--teal:#067c80;--bg:#f2f6f7}*{box-sizing:border-box}body{margin:0;background:var(--bg);font:16px/1.65 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}a{color:#006c86;text-underline-offset:3px}nav{background:#112e3d;display:flex;gap:28px;align-items:center;flex-wrap:wrap;padding:20px 5%;font-size:14px}nav a{color:#d8f7f2;text-decoration:none}nav a:first-child{font-weight:750;letter-spacing:1.5px;margin-right:auto}.document{max-width:1060px;margin:38px auto;padding:46px 60px;background:white;border:1px solid var(--line);border-radius:14px}h1{font-size:clamp(30px,5vw,46px);line-height:1.14;letter-spacing:-1.3px;margin:0 0 24px}h2{font-size:26px;margin:44px 0 16px;line-height:1.3;border-top:1px solid var(--line);padding-top:25px}h3{font-size:20px;margin:26px 0 10px}p,li{max-width:85ch}blockquote{margin:20px 0;border-left:4px solid var(--teal);padding:12px 22px;background:#eef8f7;color:#31505b}blockquote p{margin:0}table{border-collapse:collapse;width:100%;font-size:14px;display:block;overflow:auto}td,th{border:1px solid var(--line);padding:12px;text-align:left;vertical-align:top}th{background:#e7f1f3}pre{background:#102c3b;color:#e3f3f5;padding:20px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.6}code{font-family:Consolas,monospace}p code,li code,td code{background:#eef3f5;padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}footer{padding:25px;text-align:center;color:var(--muted);font-size:13px}button,select,input{font:inherit}button,select{padding:8px 14px;border-radius:6px;border:1px solid #aec4ce;background:white;color:var(--ink)}button{cursor:pointer}button:hover{background:#dbf4ed}:focus-visible{outline:3px solid #e69f00;outline-offset:3px}@media(max-width:700px){.document{padding:28px 20px;margin:16px 12px}nav{gap:15px;font-size:12px}td,th{min-width:120px}}@media print{nav,footer{display:none}.document{margin:0;padding:0;border:0;max-width:none}body{background:white}h2{break-after:avoid}pre{white-space:pre-wrap}a{color:inherit}}
+
+.diagram{margin:24px 0;border:1px solid var(--line);border-radius:10px;padding:16px;background:#fff;overflow:auto}.diagram pre.mermaid{background:#fff;color:var(--ink);text-align:center;padding:8px;margin:0;min-width:440px}.diagram svg{max-width:100%;height:auto}.diagram figcaption{font-size:13px;color:var(--muted);margin:10px 0}.diagram details{font-size:13px}.diagram summary{cursor:pointer}.diagram .diagram-error{text-align:left;white-space:pre-wrap}@media print{.diagram{break-inside:avoid}.diagram details{display:none}}
+</style></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a></nav><main class="document"><h1>WSL runbook and extension guide</h1>
+<p>This guide reproduces the executed pipeline. The baseline uses Ubuntu 22.04 in WSL2, C++17 and Python 3.10. It does not require ROS, Gazebo, Docker, a GPU, a Qualcomm SDK, or real flight hardware. The separate PX4/Gazebo/ROS integration has also been implemented and executed; use section 9 to reach its dedicated runbook.</p>
+<h2>1. Open the correct environment</h2>
+<p>From <strong>Windows PowerShell</strong>:</p>
+<pre><code class="language-powershell">wsl --list --verbose
+wsl -d Ubuntu-22.04
+</code></pre>
+<p>Then, inside <strong>Ubuntu Bash</strong>:</p>
+<pre><code class="language-bash">cd /mnt/c/src/mission-computer-lab   # your checkout
+pwd
+uname -a
+python3 --version
+g++ --version
+cmake --version
+</code></pre>
+<p>Local validation used a checkout on the Windows mount (<code>/mnt/c/...</code>); replace the path with your clone location. An existing WSL2 Ubuntu 22.04 installation is sufficient. Microsoft documents WSL GUI support separately, but this baseline needs only a Windows browser for its HTML. <a href="https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps">WSL GUI reference</a></p>
+<p>If an Ubuntu prerequisite is missing, install the limited set below. These commands change the Linux distribution and may request your Linux password; the tested machine already had the required tools.</p>
+<pre><code class="language-bash">sudo apt update
+sudo apt install -y build-essential cmake python3-venv python3-pip git
+</code></pre>
+<p>For larger ROS/PX4 builds, use the Linux filesystem such as <code>~/work/mission-computer-lab</code> to avoid slow Windows-mounted metadata operations. If copying this project, exclude <code>.venv</code> and <code>build</code>; virtual environments and CMake caches contain absolute paths and should be recreated at the destination.</p>
+<h2>2. Install the project environment and compile</h2>
+<p>From the repository root:</p>
+<pre><code class="language-bash">bash scripts/bootstrap_wsl.sh
+</code></pre>
+<p>The script creates <code>.venv</code>, installs the four directly pinned Python dependencies and compiles two C++ binaries. It does not install ROS, add system repositories or change <code>.bashrc</code>. The first installation may take several minutes on <code>/mnt/c</code>.</p>
+<p>For the exact recorded dependency set, install the full lock after environment creation:</p>
+<pre><code class="language-bash">.venv/bin/python -m pip install -r requirements.lock.txt
+</code></pre>
+<p><code>requirements.txt</code> records direct choices; <code>requirements.lock.txt</code> records all installed Python package versions from the successful WSL environment. Python 3.10/Linux is the tested combination. Other Python versions and architectures may not have compatible wheels for these pins.</p>
+<h2>3. Run all validation and generate evidence</h2>
+<pre><code class="language-bash">bash scripts/run_all.sh
+</code></pre>
+<p>Expected stages:</p>
+<ol>
+<li>CMake rebuilds the C++17 core and executable.</li>
+<li>CTest runs the supervisor contract suite.</li>
+<li>Python runs 23 perception, planning, localization, security, evidence and process-contract tests.</li>
+<li>The harness runs eight scenarios.</li>
+<li>The artifact checker verifies the complete scenario matrix and six artifact-verification cases.</li>
+</ol>
+<p>The command must exit with code 0. A scenario PASS means its explicit checks passed in the modeled world; it does not mean a real aircraft would be safe. See <a href="architecture.html">architecture</a> for every shortcut.</p>
+<h2>4. Understand the generated files</h2>
+<table>
+<thead>
+<tr>
+<th>File under <code>artifacts/latest/</code></th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>report.json</code></td>
+<td>Environment and hashes, boot labels, security cases, scenario checks, events and sampled telemetry</td>
+</tr>
+<tr>
+<td><code>report-data.js</code></td>
+<td>The same evidence wrapped for a local-file browser replay without a server</td>
+</tr>
+<tr>
+<td><code>metrics.csv</code></td>
+<td>One row per scenario with measured timing and localization data</td>
+</tr>
+<tr>
+<td><code>execution.md</code></td>
+<td>Readable evidence summary</td>
+</tr>
+<tr>
+<td><code>synthetic_detector.onnx</code></td>
+<td>The actual generated model loaded by ONNX Runtime</td>
+</tr>
+</tbody></table>
+<p>The report includes the model and supervisor-binary SHA-256 digests. Keep those alongside evidence when changing code. Timing is measured per run; it is not expected to match the sample exactly. The source seed is fixed at 17 by default. Motion and sensor-noise traces are reproducible if the runtime stays within the illustrative inference budget.</p>
+<h2>5. Publish the verified sample and open the replay</h2>
+<pre><code class="language-bash">.venv/bin/python tools/publish_sample.py
+</code></pre>
+<p>This first rechecks the full matrix, then copies the evidence into the shareable <code>artifacts/sample/</code> and the summary into <code>docs/execution.md</code>. A single-scenario run cannot replace the sample because the checker requires all eight scenarios.</p>
+<p>Open <code>web/index.html</code> in a Windows browser. It loads the committed sample directly from local files. Select a scenario, press Play, drag the time slider, and compare the trajectory, estimate, camera output and state events.</p>
+<p>From <strong>Windows PowerShell</strong>, one way to open it is:</p>
+<pre><code class="language-powershell">Start-Process &#39;C:\Users\n\source\repos\Drone_project\web\index.html&#39;
+</code></pre>
+<p>Alternatively, run a loopback-only server in <strong>Ubuntu</strong>, keep its terminal open, and open the URL in Windows:</p>
+<pre><code class="language-bash">.venv/bin/python -m http.server 8765 --bind 127.0.0.1
+</code></pre>
+<p>Then visit <a href="http://localhost:8765/web/index.html">the local replay</a>. Stop the server with Ctrl+C when finished. The file-based replay is the simpler option if WSL localhost forwarding is unavailable.</p>
+<h2>6. Reproduce one failure</h2>
+<pre><code class="language-bash">.venv/bin/python tools/run_demo.py --scenario gps_dropout --output artifacts/gps-study
+.venv/bin/python tools/run_demo.py --scenario camera_dropout --output artifacts/camera-study
+.venv/bin/python tools/run_demo.py --scenario companion_crash --output artifacts/crash-study
+</code></pre>
+<p>Faults begin at simulated second 5. Camera dropout ends at 5.8; GPS/link/IMU losses persist. Inference overload is a reported 120 ms duration during 5–5.8 s. Low battery becomes 15% at 5 s. Companion crash kills the supervisor process at 5 s; the independent stub watchdog reacts after its command-age threshold.</p>
+<p>The scenario runner exits nonzero on failed checks. Inspect events without a GUI:</p>
+<pre><code class="language-bash">.venv/bin/python -c &#39;import json; r=json.load(open(&quot;artifacts/gps-study/report.json&quot;)); print(r[&quot;results&quot;][0][&quot;events&quot;])&#39;
+</code></pre>
+<p>The full replay uses <code>artifacts/sample/</code>; a study output does not change it. To update the shared replay, rerun the entire suite and publish the sample again.</p>
+<h2>7. Inspect and test individual layers</h2>
+<pre><code class="language-bash">ctest --test-dir build --output-on-failure
+.venv/bin/python -m unittest discover -s tests -p &#39;test_*.py&#39; -v
+.venv/bin/python -c &#39;import onnxruntime as o; print(o.get_available_providers())&#39;
+</code></pre>
+<p>The available-provider list may include options other than CPU; the detector explicitly selects CPU and records the session&#39;s active provider. Do not use the available list as evidence that a model ran on an accelerator.</p>
+<p>For an additional C++ memory/undefined-behavior check:</p>
+<pre><code class="language-bash">cmake -S . -B build-sanitize -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
+cmake --build build-sanitize --parallel 2
+ctest --test-dir build-sanitize --output-on-failure
+</code></pre>
+<h2>8. Rebuild the Markdown-to-HTML guides</h2>
+<p>The rendered HTML files are included. Regeneration needs Node.js 20 or newer and the locked marked and Mermaid dependencies:</p>
+<pre><code class="language-bash">npm ci
+npm run docs
+node tests/test_diagrams.mjs
+</code></pre>
+<p>The document renderer converts every <code>docs/*.md</code>, preserves fenced code and tables, and rewrites local <code>.md</code> links to <code>.html</code>. It is for trusted local documentation; it is not a service for rendering arbitrary untrusted Markdown. A normal clone uses <code>npm ci</code>; <code>MARKED_MODULE</code> can point the renderer at an alternative local <code>marked</code> build.</p>
+<p>After rendering, parse every diagram and verify the bundled script:</p>
+<pre><code class="language-bash">node tests/test_diagrams.mjs
+</code></pre>
+<h2>9. Real ROS 2 / PX4 / Gazebo integration — implemented</h2>
+<p>The actual firmware integration now has its own <a href="sitl-guide.html">detailed WSL SITL guide</a>, <a href="sitl-execution.html">flight evidence report</a> and <a href="../web/sitl.html">offline replay</a>. It runs ROS 2 Humble, PX4 v1.16.0, matching typed messages, XRCE Agent v2.4.3 and Gazebo Harmonic. The normal mission, camera recovery, companion crash and GPS fix-loss cases have been executed.</p>
+<pre><code class="language-bash"># On a fresh Ubuntu 22.04 WSL environment (skip if already built):
+sudo bash scripts/install_sitl_system.sh
+bash scripts/build_sitl.sh
+
+# Run with a new output directory:
+bash scripts/run_sitl.sh --all --output artifacts/my-sitl-run
+~/work/mission-computer-lab/venv/bin/python tools/publish_sitl.py --input artifacts/my-sitl-run
+</code></pre>
+<p>The integration uses <code>/mission/camera/image</code>, <code>/mission/lidar/scan</code>, <code>/mission/perception</code> and <code>/mission/decision</code>, plus the firmware&#39;s <code>/fmu/in</code> and <code>/fmu/out</code> interfaces. The SITL guide documents the exact types, QoS, coordinate conversion, freshness handling, startup policy and measured acceptance criteria. No physical flight hardware is needed.</p>
+<h2>10. Optional Qualcomm deployment — requires a supported target</h2>
+<p>Obtain the exact SoC/board/BSP matrix, vendor image instructions and runtime license/access first. Record OS, kernel, firmware, accelerator runtime and model versions. Copy the validated application and model only through the board&#39;s supported deployment workflow.</p>
+<p>Validate CPU output first, then use the supported QNN/QAIRT or vendor runtime path. Record operator support and fallback, warm/cold p50/p95/p99 latency, memory, throughput, thermal behavior and power. Run the same recorded inputs through CPU and accelerator paths and compare outputs. A generic ONNX file alone does not guarantee NPU compatibility. <a href="https://onnxruntime.ai/docs/execution-providers/QNN-ExecutionProvider.html">QNN provider constraints</a></p>
+<p>Board secure boot, provisioning and fuse lifecycle need the vendor&#39;s exact documentation and the organization&#39;s key custody/recovery design. The repo&#39;s software-only manifest checks are preparation for that discussion; there are no hardware provisioning commands here.</p>
+<h2>Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Likely cause and useful action</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PowerShell says <code>Access is denied</code> for WSL inside an agent sandbox</td>
+<td>WSL service access may require the host&#39;s approval mechanism; this is distinct from missing Ubuntu. Running WSL from your own terminal can confirm installation.</td>
+</tr>
+<tr>
+<td><code>python3 -m venv</code> fails</td>
+<td>Install Ubuntu&#39;s <code>python3-venv</code>; then recreate only the project virtual environment.</td>
+</tr>
+<tr>
+<td>Installation is slow on <code>/mnt/c</code></td>
+<td>Windows filesystem metadata overhead; wait for pip or use a fresh Linux-filesystem clone.</td>
+</tr>
+<tr>
+<td>ORT or NumPy import error</td>
+<td>Use <code>.venv/bin/python</code>, Python 3.10, and the pinned packages; do not mix Windows and Linux virtual environments.</td>
+</tr>
+<tr>
+<td>No <code>mission_supervisor</code> executable</td>
+<td>Run CMake build; the harness default expects <code>build/mission_supervisor</code>.</td>
+</tr>
+<tr>
+<td>C++ sample rejected</td>
+<td>Check field count, strictly increasing timestamps/sequence and finite/range constraints.</td>
+</tr>
+<tr>
+<td>Scenario fails a timing-related policy under heavy load</td>
+<td>Inspect actual CPU inference durations; repeat after reducing load and record both results rather than hiding the failure.</td>
+</tr>
+<tr>
+<td>Replay still shows old results</td>
+<td>Run the full suite, publish the sample, and reload the page.</td>
+</tr>
+<tr>
+<td>Local replay is blank</td>
+<td>Ensure <code>artifacts/sample/report-data.js</code> exists alongside the repository structure; do not move only the HTML file.</td>
+</tr>
+<tr>
+<td>Expected GitHub status is absent</td>
+<td>The workflow runs only after an authorized remote push; local success is not proof of hosted CI success.</td>
+</tr>
+</tbody></table>
+<p>The <a href="execution.html">execution report</a> records what actually ran during initial creation. The <a href="review-report.html">review record</a> lists the defects found in each review pass and the regression tests that now cover them.</p>
+</main><footer>Mission Computer Lab · software simulation portfolio · 2026</footer></body></html>

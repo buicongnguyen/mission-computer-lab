@@ -1,0 +1,13 @@
+/build*/
+/tmp/
+/node_modules/
+__pycache__/
+*.pyc
+/.venv/
+/artifacts/*/
+!/artifacts/sample/
+!/artifacts/sitl-sample/
+!/artifacts/sitl-sample/**/*.log
+/*.pdf
+# Local-only notes and source documents; never part of the shared repository.
+/private/

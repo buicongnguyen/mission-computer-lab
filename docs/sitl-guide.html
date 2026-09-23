@@ -1,0 +1,274 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Run the real PX4 / ROS 2 / Gazebo pipeline in WSL</title><style>:root{color-scheme:light;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--teal:#067c80;--bg:#f2f6f7}*{box-sizing:border-box}body{margin:0;background:var(--bg);font:16px/1.65 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}a{color:#006c86;text-underline-offset:3px}nav{background:#112e3d;display:flex;gap:28px;align-items:center;flex-wrap:wrap;padding:20px 5%;font-size:14px}nav a{color:#d8f7f2;text-decoration:none}nav a:first-child{font-weight:750;letter-spacing:1.5px;margin-right:auto}.document{max-width:1060px;margin:38px auto;padding:46px 60px;background:white;border:1px solid var(--line);border-radius:14px}h1{font-size:clamp(30px,5vw,46px);line-height:1.14;letter-spacing:-1.3px;margin:0 0 24px}h2{font-size:26px;margin:44px 0 16px;line-height:1.3;border-top:1px solid var(--line);padding-top:25px}h3{font-size:20px;margin:26px 0 10px}p,li{max-width:85ch}blockquote{margin:20px 0;border-left:4px solid var(--teal);padding:12px 22px;background:#eef8f7;color:#31505b}blockquote p{margin:0}table{border-collapse:collapse;width:100%;font-size:14px;display:block;overflow:auto}td,th{border:1px solid var(--line);padding:12px;text-align:left;vertical-align:top}th{background:#e7f1f3}pre{background:#102c3b;color:#e3f3f5;padding:20px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.6}code{font-family:Consolas,monospace}p code,li code,td code{background:#eef3f5;padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}footer{padding:25px;text-align:center;color:var(--muted);font-size:13px}button,select,input{font:inherit}button,select{padding:8px 14px;border-radius:6px;border:1px solid #aec4ce;background:white;color:var(--ink)}button{cursor:pointer}button:hover{background:#dbf4ed}:focus-visible{outline:3px solid #e69f00;outline-offset:3px}@media(max-width:700px){.document{padding:28px 20px;margin:16px 12px}nav{gap:15px;font-size:12px}td,th{min-width:120px}}@media print{nav,footer{display:none}.document{margin:0;padding:0;border:0;max-width:none}body{background:white}h2{break-after:avoid}pre{white-space:pre-wrap}a{color:inherit}}
+
+.diagram{margin:24px 0;border:1px solid var(--line);border-radius:10px;padding:16px;background:#fff;overflow:auto}.diagram pre.mermaid{background:#fff;color:var(--ink);text-align:center;padding:8px;margin:0;min-width:440px}.diagram svg{max-width:100%;height:auto}.diagram figcaption{font-size:13px;color:var(--muted);margin:10px 0}.diagram details{font-size:13px}.diagram summary{cursor:pointer}.diagram .diagram-error{text-align:left;white-space:pre-wrap}@media print{.diagram{break-inside:avoid}.diagram details{display:none}}
+</style><script src="assets/mermaid-11.17.2.min.js" defer></script><script src="assets/diagrams.js" defer></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a></nav><main class="document"><h1>Run the real PX4 / ROS 2 / Gazebo pipeline in WSL</h1>
+<p>For the full setup history and step-by-step retest procedure, start with <a href="complete-reproduction-guide.html">the complete reproduction guide</a>. It separates rerunning a prepared environment from rebuilding a fresh one and includes expected output, log-reading commands and every resolved integration issue.</p>
+<p>This is the project&#39;s integration track. PX4 runs its actual flight firmware as a Linux process; Gazebo Harmonic simulates the x500&#39;s dynamics and flight sensors; ROS 2 Humble carries typed payload and control messages. The C++ supervisor supplies mission intent. The simpler, accelerated simulator remains available for fast policy tests.</p>
+<p>This setup uses WSL Ubuntu 22.04, CPU ONNX inference and a synthetic payload camera/LiDAR. It does not emulate a Qualcomm SoC, its NPU, secure boot ROM or hardware interfaces. The flight estimator is PX4 EKF2. Losing GPS demonstrates conservative failure handling; it does not demonstrate VIO or successful GPS-denied navigation.</p>
+<h2>1. Prepare the environment</h2>
+<p>In Windows PowerShell:</p>
+<pre><code class="language-powershell">wsl --list --verbose
+wsl -d Ubuntu-22.04
+</code></pre>
+<p>Then in Ubuntu:</p>
+<pre><code class="language-bash">cd /mnt/c/src/mission-computer-lab   # your checkout
+bash scripts/bootstrap_wsl.sh
+bash scripts/run_all.sh
+sudo bash scripts/install_sitl_system.sh
+bash scripts/build_sitl.sh
+</code></pre>
+<p>Substitute your checkout path. If these dependencies are already installed and built, proceed to section 2. The system installer adds the official ROS and OSRF apt repositories and installs ROS Humble, Gazebo Harmonic, the ROS/Gazebo bridge, colcon, OpenCV and build dependencies. It uses <code>apt-get --no-remove</code> so a dependency conflict stops instead of silently removing existing packages.</p>
+<p>Upstream sources, compiled libraries, the ROS workspace and a Python environment live under <code>~/work/mission-computer-lab</code> on WSL&#39;s Linux filesystem. This avoids putting the very large PX4 tree and build output on the Windows mount. The small project source remains in this repository. Reserve several GB of free storage and allow substantial first-build time. The development machine had approximately 15 GB of memory available to WSL; the build uses three compiler jobs.</p>
+<p>The build selects PX4 v1.16.0 and XRCE Agent v2.4.3. PX4 message definitions use the matching <code>release/1.16</code> family. Exact tested commits appear in the execution evidence. Do not mix a different firmware message layout with an arbitrary <code>px4_msgs</code> branch. The build script creates two ROS packages: upstream <code>px4_msgs</code> and this project&#39;s <code>mission_interfaces</code>.</p>
+<h2>2. Run one mission before running faults</h2>
+<pre><code class="language-bash">bash scripts/run_sitl.sh --scenario nominal --output artifacts/my-sitl-nominal
+</code></pre>
+<p>Use a fresh, empty output directory for each attempt. The runner refuses nonempty output directories, including old summaries. For long recordings prefer WSL&#39;s Linux filesystem, for example <code>--output ~/work/mission-computer-lab/retests/flight-001</code>; a <code>/mnt/c</code> live-log run encountered an OS I/O failure during review. It starts only its own child processes and cleans them up at the end. Run one instance at a time: the flight controller uses instance 0, XRCE port 8888, and a local MAVLink GCS port 14550. <code>ROS_DOMAIN_ID=42</code> separates this lab from typical ROS workspaces; it is not authentication or network isolation. The tested DDS setup uses normal participant discovery because <code>ROS_LOCALHOST_ONLY=1</code> prevented discovery of the agent&#39;s PX4-created participant. Use an isolated development network and do not attach flight hardware to this simulation setup.</p>
+<p>The launcher starts Gazebo headlessly, attaches PX4 to <code>x500_0</code> in the <code>inspection</code> world, waits for the startup script, applies and records the final simulation parameters, then starts the payload, perception, mission and observation processes. A separate minimal MAVLink GCS process sends heartbeats and receives PX4 heartbeats. It does not send flight commands. ROS 2/DDS carries offboard commands.</p>
+<p>Expected mission sequence:</p>
+<ol>
+<li>Gazebo creates the floor, three cylindrical obstacles and the x500.</li>
+<li>PX4 starts flight sensors and EKF2; the agent exposes firmware telemetry to ROS.</li>
+<li>A user-space model verification gate checks the ONNX artifact; ONNX Runtime opens a CPU session.</li>
+<li>The payload publishes RGB images and planar laser scans at 10 Hz. The perception node publishes typed inference results retaining the image capture timestamp.</li>
+<li>The mission node obtains a valid local estimate, computes an inflated occupancy map and A* path, then gives the C++ supervisor time-stamped samples at 20 Hz.</li>
+<li>Offboard proof-of-life and velocity setpoints stream before the adapter requests offboard mode and arm. PX4&#39;s own checks decide whether to accept them.</li>
+<li>The vehicle climbs to 3 m, follows the route to the inspection goal, receives a land command and disarms after landing.</li>
+<li>The independent observer and runner evaluate recorded telemetry. A successful command request alone does not count as successful flight.</li>
+</ol>
+<h2>3. Exercise failures</h2>
+<p>The sequence separates mission intent from PX4&#39;s ownership of the actual vehicle. Logs and ROS bags observe both sides.</p>
+<figure class="diagram"><pre class="mermaid">sequenceDiagram
+    participant R as WSL runner
+    participant G as Gazebo
+    participant P as PX4 and XRCE agent
+    participant V as Payload and ONNX CPU
+    participant M as ROS mission adapter
+    participant C as C++ supervisor
+    participant O as Observer and ROS bag
+    R-&gt;&gt;G: Start inspection world and x500
+    R-&gt;&gt;P: Start firmware and wait for startup
+    R-&gt;&gt;P: Apply and record failsafe parameters
+    R-&gt;&gt;O: Start independent recording
+    R-&gt;&gt;V: Start procedural sensors and verified model
+    V--&gt;&gt;M: LiDAR and timestamped perception
+    P--&gt;&gt;M: Valid EKF pose, status, IMU and GPS
+    loop 20 Hz while mission owns intent
+        M-&gt;&gt;C: Monotonic health, ENU pose and waypoint
+        C--&gt;&gt;M: Mode, reason and bounded ENU velocity
+        M-&gt;&gt;P: Offboard heartbeat and NED velocity
+        opt ACTIVE plus PX4 preflight and two-second pre-stream dwell
+            M-&gt;&gt;P: Request offboard mode or arm if needed
+        end
+        M--&gt;&gt;O: Decision and sensor ages
+    end
+    alt Goal reached or persistent sensor fault
+        C--&gt;&gt;M: COMPLETE or LAND
+        M-&gt;&gt;P: Request NAV_LAND once
+        M--&gt;&gt;O: Record terminal decision and latched handoff
+        Note over M,P: Stop core evaluation and offboard stream
+    else Companion process killed
+        R-&gt;&gt;M: Kill owned mission process group
+        Note over P: Offboard timeout invokes configured PX4 policy
+    end
+    P-&gt;&gt;G: Control descent
+    P--&gt;&gt;O: Land mode, touchdown and disarm
+    R-&gt;&gt;O: Stop recording and validate ordered evidence</pre><figcaption>Pipeline diagram — source is available below.</figcaption><details><summary>Mermaid source</summary><pre><code>sequenceDiagram
+    participant R as WSL runner
+    participant G as Gazebo
+    participant P as PX4 and XRCE agent
+    participant V as Payload and ONNX CPU
+    participant M as ROS mission adapter
+    participant C as C++ supervisor
+    participant O as Observer and ROS bag
+    R-&gt;&gt;G: Start inspection world and x500
+    R-&gt;&gt;P: Start firmware and wait for startup
+    R-&gt;&gt;P: Apply and record failsafe parameters
+    R-&gt;&gt;O: Start independent recording
+    R-&gt;&gt;V: Start procedural sensors and verified model
+    V--&gt;&gt;M: LiDAR and timestamped perception
+    P--&gt;&gt;M: Valid EKF pose, status, IMU and GPS
+    loop 20 Hz while mission owns intent
+        M-&gt;&gt;C: Monotonic health, ENU pose and waypoint
+        C--&gt;&gt;M: Mode, reason and bounded ENU velocity
+        M-&gt;&gt;P: Offboard heartbeat and NED velocity
+        opt ACTIVE plus PX4 preflight and two-second pre-stream dwell
+            M-&gt;&gt;P: Request offboard mode or arm if needed
+        end
+        M--&gt;&gt;O: Decision and sensor ages
+    end
+    alt Goal reached or persistent sensor fault
+        C--&gt;&gt;M: COMPLETE or LAND
+        M-&gt;&gt;P: Request NAV_LAND once
+        M--&gt;&gt;O: Record terminal decision and latched handoff
+        Note over M,P: Stop core evaluation and offboard stream
+    else Companion process killed
+        R-&gt;&gt;M: Kill owned mission process group
+        Note over P: Offboard timeout invokes configured PX4 policy
+    end
+    P-&gt;&gt;G: Control descent
+    P--&gt;&gt;O: Land mode, touchdown and disarm
+    R-&gt;&gt;O: Stop recording and validate ordered evidence</code></pre></details></figure><pre><code class="language-bash">bash scripts/run_sitl.sh --all --output artifacts/my-sitl-matrix
+</code></pre>
+<p>The matrix stops at the first failed scenario so its logs can be investigated. Alternatively select <code>camera_dropout</code>, <code>companion_crash</code> or <code>gps_loss</code> with <code>--scenario</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Injection boundary</th>
+<th>Evidence to inspect</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Nominal</td>
+<td>No deliberate fault</td>
+<td>Arm acknowledgment, offboard state, climb, route completion, PX4 land state and disarm</td>
+</tr>
+<tr>
+<td>Camera dropout</td>
+<td>Payload stops publishing images for 0.8 seconds</td>
+<td>Perception timestamp becomes stale; C++ emits HOLD; fresh frames plus recovery dwell allow ACTIVE again</td>
+</tr>
+<tr>
+<td>Companion crash</td>
+<td>Runner sends SIGKILL to the mission process group, including C++</td>
+<td>Independent observer survives; PX4 detects lost offboard proof-of-life and applies its own land policy</td>
+</tr>
+<tr>
+<td>GPS loss</td>
+<td>Set the Gazebo bridge&#39;s <code>SIM_GPS_USED=0</code> through PX4</td>
+<td>Observed invalid GPS fix, rejection of fresh-but-invalid packets, HOLD then LAND, land and disarm</td>
+</tr>
+</tbody></table>
+<p>The camera and LiDAR are <strong>procedural ROS payload sensors</strong>, not rendered Gazebo camera/lidar plugins. The camera contains a moving bright synthetic shape; the ONNX graph segments brightness. This deliberately small model tests artifact, tensor, timing and communication contracts. It has no trained class semantics, and its bounding box does not steer toward an aerial target. The inspection route is independent of object identity.</p>
+<h2>4. Follow the interfaces</h2>
+<table>
+<thead>
+<tr>
+<th>Producer → consumer</th>
+<th>Interface</th>
+<th>Contract</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Gazebo → PX4</td>
+<td>PX4 Gazebo bridge</td>
+<td>Physics, IMU, magnetometer, pressure and GNSS feed actual firmware</td>
+</tr>
+<tr>
+<td>PX4 → ROS</td>
+<td>uXRCE-DDS agent, UDP 8888</td>
+<td>Matching message schemas; output subscriptions use best-effort sensor QoS</td>
+</tr>
+<tr>
+<td>Payload → perception</td>
+<td><code>/mission/camera/image</code>, <code>sensor_msgs/Image</code></td>
+<td>RGB8, 64×48, 192-byte row stride, capture timestamp</td>
+</tr>
+<tr>
+<td>Payload → planner</td>
+<td><code>/mission/lidar/scan</code>, <code>sensor_msgs/LaserScan</code></td>
+<td>72 planar world-aligned rays, 14 m range, 10 Hz</td>
+</tr>
+<tr>
+<td>Perception → mission</td>
+<td><code>/mission/perception</code>, <code>mission_interfaces/Perception</code></td>
+<td>Sequence, source stamp, bounding box, inference duration, model hash and execution provider</td>
+</tr>
+<tr>
+<td>Mission ↔ C++</td>
+<td>Line-oriented stdin/stdout</td>
+<td>Sequence validation, finite values and bounded intent; subprocess timeout is fatal</td>
+</tr>
+<tr>
+<td>Mission → PX4</td>
+<td><code>OffboardControlMode</code>, <code>TrajectorySetpoint</code>, <code>VehicleCommand</code></td>
+<td>Velocity control at 20 Hz, unused setpoint fields NaN, explicit arm/mode/land requests</td>
+</tr>
+<tr>
+<td>Mission → observer</td>
+<td><code>/mission/decision</code>, <code>mission_interfaces/Decision</code></td>
+<td>Mode/reason, ENU pose/target/velocity, sensor ages and waypoint index</td>
+</tr>
+</tbody></table>
+<p>PX4 local position is NED: north, east, down. Application coordinates are ENU: east, north, up. Position is referred to the initial valid local estimate; velocity converts as <code>[north,east,down] = [enu_y,enu_x,-enu_z]</code>. The payload LiDAR is explicitly world-aligned; a physical body-frame scanner would need calibrated transforms, orientation and motion compensation. Some PX4 topics carry a <code>_v1</code> suffix; <code>px4_topic()</code> derives this from the message&#39;s <code>MESSAGE_VERSION</code> constant.</p>
+<p>Do not compare PX4 boot microseconds directly with ROS wall-clock seconds. The mission adapter tracks monotonic receipt time only when a firmware source timestamp advances. Image and scan source stamps must advance and cannot be in the future; their capture age is converted to a fixed monotonic timestamp on receipt. Mission deadlines therefore do not follow ROS wall-clock jumps. Repeating an old PX4 sample cannot refresh health. A new GPS packet also requires a 3-D fix and valid NED velocity to refresh navigation health. High-rate position receipt monitors the link; approximately 2 Hz vehicle status has a separate 1.5-second freshness bound. This single-host experiment does not validate a distributed clock synchronization design.</p>
+<p>The initial occupancy map is static. Payload scan geometry is generated from the same idealized obstacle configuration used by the world. Sensor occlusion, reflective materials, rolling shutter, calibration error and moving-obstacle avoidance are outside this experiment. EKF position telemetry is an estimate, not Gazebo ground truth; a clearance calculation from that estimate is not a certified collision guarantee.</p>
+<h2>5. Inspect the evidence</h2>
+<p>The output root also contains <code>provenance.json</code>: versions and source/binary hashes captured before flight, plus a post-run unchanged-input check. Publication uses this saved record. Each scenario directory contains:</p>
+<ul>
+<li><code>result.json</code>: acceptance checks, status transitions, command acknowledgments, message counts, position trace and decisions.</li>
+<li><code>observer.jsonl</code>: independent firmware and ROS observations, including after a mission crash.</li>
+<li><code>mission.jsonl</code>: A* plan, supervisor transitions, selected decisions and outgoing commands.</li>
+<li><code>perception.jsonl</code>: model/provider evidence and inference measurements.</li>
+<li><code>parameters.log</code>: final configured failsafe parameters read back from PX4.</li>
+<li><code>rosbag/</code>: recorded typed decision, perception and LiDAR topics.</li>
+<li>Per-process <code>.log</code> files, plus <code>gps-injection.log</code> in the GPS-loss case.</li>
+</ul>
+<p>Acceptance requires an ordered armed-offboard → airborne → armed-land-mode → touchdown → disarm sequence, a valid final vertical estimate near the ground, and recorded messages on all three selected bag topics. GPS-loss may invalidate horizontal localization after the recorded injection; pre-injection validity and final vertical validity remain required. Clearance is computed only while the position estimate is valid. Arm and land ACKs alone cannot establish those outcomes.</p>
+<p>PX4 ULog files remain under the corresponding <code>~/work/mission-computer-lab/runs/</code> directory. Large bags, ULogs and upstream builds are not committed. The published sample contains compact evidence and a replay. A replay is a recorded run, not a live flight console.</p>
+<p>To inspect a bag in a new WSL terminal:</p>
+<pre><code class="language-bash">source /opt/ros/humble/setup.bash
+source ~/work/mission-computer-lab/ros_ws/install/setup.bash
+ros2 bag info artifacts/my-sitl-nominal/nominal/rosbag
+</code></pre>
+<p>Do not replay command topics into a running controller. This recorder selects application evidence topics only; it does not record command topics for automatic playback.</p>
+<h2>6. Understand the failsafe ownership</h2>
+<p>The C++ supervisor reacts to stale data with HOLD and escalates a sustained or repeatedly recurring fault to LAND; a fault episode ends only after 2 s of continuous health. It has a healthy-data dwell before initial activation and recovery. The ROS adapter stops commanding if PX4 enters a failsafe, invalidates its local estimate, disarms after a flight, or leaves OFFBOARD because a pilot or GCS changed mode. It does not automatically rearm or switch back to OFFBOARD after any of these.</p>
+<p>The perception node starts only after verifying the model file against a detached signed manifest and a public key supplied by the runner; it then loads the verified bytes rather than reopening the file. An unsigned or modified model stops the node, and the runner reports the scenario as failed.</p>
+<p>PX4 separately requires offboard proof-of-life. The run configures <code>COM_OF_LOSS_T=0.5</code>, <code>COM_OBL_RC_ACT=4</code> (Land), and <code>COM_FAIL_ACT_T=0</code>. These are simulation choices, recorded and checked for the tested firmware. <code>COM_RC_IN_MODE=4</code> disables manual RC input in this headless lab, while <code>NAV_DLL_ACT=2</code> retains GCS-loss RTL behavior. Never copy this configuration directly to an aircraft.</p>
+<p>If the companion process is killed, its own watchdog cannot save anything. The independent PX4 controller must notice missing proof-of-life and execute the fallback. This is the most important demonstration: two computers have different responsibilities and different failure domains.</p>
+<h2>7. Troubleshoot from evidence</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Check and explanation</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Missing <code>etc/init.d-posix/rcS</code></td>
+<td>PX4&#39;s positional resource argument must be the build&#39;s <code>etc</code> directory; the launcher creates a separate writable runtime directory.</td>
+</tr>
+<tr>
+<td>Payload messages work but no <code>/fmu/out</code> telemetry</td>
+<td>Check DDS domain, the agent process and <code>ROS_LOCALHOST_ONLY</code>. The latter caused a reproducible discovery failure here.</td>
+</tr>
+<tr>
+<td>Arming denied</td>
+<td>Read <code>px4.log</code>, command ACKs and final parameters. Startup defaults can overwrite early environment overrides; the launcher reapplies its policy after startup.</td>
+</tr>
+<tr>
+<td>Build cannot find OpenCV</td>
+<td>The system installer includes <code>libopencv-dev</code>; PX4&#39;s Gazebo plugins require it.</td>
+</tr>
+<tr>
+<td>NuttX version generation fails in a SITL build</td>
+<td>The PX4 version generator still reads NuttX tags. The build script fetches the tag required by this pinned checkout.</td>
+</tr>
+<tr>
+<td>CMake compatibility errors</td>
+<td>Use <code>/usr/bin/cmake</code> from Ubuntu 22.04, as selected in the build script; a separately installed CMake 4 changed policy behavior.</td>
+</tr>
+<tr>
+<td>Python message cannot be serialized to JSON</td>
+<td>Convert fixed-array numpy scalars to native <code>float</code> before writing evidence. This was caught in the first telemetry run.</td>
+</tr>
+<tr>
+<td>Mission remains on ground</td>
+<td>Verify arm ACK, status, estimator validity and setpoints; process startup and an ACTIVE application state are insufficient evidence of takeoff.</td>
+</tr>
+<tr>
+<td><code>failure gps off</code> times out</td>
+<td>PX4 v1.16.0&#39;s Gazebo bridge does not handle that generic command here. The verified test uses <code>SIM_GPS_USED=0</code>, which sets the published GPS fix invalid in the bridge source.</td>
+</tr>
+<tr>
+<td>Timeout or unexpected child exit</td>
+<td>Keep the failed output directory, inspect the named process log and rerun into a fresh directory after fixing the cause.</td>
+</tr>
+</tbody></table>
+<h2>8. Design walkthrough and hardware migration</h2>
+<p>Trace one image from bytes to tensor to inference result to the freshness gate. Trace one ENU velocity through its NED conversion and PX4 control mode. Explain why command acceptance, arming, takeoff, landing and disarm are distinct observations. Then kill the mission process and show firmware evidence recorded by a surviving observer.</p>
+<p>For Qualcomm, explain the replacement work: BSP and device drivers, camera/ISP pipeline, hardware timestamping, supported QNN/QAIRT model conversion, quantization/calibration, operator support, device profiling, thermals, signed boot chain and protected key provisioning. None of those hardware results can be claimed from this WSL run. The project is a way to test these boundaries before hardware arrives.</p>
+<p>Primary references: <a href="https://docs.px4.io/v1.16/en/ros2/user_guide">PX4 ROS 2 guide</a>, <a href="https://docs.px4.io/v1.16/en/sim_gazebo_gz/">Gazebo simulation</a>, <a href="https://docs.px4.io/v1.16/en/flight_modes/offboard.html">offboard control</a>, <a href="https://docs.px4.io/v1.16/en/debug/failure_injection.html">failure injection</a>, <a href="https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html">ROS Humble installation</a>. Refer to the checked-out firmware source when a parameter&#39;s actual behavior differs from a remembered description.</p>
+</main><footer>Mission Computer Lab · software simulation portfolio · 2026</footer></body></html>

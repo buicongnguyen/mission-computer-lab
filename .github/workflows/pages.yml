@@ -1,0 +1,39 @@
+# Publishes the offline replays, rendered guides and evidence to GitHub Pages.
+name: Deploy replay site to Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Assemble the site with the repository's relative layout
+        run: |
+          mkdir -p _site/artifacts
+          cp -r web docs _site/
+          cp -r artifacts/sample artifacts/sitl-sample _site/artifacts/
+          touch _site/.nojekyll
+          printf '%s\n' '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=web/sitl.html"><title>Mission Computer Lab</title><a href="web/sitl.html">PX4 flight replay</a>' > _site/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

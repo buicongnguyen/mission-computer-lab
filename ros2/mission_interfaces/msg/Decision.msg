@@ -1,0 +1,10 @@
+std_msgs/Header header
+uint64 sequence
+string mode
+string reason
+float32[3] position_enu
+float32[3] target_enu
+float32[3] velocity_enu
+float32 camera_age
+float32 lidar_age
+uint32 waypoint

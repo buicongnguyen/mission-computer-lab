@@ -1,0 +1,319 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mission Computer Lab: architecture and contracts</title><style>:root{color-scheme:light;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--teal:#067c80;--bg:#f2f6f7}*{box-sizing:border-box}body{margin:0;background:var(--bg);font:16px/1.65 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}a{color:#006c86;text-underline-offset:3px}nav{background:#112e3d;display:flex;gap:28px;align-items:center;flex-wrap:wrap;padding:20px 5%;font-size:14px}nav a{color:#d8f7f2;text-decoration:none}nav a:first-child{font-weight:750;letter-spacing:1.5px;margin-right:auto}.document{max-width:1060px;margin:38px auto;padding:46px 60px;background:white;border:1px solid var(--line);border-radius:14px}h1{font-size:clamp(30px,5vw,46px);line-height:1.14;letter-spacing:-1.3px;margin:0 0 24px}h2{font-size:26px;margin:44px 0 16px;line-height:1.3;border-top:1px solid var(--line);padding-top:25px}h3{font-size:20px;margin:26px 0 10px}p,li{max-width:85ch}blockquote{margin:20px 0;border-left:4px solid var(--teal);padding:12px 22px;background:#eef8f7;color:#31505b}blockquote p{margin:0}table{border-collapse:collapse;width:100%;font-size:14px;display:block;overflow:auto}td,th{border:1px solid var(--line);padding:12px;text-align:left;vertical-align:top}th{background:#e7f1f3}pre{background:#102c3b;color:#e3f3f5;padding:20px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.6}code{font-family:Consolas,monospace}p code,li code,td code{background:#eef3f5;padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}footer{padding:25px;text-align:center;color:var(--muted);font-size:13px}button,select,input{font:inherit}button,select{padding:8px 14px;border-radius:6px;border:1px solid #aec4ce;background:white;color:var(--ink)}button{cursor:pointer}button:hover{background:#dbf4ed}:focus-visible{outline:3px solid #e69f00;outline-offset:3px}@media(max-width:700px){.document{padding:28px 20px;margin:16px 12px}nav{gap:15px;font-size:12px}td,th{min-width:120px}}@media print{nav,footer{display:none}.document{margin:0;padding:0;border:0;max-width:none}body{background:white}h2{break-after:avoid}pre{white-space:pre-wrap}a{color:inherit}}
+
+.diagram{margin:24px 0;border:1px solid var(--line);border-radius:10px;padding:16px;background:#fff;overflow:auto}.diagram pre.mermaid{background:#fff;color:var(--ink);text-align:center;padding:8px;margin:0;min-width:440px}.diagram svg{max-width:100%;height:auto}.diagram figcaption{font-size:13px;color:var(--muted);margin:10px 0}.diagram details{font-size:13px}.diagram summary{cursor:pointer}.diagram .diagram-error{text-align:left;white-space:pre-wrap}@media print{.diagram{break-inside:avoid}.diagram details{display:none}}
+</style><script src="assets/mermaid-11.17.2.min.js" defer></script><script src="assets/diagrams.js" defer></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a></nav><main class="document"><h1>Mission Computer Lab: architecture and contracts</h1>
+<p>This repository implements two WSL/Linux test environments for a benign inspection mission: a fast kinematic policy harness and an actual PX4/Gazebo/ROS 2 integration. It does not emulate the Qualcomm SoC. The diagram and component table below describe the fast harness; <a href="sitl-guide.html">the SITL guide</a> specifies the real firmware integration, topic contracts, frames and failsafe ownership.</p>
+<h2>Fast harness data path</h2>
+<p>This data-flow diagram shows which outputs influence motion and which are recorded as payload observations.</p>
+<figure class="diagram"><pre class="mermaid">flowchart TD
+    MODEL[Generated ONNX model] --&gt; GATE[SHA-256 and Ed25519 user-space gate]
+    GATE --&gt; CPU[ONNX Runtime CPU]
+    WORLD[Synthetic world] --&gt; RGB[64 by 48 RGB camera]
+    RGB --&gt; CPU
+    CPU --&gt; HEALTH[Capture age and inference duration]
+    CPU --&gt; BOX[Bounding box for observation only]
+    WORLD --&gt; LIDAR[72 planar LiDAR rays]
+    LIDAR --&gt; MAP[Inflated occupancy grid]
+    MAP --&gt; PLAN[A-star static waypoints]
+    WORLD --&gt; SENSORS[Noisy GNSS and IMU]
+    SENSORS --&gt; KF[Educational Kalman filter]
+    KF --&gt; CORE[C++ supervisor over bounded pipe IPC]
+    HEALTH --&gt; CORE
+    PLAN --&gt; CORE
+    CORE --&gt; STUB[Autopilot stub with command watchdog]
+    STUB --&gt; WORLD
+    BOX --&gt; EVIDENCE[JSON and CSV evidence with offline replay]
+    CORE --&gt; EVIDENCE
+    WORLD --&gt; EVIDENCE</pre><figcaption>Pipeline diagram — source is available below.</figcaption><details><summary>Mermaid source</summary><pre><code>flowchart TD
+    MODEL[Generated ONNX model] --&gt; GATE[SHA-256 and Ed25519 user-space gate]
+    GATE --&gt; CPU[ONNX Runtime CPU]
+    WORLD[Synthetic world] --&gt; RGB[64 by 48 RGB camera]
+    RGB --&gt; CPU
+    CPU --&gt; HEALTH[Capture age and inference duration]
+    CPU --&gt; BOX[Bounding box for observation only]
+    WORLD --&gt; LIDAR[72 planar LiDAR rays]
+    LIDAR --&gt; MAP[Inflated occupancy grid]
+    MAP --&gt; PLAN[A-star static waypoints]
+    WORLD --&gt; SENSORS[Noisy GNSS and IMU]
+    SENSORS --&gt; KF[Educational Kalman filter]
+    KF --&gt; CORE[C++ supervisor over bounded pipe IPC]
+    HEALTH --&gt; CORE
+    PLAN --&gt; CORE
+    CORE --&gt; STUB[Autopilot stub with command watchdog]
+    STUB --&gt; WORLD
+    BOX --&gt; EVIDENCE[JSON and CSV evidence with offline replay]
+    CORE --&gt; EVIDENCE
+    WORLD --&gt; EVIDENCE</code></pre></details></figure><p>The text equivalent below remains useful in terminals and Markdown viewers without Mermaid support.</p>
+<pre><code class="language-text">Generated ONNX artifact
+      │ SHA-256 + Ed25519 signature + version/device checks
+      ▼
+User-space boot gate ──► ONNX Runtime CPU session
+                              ▲                 │ mask → synthetic object bbox
+Synthetic world ──► RGB camera┘                 ▼
+       ├─────────► planar LiDAR ─► inflated occupancy ─► A* waypoints
+       ├─────────► noisy GNSS ─┐                         │
+       └─────────► noisy IMU ──┴─► Kalman localization ──┤
+                                                       ▼
+                         Python ── local process IPC ─► C++17 supervisor
+                                                       │ bounded ENU velocity
+                                                       ▼
+                            Independent autopilot stub + kinematic vehicle
+                                                       │
+                    JSON / CSV / events / actual camera frames / browser replay
+</code></pre>
+<p>Perception is an observed payload branch: its freshness and latency affect supervision, but its bounding box does not steer the vehicle. LiDAR informs the initial static plan. The planner is not doing visual pursuit, dynamic obstacle avoidance or SLAM.</p>
+<h2>Component boundaries</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Implementation</th>
+<th>Assumptions and limitations</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Boot gate</td>
+<td><code>tools/security.py</code></td>
+<td>A release step signs the stored model and writes a detached manifest and signature. Boot reads the file once, verifies it against a separately supplied Ed25519 public key and loads only those verified bytes; an unsigned or modified model stops the perception node. The key is ephemeral per run. ROM and kernel stages are labels, not emulation.</td>
+</tr>
+<tr>
+<td>Camera</td>
+<td><code>tools/perception.py</code></td>
+<td>64 × 48 RGB, 10 Hz, fixed synthetic background and moving bright silhouette. No camera extrinsics or photorealism.</td>
+</tr>
+<tr>
+<td>ONNX detector</td>
+<td>Same module; opset 13, IR 8</td>
+<td>ReduceMean + Greater segmentation. One CPU thread. Untrained and deliberately tiny.</td>
+</tr>
+<tr>
+<td>LiDAR</td>
+<td><code>tools/world.py</code></td>
+<td>72 ideal planar rays, 14 m range. Circular obstacles; no occlusion noise, material effects or 3-D geometry.</td>
+</tr>
+<tr>
+<td>Map and planner</td>
+<td>Same module</td>
+<td>One initial scan, 1 m grid, 1 m return inflation, four-neighbor A*. No online map updates or replanning.</td>
+</tr>
+<tr>
+<td>Localization</td>
+<td>Same module</td>
+<td>Six-state position/velocity Kalman filter, known world-frame acceleration, 5 Hz noisy GNSS. No attitude, gravity, bias estimation, VIO or true GPS-denied navigation.</td>
+</tr>
+<tr>
+<td>Supervisor</td>
+<td><code>include/supervisor.hpp</code>, <code>src/supervisor.cpp</code></td>
+<td>20 Hz simulated evaluation; freshness, sequence/range validation, speed/geofence limits, recovery dwell and latched landing.</td>
+</tr>
+<tr>
+<td>Process transport</td>
+<td><code>src/main.cpp</code>, <code>tools/run_demo.py</code></td>
+<td>Real Python/C++ pipes, line-delimited numeric contract. No network authentication, MAVLink or DDS.</td>
+</tr>
+<tr>
+<td>Autopilot stub</td>
+<td>Harness</td>
+<td>Integrates commanded velocity; retains an independent command-age watchdog for the explicit crash scenario. No attitude/rate loops, motor dynamics or wind.</td>
+</tr>
+<tr>
+<td>Evidence/UI</td>
+<td>Harness and <code>web/</code></td>
+<td>Recorded events and metrics; browser playback is offline, not flight telemetry.</td>
+</tr>
+</tbody></table>
+<h2>Clock, units and frames</h2>
+<p>The simulation advances in fixed 0.05 s steps and runs faster than wall time. Every synthetic sensor timestamp uses the same simulation clock. WSL wall-clock duration is used only to measure ONNX calls and supervisor IPC. These clocks must not be mixed when interpreting failure latencies.</p>
+<p>All motion uses <strong>ENU</strong>: x east, y north, z up, metres and metres/second. The tested <code>enu_to_ned</code> helper maps <code>(x,y,z)</code> to <code>(y,x,-z)</code>. A real PX4 adapter also needs body-frame conventions, orientation conversion and timestamp handling. Applying only this vector swap to every message would be wrong.</p>
+<p>Camera timestamps are capture times; the current graph&#39;s measured inference duration is stored separately. The overload scenario injects a <strong>reported</strong> 120 ms duration. It does not sleep for 120 ms or model CPU/NPU contention. LiDAR raycasts use truth for the ideal sensor geometry; that shortcut means this is not a SLAM evaluation.</p>
+<h2>Supervisor protocol</h2>
+<p>One input line has exactly 15 space-separated fields:</p>
+<pre><code class="language-text">sequence now imu_stamp gnss_stamp vision_stamp link_stamp battery
+pos_e pos_n pos_u target_e target_n target_u inference_ms complete
+</code></pre>
+<p>The line above wraps for readability; the wire frame must be one line. <code>complete</code> is 0 or 1. Sequence and <code>now</code> must increase strictly. Sensor timestamps must be nonnegative and no later than <code>now</code>. Battery is a fraction in [0,1]. Nonfinite numbers, invalid ranges, extra fields or replayed frames terminate the process with code 2 and emit no command for that frame.</p>
+<p>One output line contains:</p>
+<pre><code class="language-text">sequence mode reason velocity_e velocity_n velocity_u
+</code></pre>
+<p>The runner correlates sequence numbers and imposes a three-second wall-clock response timeout. Unexpected transport failure aborts the experiment. The explicit <code>companion_crash</code> injection exercises a separate stub watchdog; this is not a general production process supervisor.</p>
+<h2>Health policy and state machine</h2>
+<figure class="diagram"><pre class="mermaid">stateDiagram-v2
+    [*] --&gt; INIT
+    INIT --&gt; ACTIVE: Healthy for 1 second
+    INIT --&gt; HOLD: Unhealthy sample
+    ACTIVE --&gt; HOLD: Sensor or latency fault
+    HOLD --&gt; ACTIVE: Healthy recovery dwell
+    HOLD --&gt; LAND: Fault episode reaches 2 seconds
+    ACTIVE --&gt; COMPLETE: Mission goal accepted
+    INIT --&gt; LAND: Hard limit
+    ACTIVE --&gt; LAND: Hard limit
+    HOLD --&gt; LAND: Hard limit
+    COMPLETE --&gt; LAND: Hard limit if core is evaluated again
+    LAND --&gt; LAND: Latched
+    COMPLETE --&gt; COMPLETE: Latched within limits</pre><figcaption>Pipeline diagram — source is available below.</figcaption><details><summary>Mermaid source</summary><pre><code>stateDiagram-v2
+    [*] --&gt; INIT
+    INIT --&gt; ACTIVE: Healthy for 1 second
+    INIT --&gt; HOLD: Unhealthy sample
+    ACTIVE --&gt; HOLD: Sensor or latency fault
+    HOLD --&gt; ACTIVE: Healthy recovery dwell
+    HOLD --&gt; LAND: Fault episode reaches 2 seconds
+    ACTIVE --&gt; COMPLETE: Mission goal accepted
+    INIT --&gt; LAND: Hard limit
+    ACTIVE --&gt; LAND: Hard limit
+    HOLD --&gt; LAND: Hard limit
+    COMPLETE --&gt; LAND: Hard limit if core is evaluated again
+    LAND --&gt; LAND: Latched
+    COMPLETE --&gt; COMPLETE: Latched within limits</code></pre></details></figure><p>This is the C++ policy graph. A fault episode starts at the first unhealthy sample and ends only after 2 s of continuous health, so a link or sensor that keeps dropping out escalates to LAND instead of alternating between HOLD and brief ACTIVE commands. In the ROS adapter, LAND or COMPLETE transfers control to PX4 once and permanently stops core evaluation and offboard streaming. PX4 then owns touchdown and disarm, so landing estimator noise cannot start a new application transition. The adapter also hands off permanently if a pilot or GCS leaves OFFBOARD after it was entered; it never switches the vehicle back.</p>
+<table>
+<thead>
+<tr>
+<th>Policy</th>
+<th align="right">Value in the prototype</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Healthy preflight dwell</td>
+<td align="right">1.0 simulated second</td>
+<td>Avoid immediate autonomous motion at startup</td>
+</tr>
+<tr>
+<td>IMU freshness</td>
+<td align="right">0.15 s</td>
+<td>Three 20 Hz ticks</td>
+</tr>
+<tr>
+<td>GNSS freshness</td>
+<td align="right">0.50 s</td>
+<td>Tolerate more than one 5 Hz interval</td>
+</tr>
+<tr>
+<td>Camera freshness</td>
+<td align="right">0.30 s</td>
+<td>Tolerate short 10 Hz disruption</td>
+</tr>
+<tr>
+<td>Link freshness</td>
+<td align="right">0.50 s</td>
+<td>Demonstrate telemetry loss handling</td>
+</tr>
+<tr>
+<td>Reported inference budget</td>
+<td align="right">50 ms</td>
+<td>Illustrative budget, not an IQ9 benchmark</td>
+</tr>
+<tr>
+<td>Recovery dwell</td>
+<td align="right">0.50 s</td>
+<td>Prevent rapid mode oscillation</td>
+</tr>
+<tr>
+<td>Fault episode before LAND</td>
+<td align="right">Any unhealthy sample 2.0 s or more after the episode began; 2.0 s of continuous health ends the episode</td>
+<td>Escalate sustained and intermittent faults; latch</td>
+</tr>
+<tr>
+<td>Autopilot-stub command loss</td>
+<td align="right">Older than 0.50 s</td>
+<td>Independent companion-crash behavior</td>
+</tr>
+<tr>
+<td>Speed limit</td>
+<td align="right">2 m/s norm</td>
+<td>Bound mission intent</td>
+</tr>
+<tr>
+<td>Operating envelope</td>
+<td align="right">Horizontal radius 20 m; target altitude 0–12 m</td>
+<td>Small synthetic test world</td>
+</tr>
+<tr>
+<td>Low battery</td>
+<td align="right">Below 20%</td>
+<td>Immediate latched LAND</td>
+</tr>
+</tbody></table>
+<p>These are design choices for the lab; they are not values prescribed by a program requirement or safety-qualified flight limits.</p>
+<pre><code class="language-text">INIT ── healthy dwell ──► ACTIVE ── mission done ──► COMPLETE
+  │                         │
+  └── unhealthy ──► HOLD ◄───┘
+                      │  └── healthy recovery dwell ──► ACTIVE
+                      └── fault episode ≥ 2 s ──► LAND (latched)
+Any state ── hard limit / low battery ────────► LAND
+</code></pre>
+<p>HOLD outputs zero velocity in this ideal plant. It does not prove that a real aircraft can hold position when its estimator is invalid. LAND is a bounded descent command in the toy model; actual actions must depend on estimator validity, environment and autopilot policy. COMPLETE remains stationary at the final waypoint. The harness also applies truth-based ground contact; that is simulator mechanics, not an available real-world sensor.</p>
+<h2>Threat model and implemented evidence</h2>
+<table>
+<thead>
+<tr>
+<th>Boundary / failure</th>
+<th>Control or response</th>
+<th>Test evidence</th>
+<th>Residual limitation</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Modified model bytes</td>
+<td>SHA-256 bound into signed manifest; boot verifies the stored file and loads only the verified bytes</td>
+<td>Tampered, unsigned and wrong-anchor stored models rejected; SITL perception refuses to start</td>
+<td>A local attacker can replace this verifier or the unprotected public-key file</td>
+</tr>
+<tr>
+<td>Forged signature or edited metadata</td>
+<td>Ed25519 over canonical manifest</td>
+<td>Wrong signer and modified version rejected</td>
+<td>No protected key storage or device enrollment</td>
+</tr>
+<tr>
+<td>Old authorized artifact</td>
+<td>Minimum version check</td>
+<td>Signed version 1 rejected at floor 2</td>
+<td>Floor is supplied in software, not persistent tamper-resistant state</td>
+</tr>
+<tr>
+<td>Artifact for another board</td>
+<td>Signed device field</td>
+<td>Device mismatch rejected</td>
+<td>Demo identity is a string, not hardware identity</td>
+</tr>
+<tr>
+<td>Replayed/bad sensor frame</td>
+<td>Monotonic sequence/time and finite/range checks</td>
+<td>Unit and process tests</td>
+<td>Pipe endpoint is trusted; no sender identity</td>
+</tr>
+<tr>
+<td>Stale GNSS, IMU, camera or link</td>
+<td>HOLD then recovery or LAND; intermittent faults escalate too</td>
+<td>Scenario traces; degraded-link contract test</td>
+<td>No redundant estimator or radio modeling</td>
+</tr>
+<tr>
+<td>Companion process death</td>
+<td>Stub watchdog in fast tests; independent PX4 failsafe in SITL</td>
+<td>Actual subprocess/process-group kill scenarios</td>
+<td>Software simulation only; no physical aircraft qualification</td>
+</tr>
+<tr>
+<td>RF interference / spoofing</td>
+<td>Outside executed scope</td>
+<td>Design discussion only</td>
+<td>Requires controlled RF/GNSS test facilities and threat-specific requirements</td>
+</tr>
+</tbody></table>
+<p>This is artifact verification, not an OTA updater. It has no download transport, A/B partition handling, power-loss recovery, rollback counter persistence, certificate rotation or hardware root of trust.</p>
+<h2>Evidence and acceptance criteria</h2>
+<p>The executable suite includes one CTest program with multiple supervisor checks, 28 Python unit/integration tests, eight scenario runs, and six signed-artifact cases. Tests fail the run on unexpected terminal mode, collision with a modeled obstacle, excessive estimator error, missing required transitions, malformed evidence or failed update checks.</p>
+<p>The eight scenarios cover nominal completion; recoverable camera loss and inference overload; sustained GNSS, link and IMU loss; low battery; and an actual supervisor-process kill. Every scenario records events, sampled states, camera frames, LiDAR endpoints, measurements and checks. The <a href="execution.html">execution report</a> contains the observed values.</p>
+<p>The current error bound is a deliberately loose 2 m check on this small synthetic world. Collision checks are sampled circular-obstacle clearance checks, not continuous swept-volume validation. A fixed random seed makes sensor noise reproducible, while timing measurements remain machine/load dependent.</p>
+<h2>Production migration sequence</h2>
+<ol>
+<li>Completed in the integration track: add PX4 SITL and validate coordinate frames, modes, acks and loss behavior.</li>
+<li>Completed in the integration track: add typed ROS 2 messages and explicit QoS around the C++ process boundary; retain the supervisor&#39;s policy tests.</li>
+<li>Replace synthetic perception with licensed recorded data and a trained model with separate accuracy evaluation.</li>
+<li>Replace the simple estimator with a validated localization stack and calibrated sensor timing/extrinsics.</li>
+<li>Deploy to the exact Qualcomm board/BSP; verify supported accelerator operators, numerical outputs and device measurements.</li>
+<li>Integrate vendor boot/provisioning/update flows with protected keys and recovery design. Keep manufacturing changes distinct from mission application changes.</li>
+</ol>
+<p>Each replacement should preserve one reference input/output trace and add tests at the newly real boundary. Hardware success cannot be inferred from the WSL results.</p>
+</main><footer>Mission Computer Lab · software simulation portfolio · 2026</footer></body></html>

@@ -1,0 +1,16 @@
+{
+  "name": "mission-computer-lab-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "docs": "node tools/render_docs.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0",
+    "marked": "17.0.5",
+    "mermaid": "11.17.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,91 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Validation record</title><style>:root{color-scheme:light;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--teal:#067c80;--bg:#f2f6f7}*{box-sizing:border-box}body{margin:0;background:var(--bg);font:16px/1.65 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}a{color:#006c86;text-underline-offset:3px}nav{background:#112e3d;display:flex;gap:28px;align-items:center;flex-wrap:wrap;padding:20px 5%;font-size:14px}nav a{color:#d8f7f2;text-decoration:none}nav a:first-child{font-weight:750;letter-spacing:1.5px;margin-right:auto}.document{max-width:1060px;margin:38px auto;padding:46px 60px;background:white;border:1px solid var(--line);border-radius:14px}h1{font-size:clamp(30px,5vw,46px);line-height:1.14;letter-spacing:-1.3px;margin:0 0 24px}h2{font-size:26px;margin:44px 0 16px;line-height:1.3;border-top:1px solid var(--line);padding-top:25px}h3{font-size:20px;margin:26px 0 10px}p,li{max-width:85ch}blockquote{margin:20px 0;border-left:4px solid var(--teal);padding:12px 22px;background:#eef8f7;color:#31505b}blockquote p{margin:0}table{border-collapse:collapse;width:100%;font-size:14px;display:block;overflow:auto}td,th{border:1px solid var(--line);padding:12px;text-align:left;vertical-align:top}th{background:#e7f1f3}pre{background:#102c3b;color:#e3f3f5;padding:20px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.6}code{font-family:Consolas,monospace}p code,li code,td code{background:#eef3f5;padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}footer{padding:25px;text-align:center;color:var(--muted);font-size:13px}button,select,input{font:inherit}button,select{padding:8px 14px;border-radius:6px;border:1px solid #aec4ce;background:white;color:var(--ink)}button{cursor:pointer}button:hover{background:#dbf4ed}:focus-visible{outline:3px solid #e69f00;outline-offset:3px}@media(max-width:700px){.document{padding:28px 20px;margin:16px 12px}nav{gap:15px;font-size:12px}td,th{min-width:120px}}@media print{nav,footer{display:none}.document{margin:0;padding:0;border:0;max-width:none}body{background:white}h2{break-after:avoid}pre{white-space:pre-wrap}a{color:inherit}}
+
+.diagram{margin:24px 0;border:1px solid var(--line);border-radius:10px;padding:16px;background:#fff;overflow:auto}.diagram pre.mermaid{background:#fff;color:var(--ink);text-align:center;padding:8px;margin:0;min-width:440px}.diagram svg{max-width:100%;height:auto}.diagram figcaption{font-size:13px;color:var(--muted);margin:10px 0}.diagram details{font-size:13px}.diagram summary{cursor:pointer}.diagram .diagram-error{text-align:left;white-space:pre-wrap}@media print{.diagram{break-inside:avoid}.diagram details{display:none}}
+</style></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a></nav><main class="document"><h1>Validation record</h1>
+<h2>Fourth review pass retest — 24 September 2026</h2>
+<p><strong>Result: all four flight scenarios passed on the final code, and the run-time input hashes remained unchanged.</strong> The published samples come from this run. Current checks: one CTest executable, 28 lightweight Python tests (also under <code>python -O</code>), 14 ROS/runner regression tests, eight fast scenarios and six signed-artifact cases. Findings, fixes and verification are in <a href="review-report.html#pass-4">pass 4 of the review record</a>.</p>
+<h2>Three-pass review retest — 23 September 2026</h2>
+<p><strong>Result: all four reviewed flight scenarios passed, and the run-time input hashes remained unchanged.</strong> That matrix was the published sample until pass 4. Both replay state tests, all five diagram syntax checks and static checks across 16 local HTML files passed.</p>
+<p>See <a href="review-report.html">the detailed review record</a> for findings, fixes and repeatable commands. Checks at that time: 23 lightweight Python tests, 12 ROS/runner regression tests, one CTest executable, eight fast scenarios and six signed-artifact cases. The review also adds five Mermaid syntax/offline-bundle checks and explicit HTML fragment validation. The final four-case flight matrix uses the stricter ordered-flight and recorded-topic acceptance gates; measurements appear in <a href="sitl-execution.html">the current flight report</a>.</p>
+<p>The first pass-3 retest stopped on an OS <code>No data available</code> error while recording live evidence on the Windows mount. Its results remain failed. The final retry recorded to WSL&#39;s Linux filesystem. The precise original failing syscall was not captured; future runner exceptions now retain a traceback. Failed results were preserved; the GPS-specific validity criterion was then corrected as described below.</p>
+<p>The first Linux matrix passed nominal, camera and companion-crash scenarios. GPS-loss landed and disarmed but failed a new check that incorrectly required horizontal validity after intentionally removing GPS. The checker now distinguishes horizontal and vertical validity, still rejects invalidity before injection, and requires valid vertical position at touchdown. The original failed results were preserved, and the full matrix was rerun.</p>
+<p>Mermaid is pinned at 11.17.2 with a committed lockfile and a local browser bundle. The dependency audit reported zero known advisories at review time. Parser/static checks do not establish visual layout, which remains unverified in the embedded browser.</p>
+<h2>Initial implementation record — 22 September 2026</h2>
+<p>Executed locally on 22 September 2026 in the existing <strong>Ubuntu 22.04.5 WSL2</strong> distribution. This records the checks performed during initial creation; it does not imply hosted GitHub CI or hardware validation.</p>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Observed result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>C++17 Release build, GCC 11.4</td>
+<td>Passed; core compiled with Wall/Wextra/Wpedantic/Werror</td>
+</tr>
+<tr>
+<td>CTest supervisor contract suite</td>
+<td>1/1 test executable passed; multiple contract assertions</td>
+</tr>
+<tr>
+<td>Python unit/integration suite</td>
+<td>14/14 passed</td>
+</tr>
+<tr>
+<td>Full fault matrix</td>
+<td>8/8 scenarios passed</td>
+</tr>
+<tr>
+<td>Signed-artifact experiment matrix</td>
+<td>6/6 cases behaved as expected</td>
+</tr>
+<tr>
+<td>Generated evidence schema/completeness check</td>
+<td>Passed</td>
+</tr>
+<tr>
+<td>C++ Debug build with address/undefined-behavior sanitizers</td>
+<td>Built and CTest passed</td>
+</tr>
+<tr>
+<td>ONNX execution provider</td>
+<td>CPUExecutionProvider explicitly selected and recorded</td>
+</tr>
+<tr>
+<td>PX4 v1.16.0 + ROS Humble + Gazebo Harmonic</td>
+<td>Built and executed in WSL; four flight scenarios passed</td>
+</tr>
+<tr>
+<td>ROS adapter regression checks</td>
+<td>5/5 passed: invalid GPS, replay freshness, topic versions/QoS and fixed-array JSON</td>
+</tr>
+<tr>
+<td>Qualcomm hardware / accelerator / hardware boot chain</td>
+<td>Not executed</td>
+</tr>
+<tr>
+<td>GitHub-hosted workflow</td>
+<td>Supplied, not run remotely</td>
+</tr>
+<tr>
+<td>Visual HTML review in the embedded browser</td>
+<td>Blocked by the browser&#39;s local-file URL security policy; not completed</td>
+</tr>
+<tr>
+<td>Dashboard state test with a minimal DOM</td>
+<td>Passed for eight selections, timeline, embedded image data and play/pause; does not verify rendering</td>
+</tr>
+<tr>
+<td>PX4 replay state test with a minimal DOM</td>
+<td>Passed all four scenarios, acceptance checks, transitions, final disarm and play/pause; does not verify rendering</td>
+</tr>
+<tr>
+<td>Static HTML checks</td>
+<td>Passed local links, viewport metadata and dashboard element IDs</td>
+</tr>
+</tbody></table>
+<p>The actual flight integration also found and corrected DDS discovery settings, startup parameter overrides, status-rate/freshness mismatch, invalid GPS packets incorrectly appearing fresh, and numpy scalar serialization in the observer. The <a href="sitl-execution.html">SITL evidence</a> records the final passing runs.</p>
+<p>The initial validation found and corrected two input/state edge cases: negative sequence numbers are rejected at the process boundary, and a fault during startup cannot shorten the full one-second preflight health dwell. Regression checks cover both.</p>
+<p>The build produced millisecond-scale Windows-mounted-filesystem clock-skew warnings. Compilation and both CTest runs completed successfully. A Linux-filesystem checkout is preferable for larger builds and avoids relying on Windows mount timestamp behavior.</p>
+<p>Exact reproduction commands and dependency pins are in <a href="wsl-guide.html">the runbook</a>. Per-scenario measurements and environment/model/binary hashes are in <a href="execution.html">the execution report</a> and <code>artifacts/sample/report.json</code>. No test-coverage percentage, NPU speedup, flight-safety claim or model-accuracy claim is inferred from these checks.</p>
+</main><footer>Mission Computer Lab · software simulation portfolio · 2026</footer></body></html>
