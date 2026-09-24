@@ -1,6 +1,7 @@
 """Regression checks for failures found at the real ROS/PX4 boundary."""
 from collections import deque
 import json
+import math
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace,MethodType
@@ -8,15 +9,18 @@ import unittest
 from unittest.mock import patch,Mock
 from builtin_interfaces.msg import Time
 from mission_node import Mission
+from fleet_mission_node import FleetMission,LEAD
+from fleet_station_node import Station,LAUNCH_GAP
 from observer_node import Observer
 from common import JsonLog,px4_topic,SENSOR_QOS
 from mission_interfaces.msg import Decision
-from px4_msgs.msg import VehicleStatus,VehicleLocalPosition
+from px4_msgs.msg import VehicleCommand,VehicleStatus,VehicleLocalPosition
 from rclpy.qos import ReliabilityPolicy
 
 class TelemetryContracts(unittest.TestCase):
     def setUp(self):
-        self.adapter=SimpleNamespace(last_px4_stamp={},last={'gps':0.,'pose':0.},start=100.)
+        self.adapter=SimpleNamespace(last_px4_stamp={},last={'gps':0.,'pose':0.},start=100.,sim_time=False)
+        self.adapter.now=MethodType(Mission.now,self.adapter)
     def gps(self,timestamp,fix=3,velocity=True,now=105.):
         message=SimpleNamespace(timestamp=timestamp,fix_type=fix,vel_ned_valid=velocity)
         with patch('mission_node.time.monotonic',return_value=now):
@@ -53,9 +57,9 @@ class MissionBoundaries(unittest.TestCase):
             last={'imu':5.,'gps':5.,'pose':5.,'status':5.},sequence=1,core=Mock(),
             last_mode=None,log=Mock(),land_requested=False,send_command=Mock(),
             decisions=Mock(),control=Mock(),setpoint=Mock(),get_clock=Mock(),blocked=set(),track=deque(maxlen=40),
-            model_sha256=None)
+            model_sha256=None,ns='',spawn=[0.,0.,0.],goal=(9,9),altitude=3.,sim_time=False,system_id=1)
         a.mapped_scan=a.scan  # No new scan unless a test supplies one.
-        for method in ('payload_time','scan_points','position_at','map_scan'):
+        for method in ('payload_time','scan_points','position_at','map_scan','next_target','may_request_flight','after_decision','now'):
             setattr(a,method,MethodType(getattr(Mission,method),a))
         a.get_clock.return_value.now.return_value.to_msg.return_value=Time(sec=105)
         a.get_clock.return_value.now.return_value.nanoseconds=105000000000
@@ -150,9 +154,79 @@ class MissionBoundaries(unittest.TestCase):
         with patch('mission_node.time.monotonic',return_value=105.),patch('mission_node.exchange',return_value=('INIT','test',[0.,0.,0.])) as core:
             Mission.tick(a)
         self.assertEqual(core.call_args.args[1][9],0.)  # Relative altitude sent to the supervisor.
+    def test_commands_are_addressed_to_this_vehicle(self):
+        # A fleet vehicle ignores commands for another MAV_SYS_ID; the fleet's second drone never armed.
+        a=self.adapter();a.system_id=3;a.command=Mock()
+        Mission.send_command(a,VehicleCommand.VEHICLE_CMD_COMPONENT_ARM_DISARM,1)
+        self.assertEqual(a.command.publish.call_args.args[0].target_system,3)
     def test_terminal_observer_sample_is_not_lost_to_decimation(self):
         observer=SimpleNamespace(log=Mock(),count=lambda name:None)
         msg=Decision();msg.sequence=1;msg.mode='COMPLETE'
         Observer.decision(observer,msg);observer.log.write.assert_called_once()
+
+class FleetContracts(unittest.TestCase):
+    DRONES=['px4_0','px4_1','px4_2']
+    def station(self):
+        s=SimpleNamespace(drones=list(self.DRONES),states={},carrier={'e':0.,'n':-1.5,'yaw':0.,'speed':0.},
+            clear={d:{'launch':False,'land':False} for d in self.DRONES},flown=set(),landed=set(),last_launch=-1e9,
+            moving=False,parked=False,min_separation=math.inf,last_log=0.,log=Mock(),drive=Mock(),clearance=Mock(),
+            args=SimpleNamespace(speed=0.3,max_east=14.),clock=0.)
+        s.now=lambda:s.clock;s.grant=MethodType(Station.grant,s)
+        return s
+    def report(self,s,drone,phase='preflight',z=0.6,armed=False):
+        state={'phase':phase,'position':[0.,0.,z],'armed':armed,'layer':3.+self.DRONES.index(drone),'pad_error':0.1}
+        Station.on_state(s,drone,SimpleNamespace(data=json.dumps(state)))
+    @staticmethod
+    def logged(s,kind):return [c.kwargs for c in s.log.write.call_args_list if c.args[0]==kind]
+    def grants(self,s,kind):return [g['drone'] for g in self.logged(s,'clearance') if g['grant']==kind]
+    def test_launches_wait_for_the_previous_vehicle_to_climb_and_are_spaced(self):
+        s=self.station()
+        for d in self.DRONES:self.report(s,d)
+        Station.tick(s);self.assertEqual(self.grants(s,'launch'),['px4_0'])
+        s.clock=10.;Station.tick(s)  # px4_0 is still on the deck, so px4_1 waits however long that takes.
+        self.assertEqual(self.grants(s,'launch'),['px4_0'])
+        self.report(s,'px4_0','outbound',z=3.,armed=True);Station.tick(s)
+        self.assertEqual(self.grants(s,'launch'),['px4_0','px4_1'])
+        self.report(s,'px4_1','outbound',z=4.,armed=True);s.clock=12.;Station.tick(s)
+        self.assertEqual(len(self.grants(s,'launch')),2)  # Airborne, but only 2 s after the last launch.
+        s.clock=10.+LAUNCH_GAP;Station.tick(s);self.assertEqual(len(self.grants(s,'launch')),3)
+    def test_carrier_drives_during_recovery_and_stays_parked_after_the_last_touchdown(self):
+        s=self.station()
+        for d in self.DRONES:self.report(s,d,'outbound',z=3.,armed=True)
+        Station.tick(s);self.assertFalse(s.moving)  # Everyone is up, but nobody is homeward yet.
+        self.report(s,'px4_0','return',z=3.,armed=True);Station.tick(s)
+        self.assertTrue(s.moving);self.assertEqual(s.drive.publish.call_args.args[0].linear.x,0.3)
+        for d in self.DRONES:self.report(s,d,'descend',z=0.6,armed=False)
+        for _ in range(3):Station.tick(s)  # Landed vehicles keep reporting their last phase.
+        self.assertFalse(s.moving);self.assertEqual(s.drive.publish.call_args.args[0].linear.x,0.)
+        self.assertEqual((len(self.logged(s,'carrier_start')),len(self.logged(s,'carrier_stop'))),(1,1))
+        self.assertEqual(len(self.logged(s,'touchdown')),3)
+    def test_one_landing_at_a_time_lowest_holding_layer_first(self):
+        s=self.station()
+        for d in self.DRONES:self.report(s,d,'outbound',z=3.,armed=True);s.clear[d]['launch']=True
+        self.report(s,'px4_2','rendezvous',z=5.,armed=True);self.report(s,'px4_1','rendezvous',z=4.,armed=True)
+        Station.tick(s);self.assertEqual(self.grants(s,'land'),['px4_1'])
+        self.report(s,'px4_0','rendezvous',z=3.,armed=True);Station.tick(s)
+        self.assertEqual(self.grants(s,'land'),['px4_1'])  # px4_1 is still landing.
+        self.report(s,'px4_1','descend',z=0.6,armed=False);Station.tick(s)
+        self.assertEqual(self.grants(s,'land'),['px4_1','px4_0'])
+    def vehicle(self,phase,carrier):
+        m=SimpleNamespace(pad=0.,carrier=carrier,phase=phase,phase_since=0.,log=Mock(),altitude=4.,clearance={},
+                          status=SimpleNamespace(arming_state=VehicleStatus.ARMING_STATE_ARMED))
+        for method in ('pad_position','pad_target','set_phase'):setattr(m,method,MethodType(getattr(FleetMission,method),m))
+        return m
+    def test_pad_target_leads_the_moving_carrier_along_its_heading(self):
+        m=self.vehicle('rendezvous',(2.,-1.5,math.pi/2,0.,0.3));m.pad=1.1  # Heading north at 0.3 m/s.
+        target=m.pad_target(4.)
+        for got,want in zip(target,[2.,-1.5+1.1+0.3*LEAD,4.]):self.assertAlmostEqual(got,want)
+    def test_descent_waits_for_clearance_and_goes_around_when_the_pad_slips_away(self):
+        m=self.vehicle('rendezvous',(0.,0.,0.,0.3,0.))
+        FleetMission.next_target(m,5.,[0.1,0.,4.]);self.assertEqual(m.phase,'rendezvous')  # No clearance yet.
+        m.clearance={'land':True};FleetMission.next_target(m,5.,[0.1,0.,4.]);self.assertEqual(m.phase,'descend')
+        target,_=FleetMission.next_target(m,6.,[0.2,0.,2.])
+        self.assertEqual(m.phase,'descend');self.assertAlmostEqual(target[2],1.4)  # Limited descent step.
+        target,_=FleetMission.next_target(m,7.,[0.8,0.,1.5])
+        self.assertEqual(m.phase,'rendezvous');self.assertEqual(target[2],4.)
+        self.assertTrue(any(c.kwargs.get('reason')=='go_around' for c in m.log.write.call_args_list))
 
 if __name__=='__main__':unittest.main()

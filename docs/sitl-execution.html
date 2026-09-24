@@ -33,9 +33,9 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 
 /* Paper is always light, whatever theme is on screen. */
 @media print{:root,:root:not([data-theme="light"]),:root[data-theme="dark"]{color-scheme:light;--bg:#fff;--surface:#fff;--surface-2:#e7f1f3;--code-bg:#eef3f5;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--quote-bg:#eef8f7;--quote-ink:#31505b;--pre-bg:#102c3b;--pre-ink:#e3f3f5}}
-</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flight replay</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>PX4 / ROS 2 / Gazebo execution evidence</h1>
+</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flight replay</a><a href="../web/fleet.html">Fleet ops</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>PX4 / ROS 2 / Gazebo execution evidence</h1>
 <p>Actual PX4/Gazebo/ROS; procedural camera/lidar; CPU synthetic ONNX; no Qualcomm hardware.</p>
-<p>Generated UTC: 2026-09-24T00:49:34.953337+00:00</p>
+<p>Generated UTC: 2026-09-24T18:22:42.343244+00:00</p>
 <table>
 <thead>
 <tr>
@@ -49,34 +49,73 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 <tbody><tr>
 <td>nominal</td>
 <td>PASS</td>
-<td align="right">50.77</td>
-<td align="right">3.063</td>
-<td align="right">1.192</td>
+<td align="right">131.64</td>
+<td align="right">3.016</td>
+<td align="right">1.171</td>
 </tr>
 <tr>
 <td>camera_dropout</td>
 <td>PASS</td>
-<td align="right">51.25</td>
-<td align="right">3.047</td>
-<td align="right">1.181</td>
+<td align="right">127.66</td>
+<td align="right">3.048</td>
+<td align="right">1.158</td>
 </tr>
 <tr>
 <td>companion_crash</td>
 <td>PASS</td>
-<td align="right">31.19</td>
-<td align="right">2.835</td>
-<td align="right">3.277</td>
+<td align="right">66.79</td>
+<td align="right">2.768</td>
+<td align="right">3.977</td>
 </tr>
 <tr>
 <td>gps_loss</td>
 <td>PASS</td>
-<td align="right">34.76</td>
-<td align="right">2.914</td>
-<td align="right">3.215</td>
+<td align="right">59.10</td>
+<td align="right">2.742</td>
+<td align="right">3.728</td>
 </tr>
 </tbody></table>
 <p>All four scenarios require actual armed offboard state, observed climb, land mode, landed state and final disarm. Normal and camera-recovery runs also require a reached goal, COMPLETE and accepted land command. GPS loss requires a post-injection stale-GNSS landing decision. Companion crash requires a subsequent PX4 failsafe.</p>
 <p>Clearance uses valid recorded PX4 position estimates against known cylinders. Invalid estimates after injected GPS loss are excluded; clearance is not established for that degraded interval. This is not Gazebo ground-truth collision verification. Wall duration includes startup and process cleanup.</p>
+<h2>Fleet from a moving carrier</h2>
+<p>Three PX4 instances launch in sequence from pads on a carrier vehicle, fly separate inspection legs at 3, 4 and 5 m, and land back on the carrier while it drives. A ground-station node grants one launch and one landing at a time; each vehicle keeps its own C++ supervisor and PX4 failsafes.</p>
+<table>
+<thead>
+<tr>
+<th>Vehicle</th>
+<th>Goal</th>
+<th align="right">Altitude layer (m)</th>
+<th align="right">Touchdown pad error (m)</th>
+<th align="right">Carrier speed at touchdown (m/s)</th>
+<th align="right">Min obstacle clearance (m)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>px4_0</td>
+<td>(9, 9)</td>
+<td align="right">3</td>
+<td align="right">0.030</td>
+<td align="right">0.27</td>
+<td align="right">1.23</td>
+</tr>
+<tr>
+<td>px4_1</td>
+<td>(10, 3)</td>
+<td align="right">4</td>
+<td align="right">0.034</td>
+<td align="right">0.27</td>
+<td align="right">1.36</td>
+</tr>
+<tr>
+<td>px4_2</td>
+<td>(-1, 10)</td>
+<td align="right">5</td>
+<td align="right">0.037</td>
+<td align="right">0.27</td>
+<td align="right">2.16</td>
+</tr>
+</tbody></table>
+<p>Minimum separation between airborne vehicles: 1.71 m. Carrier travel: 11.7 m. Recording two cameras slows this simulation below real time; the adapters judge freshness on simulation time, as PX4 does.</p>
 <h2>Exact upstream revisions</h2>
 <ul>
 <li>PX4 v1.16.0: <code>6ea3539157ca358c70a515878b77077af7d4611d</code></li>

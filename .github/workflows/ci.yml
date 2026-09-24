@@ -26,11 +26,12 @@ jobs:
           npm ci
           npm run docs
           # Includes untracked output, so a new page whose HTML was never committed also fails.
-          stale=$(git status --porcelain --untracked-files=all -- docs/)
+          stale=$(git status --porcelain --untracked-files=all -- docs/ web/vendor/)
           [ -z "$stale" ] || { echo "Committed HTML is stale or missing; run npm run docs:"; echo "$stale"; exit 1; }
           node tests/test_diagrams.mjs
           node tests/test_dashboard.mjs
           node tests/test_sitl_dashboard.mjs
+          node tests/test_fleet_dashboard.mjs
           node tests/test_theme.mjs
           python tools/check_docs.py
       - uses: actions/upload-artifact@v4

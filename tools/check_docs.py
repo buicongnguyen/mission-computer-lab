@@ -37,7 +37,7 @@ def check(root=ROOT):
         require('<meta name="viewport"' in p.read_text(encoding='utf-8'),f'{p.name}: missing viewport')
         count+=1
     require(count>0,f'No HTML pages found under {root}')
-    for script,page in [('app.js','index.html'),('sitl.js','sitl.html')]:
+    for script,page in [('app.js','index.html'),('sitl.js','sitl.html'),('fleet.js','fleet.html')]:
         app=(root/'web'/script).read_text(encoding='utf-8')
         html=(root/'web'/page).read_text(encoding='utf-8')
         ids=set(re.findall(r'id="([^"]+)"',html))

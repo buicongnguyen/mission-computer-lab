@@ -8,3 +8,6 @@
 artifacts/sitl-sample/**/*.log -whitespace
 # Keep the audited upstream browser distribution byte-for-byte, including its formatting.
 docs/assets/mermaid-*.min.js -text -whitespace linguist-vendored=true
+*.mp4 binary
+# Vendored three.js build, byte-for-byte from the pinned npm package.
+web/vendor/** -text -whitespace linguist-vendored=true

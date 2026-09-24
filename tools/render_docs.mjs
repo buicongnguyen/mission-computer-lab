@@ -12,6 +12,14 @@ fs.mkdirSync(vendor, { recursive: true });
 for (const [from, to] of [['dist/mermaid.min.js', 'mermaid-11.17.2.min.js'], ['LICENSE', 'mermaid-LICENSE.txt']]) {
   fs.copyFileSync(path.join(root, 'node_modules/mermaid', from), path.join(vendor, to));
 }
+// three.js 0.147 is the last release with a non-module build and OrbitControls, so the 3D replay
+// also works when a page is opened straight from disk (module scripts are blocked on file://).
+const webVendor = path.join(root, 'web/vendor');
+fs.mkdirSync(webVendor, { recursive: true });
+for (const [from, to] of [['build/three.min.js', 'three-0.147.0.min.js'],
+  ['examples/js/controls/OrbitControls.js', 'OrbitControls-0.147.0.js'], ['LICENSE', 'three-LICENSE.txt']]) {
+  fs.copyFileSync(path.join(root, 'node_modules/three', from), path.join(webVendor, to));
+}
 const escape = text => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const captions = { flowchart: 'Data-flow diagram', graph: 'Dependency graph', stateDiagram: 'State diagram',
   'stateDiagram-v2': 'State diagram', sequenceDiagram: 'Sequence diagram' };
@@ -28,6 +36,6 @@ for (const name of docs) {
   const html = marked.parse(md).replace(/href="([^"#:]+)\.md(#[^"]*)?"/g, 'href="$1.html$2"');
   const diagrams = md.includes('```mermaid') ? '<script src="assets/mermaid-11.17.2.min.js" defer></script><script src="assets/diagrams.js" defer></script>' : '';
   fs.writeFileSync(path.join(root, 'docs', name.replace('.md', '.html')),
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>${css}</style><script src="../web/theme.js"></script>${diagrams}</head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flight replay</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a><a href="references.html">References</a><a href="${repository}">GitHub</a></nav><main class="document">${html}</main><footer>Mission Computer Lab · software simulation portfolio · <a href="${repository}">source on GitHub</a> · 2026</footer></body></html>`);
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>${css}</style><script src="../web/theme.js"></script>${diagrams}</head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flight replay</a><a href="../web/fleet.html">Fleet ops</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a><a href="references.html">References</a><a href="${repository}">GitHub</a></nav><main class="document">${html}</main><footer>Mission Computer Lab · software simulation portfolio · <a href="${repository}">source on GitHub</a> · 2026</footer></body></html>`);
   console.log('Rendered', name.replace('.md', '.html'));
 }

@@ -1,6 +1,6 @@
 # Mission Computer Lab: architecture and contracts
 
-This repository implements two WSL/Linux test environments for a benign inspection mission: a fast kinematic policy harness and an actual PX4/Gazebo/ROS 2 integration. It does not emulate the Qualcomm SoC. The diagram and component table below describe the fast harness; [the SITL guide](sitl-guide.md) specifies the real firmware integration, topic contracts, frames and failsafe ownership.
+This repository implements two WSL/Linux test environments for a benign inspection mission: a fast kinematic policy harness and an actual PX4/Gazebo/ROS 2 integration, which also flies a three-drone fleet from a moving carrier. It does not emulate the Qualcomm SoC. The diagram and component table below describe the fast harness; [the SITL guide](sitl-guide.md) specifies the real firmware integration, topic contracts, frames and failsafe ownership.
 
 ## Fast harness data path
 
@@ -67,9 +67,40 @@ Perception is an observed payload branch: its freshness and latency affect super
 | Autopilot stub | Harness | Integrates commanded velocity; retains an independent command-age watchdog for the explicit crash scenario. No attitude/rate loops, motor dynamics or wind. |
 | Evidence/UI | Harness and `web/` | Recorded events and metrics; browser playback is offline, not flight telemetry. |
 
+## Fleet from a moving carrier (SITL)
+
+The fleet scenario reuses every single-drone contract and adds one coordinating node. Each vehicle keeps its own complete stack: its own PX4 instance and `MAV_SYS_ID`, DDS namespace, payload, verified perception, observer and mission adapter with a C++ supervisor. The station on the carrier sequences who may launch or land and drives the carrier; it has no path to arm, change modes or override a vehicle.
+
+```mermaid
+flowchart TB
+    ST[Fleet station node, riding on the carrier]
+    CAR[Carrier in Gazebo: velocity controller and odometry]
+    subgraph FLEET[Three independent vehicle stacks]
+        V0[px4_0: adapter, C++ supervisor, PX4 instance 0, system ID 1]
+        V1[px4_1: adapter, C++ supervisor, PX4 instance 1, system ID 2]
+        V2[px4_2: adapter, C++ supervisor, PX4 instance 2, system ID 3]
+    end
+    ST -->|drive command| CAR
+    CAR -->|pose and speed| ST
+    ST -->|launch and land clearances| FLEET
+    FLEET -->|phase, position, layer, pad error| ST
+    CAR -->|pad pose and velocity| FLEET
+```
+
+| Concern | Design in this lab | What a fielded system would add |
+|---|---|---|
+| Deconfliction | Fixed altitude layers of 3, 4 and 5 m; one launch and one landing at a time; a 4 s launch gap after the previous vehicle is above 2 m | Dynamic separation from shared position reports, geofenced corridors, and UTM or operator airspace procedures |
+| Landing on a moving deck | Each vehicle aims one second ahead of its pad (the supervisor's position gain is 1/s), descends at up to 0.6 m/s and goes around above 0.5 m of error | Relative positioning (RTK, fiducials or a pad beacon), deck-motion prediction, a touchdown lock or clamp, wind and turbulence limits, and GNSS checks that expect a moving deck: stock PX4 treats a landed drone on a steadily moving deck as at rest and its GNSS track as drift |
+| Station authority | Clearances only, published at 10 Hz; vehicles request arming only while holding a launch clearance | Authenticated command links, operator override, lost-link rules for the station itself |
+| Evidence | Station log, per-vehicle observers, fleet checks for separation, sequencing, pad error and carrier motion | Fleet telemetry at scale, time synchronisation across radios, flight logs from every airframe |
+
+In this simulation the station and vehicles share one host and one DDS domain, so message delivery is effectively perfect. The carrier's road is obstacle-free by design. [The SITL guide](sitl-guide.md) lists the phases, topics and acceptance criteria.
+
 ## Clock, units and frames
 
 The simulation advances in fixed 0.05 s steps and runs faster than wall time. Every synthetic sensor timestamp uses the same simulation clock. WSL wall-clock duration is used only to measure ONNX calls and supervisor IPC. These clocks must not be mixed when interpreting failure latencies.
+
+In the PX4 integration, every ROS adapter runs on Gazebo's simulation clock (`use_sim_time`), the clock PX4 itself runs on. Freshness therefore holds when the simulation runs slower than real time, as it does while recording video. On hardware the same code falls back to the monotonic clock.
 
 All motion uses **ENU**: x east, y north, z up, metres and metres/second. The tested `enu_to_ned` helper maps `(x,y,z)` to `(y,x,-z)`. A real PX4 adapter also needs body-frame conventions, orientation conversion and timestamp handling. Applying only this vector swap to every message would be wrong.
 
@@ -170,9 +201,10 @@ The current error bound is a deliberately loose 2 m check on this small syntheti
 
 1. Completed in the integration track: add PX4 SITL and validate coordinate frames, modes, acks and loss behavior.
 2. Completed in the integration track: add typed ROS 2 messages and explicit QoS around the C++ process boundary; retain the supervisor's policy tests.
-3. Replace synthetic perception with licensed recorded data and a trained model with separate accuracy evaluation.
-4. Replace the simple estimator with a validated localization stack and calibrated sensor timing/extrinsics.
-5. Deploy to the exact Qualcomm board/BSP; verify supported accelerator operators, numerical outputs and device measurements.
-6. Integrate vendor boot/provisioning/update flows with protected keys and recovery design. Keep manufacturing changes distinct from mission application changes.
+3. Completed in the integration track: run several vehicles with per-vehicle namespaces and system IDs, coordinated by a station that only grants clearances, including recovery onto a moving carrier.
+4. Replace synthetic perception with licensed recorded data and a trained model with separate accuracy evaluation.
+5. Replace the simple estimator with a validated localization stack and calibrated sensor timing/extrinsics.
+6. Deploy to the exact Qualcomm board/BSP; verify supported accelerator operators, numerical outputs and device measurements.
+7. Integrate vendor boot/provisioning/update flows with protected keys and recovery design. Keep manufacturing changes distinct from mission application changes.
 
 Each replacement should preserve one reference input/output trace and add tests at the newly real boundary. Hardware success cannot be inferred from the WSL results.

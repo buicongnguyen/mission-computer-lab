@@ -4,21 +4,33 @@ import argparse
 from collections import deque
 import math
 import subprocess
+import sys
 import time
 import rclpy
 from rclpy.node import Node
+from rclpy.utilities import remove_ros_args
 from sensor_msgs.msg import LaserScan
 from px4_msgs.msg import (VehicleLocalPosition,VehicleStatus,SensorCombined,SensorGps,
                           OffboardControlMode,TrajectorySetpoint,VehicleCommand)
 from mission_interfaces.msg import Perception,Decision
-from common import ROOT,SENSOR_QOS,JsonLog,px4_topic,stamp_seconds,ros_seconds
+from common import ROOT,SENSOR_QOS,JsonLog,mission_topic,px4_topic,stamp_seconds,ros_seconds
 from world import astar,occupancy,replan,route_blocked,GOAL
 from supervisor_client import exchange
 
 class Mission(Node):
     def __init__(self,args):
-        super().__init__('mission_supervisor_adapter')
-        self.log=JsonLog(args.log);self.start=time.monotonic();self.sequence=0
+        # Fleet vehicles share the ROS graph, so each adapter lives under its PX4 namespace.
+        self.ns=getattr(args,'ns','') or ''
+        super().__init__('mission_supervisor_adapter'+(f'_{self.ns}' if self.ns else ''))
+        # World-frame placement: the vehicle's spawn point (its PX4 local origin), goal and cruise altitude.
+        self.spawn=list(getattr(args,'spawn',None) or [0.,0.,0.]);self.goal=tuple(getattr(args,'goal',None) or GOAL)
+        self.altitude=getattr(args,'altitude',None) or 3.
+        # PX4 instance N has MAV_SYS_ID N+1 and ignores commands addressed to any other system.
+        self.system_id=getattr(args,'system_id',None) or 1
+        # Freshness runs on one monotonic clock: simulation time when launched with use_sim_time (SITL,
+        # where PX4 also runs on simulation time), otherwise the monotonic wall clock (real hardware).
+        self.sim_time=self.get_parameter('use_sim_time').value
+        self.log=JsonLog(args.log);self.start=0. if self.sim_time else time.monotonic();self.sequence=0
         self.pose=None;self.status=None;self.origin=None;self.scan=None;self.perception=None
         self.last={'pose':0.,'imu':0.,'gps':0.,'status':0.};self.last_px4_stamp={}
         self.targets=None;self.waypoint=0;self.stream_since=None;self.last_request=-1e9
@@ -30,13 +42,13 @@ class Mission(Node):
         for name,typ,key in [('vehicle_local_position',VehicleLocalPosition,'pose'),
                              ('vehicle_status',VehicleStatus,'status'),('sensor_combined',SensorCombined,'imu'),
                              ('vehicle_gps_position',SensorGps,'gps')]:
-            self.create_subscription(typ,px4_topic(name,typ),lambda msg,k=key:self.telemetry(k,msg),SENSOR_QOS)
-        self.create_subscription(LaserScan,'/mission/lidar/scan',self.lidar,SENSOR_QOS)
-        self.create_subscription(Perception,'/mission/perception',self.vision,SENSOR_QOS)
-        self.control=self.create_publisher(OffboardControlMode,px4_topic('offboard_control_mode',OffboardControlMode,'in'),10)
-        self.setpoint=self.create_publisher(TrajectorySetpoint,px4_topic('trajectory_setpoint',TrajectorySetpoint,'in'),10)
-        self.command=self.create_publisher(VehicleCommand,px4_topic('vehicle_command',VehicleCommand,'in'),10)
-        self.decisions=self.create_publisher(Decision,'/mission/decision',10)
+            self.create_subscription(typ,px4_topic(name,typ,ns=self.ns),lambda msg,k=key:self.telemetry(k,msg),SENSOR_QOS)
+        self.create_subscription(LaserScan,mission_topic('lidar/scan',self.ns),self.lidar,SENSOR_QOS)
+        self.create_subscription(Perception,mission_topic('perception',self.ns),self.vision,SENSOR_QOS)
+        self.control=self.create_publisher(OffboardControlMode,px4_topic('offboard_control_mode',OffboardControlMode,'in',self.ns),10)
+        self.setpoint=self.create_publisher(TrajectorySetpoint,px4_topic('trajectory_setpoint',TrajectorySetpoint,'in',self.ns),10)
+        self.command=self.create_publisher(VehicleCommand,px4_topic('vehicle_command',VehicleCommand,'in',self.ns),10)
+        self.decisions=self.create_publisher(Decision,mission_topic('decision',self.ns),10)
         self.create_timer(0.05,self.tick)
     def telemetry(self,key,msg):
         # Receipt freshness is accepted only when the firmware's source timestamp advances.
@@ -45,7 +57,7 @@ class Mission(Node):
         # Loss of fix may keep producing fresh packets. Those packets must not
         # count as fresh navigation data.
         if key=='gps' and (msg.fix_type<3 or not msg.vel_ned_valid):return
-        self.last[key]=time.monotonic()-self.start
+        self.last[key]=self.now()
         if key=='pose':self.pose=msg
         elif key=='status':self.status=msg
     def payload_time(self,key,msg):
@@ -53,7 +65,7 @@ class Mission(Node):
         # Reject future/replayed data; never clamp a future timestamp to "fresh".
         if not math.isfinite(stamp) or stamp<=0 or stamp>wall_now or stamp<=self.payload_stamps.get(key,0.):
             return False
-        elapsed=time.monotonic()-self.start
+        elapsed=self.now()
         capture=elapsed-(wall_now-stamp)
         if capture<0:return False
         self.payload_stamps[key]=stamp;self.payload_times[key]=capture
@@ -86,17 +98,17 @@ class Mission(Node):
         occupancy(self.scan_points(self.position_at(self.payload_times['lidar']) or position),blocked=self.blocked)
         ahead=self.targets[max(self.waypoint,1):]
         if len(self.blocked)==before or self.waypoint<1 or not ahead or not route_blocked(ahead,self.blocked):return True
-        route=replan(position,GOAL,self.blocked)
+        route=replan(position,self.goal,self.blocked)
         self.log.write('replan',path=route,position=position)
-        if route:self.targets=self.targets[:self.waypoint]+[[float(x),float(y),3.] for x,y in route]
+        if route:self.targets=self.targets[:self.waypoint]+[[float(x),float(y),self.altitude] for x,y in route]
         return bool(route)
     def send_command(self,command,p1=0.,p2=0.):
         m=VehicleCommand();m.timestamp=self.get_clock().now().nanoseconds//1000
         m.command=command;m.param1=float(p1);m.param2=float(p2)
-        m.target_system=1;m.target_component=1;m.source_system=42;m.source_component=191;m.from_external=True
+        m.target_system=self.system_id;m.target_component=1;m.source_system=42;m.source_component=191;m.from_external=True
         self.command.publish(m);self.log.write('command',command=int(command),param1=p1,param2=p2)
     def tick(self):
-        now=time.monotonic()-self.start
+        now=self.now()
         if self.handed_off:return
         if not(self.pose and self.status and self.scan and self.perception):return
         offboard=self.status.nav_state==VehicleStatus.NAVIGATION_STATE_OFFBOARD
@@ -114,24 +126,22 @@ class Mission(Node):
             return  # Stop offboard proof-of-life; its 2 s pre-stream restarts if the estimate recovers.
         if self.origin is None:
             self.origin=[self.pose.y,self.pose.x,self.pose.z]
-            self.blocked=occupancy(self.scan_points([0.,0.]));self.mapped_scan=self.scan
-            path=astar((0,0),GOAL,self.blocked)
+            self.blocked=occupancy(self.scan_points(self.spawn[:2]));self.mapped_scan=self.scan
+            path=astar((round(self.spawn[0]),round(self.spawn[1])),self.goal,self.blocked)
             if not path:raise RuntimeError('no planned path')
-            self.targets=[[0.,0.,3.]]+[[float(x),float(y),3.] for x,y in path[1:]]
+            self.targets=[[self.spawn[0],self.spawn[1],self.altitude]]+[[float(x),float(y),self.altitude] for x,y in path[1:]]
             self.log.write('plan',path=path,source='ROS LaserScan',origin=self.origin)
         # Until the vehicle arms, re-zero altitude on the ground so estimator drift cannot trip the
         # geofence floor (-0.1 m) before takeoff; the horizontal plan frame stays fixed.
         if not self.flight_seen:self.origin[2]=self.pose.z
-        position=[self.pose.y-self.origin[0],self.pose.x-self.origin[1],self.origin[2]-self.pose.z]
+        position=[self.pose.y-self.origin[0]+self.spawn[0],self.pose.x-self.origin[1]+self.spawn[1],self.origin[2]-self.pose.z+self.spawn[2]]
         self.track.append((now,position))
         if self.scan is not self.mapped_scan and not self.map_scan(position):
             self.send_command(VehicleCommand.VEHICLE_CMD_NAV_LAND);self.land_requested=True
             self.handed_off=True;self.log.write('handoff',reason='no_safe_route')
             return  # Scans closed every route to the goal; land where the vehicle is.
         if self.stream_since is None:self.stream_since=now
-        target=self.targets[min(self.waypoint,len(self.targets)-1)]
-        if self.waypoint<len(self.targets) and self.status.arming_state==VehicleStatus.ARMING_STATE_ARMED and math.dist(position,target)<0.35:
-            self.waypoint+=1;target=self.targets[min(self.waypoint,len(self.targets)-1)]
+        target,complete=self.next_target(now,position)
         camera_stamp=self.payload_times['camera'];lidar_stamp=self.payload_times['lidar']
         vision_stamp=min(camera_stamp,lidar_stamp)
         # VehicleStatus is published at about 2 Hz, so a 0.5 s threshold on it
@@ -140,7 +150,7 @@ class Mission(Node):
         link_stamp=self.last['pose'] if now-self.last['status']<=1.5 else self.last['status']
         fields=[self.sequence,now,self.last['imu'],self.last['gps'],vision_stamp,
                 link_stamp,0.95,*position,*target,
-                float(self.perception.inference_ms),int(self.waypoint>=len(self.targets))]
+                float(self.perception.inference_ms),int(complete)]
         mode,reason,velocity=exchange(self.core,fields,0.5)
         d=Decision();d.header.stamp=self.get_clock().now().to_msg();d.header.frame_id='local_enu'
         d.sequence=self.sequence;d.mode=mode;d.reason=reason;d.position_enu=position;d.target_enu=target
@@ -151,6 +161,7 @@ class Mission(Node):
                                            velocity=velocity,waypoint=self.waypoint,camera_age=d.camera_age,
                                            gps_age=now-self.last['gps'],imu_age=now-self.last['imu'])
         self.sequence+=1
+        self.after_decision(now,position,mode,target)
         if mode in ('LAND','COMPLETE'):
             if not self.land_requested:
                 self.send_command(VehicleCommand.VEHICLE_CMD_NAV_LAND);self.land_requested=True
@@ -163,12 +174,22 @@ class Mission(Node):
         command.velocity=[velocity[1],velocity[0],-velocity[2]];command.acceleration=[math.nan]*3
         command.jerk=[math.nan]*3;command.yaw=0.;command.yawspeed=math.nan;self.setpoint.publish(command)
         if (mode=='ACTIVE' and self.status.pre_flight_checks_pass and
-                now-self.stream_since>2 and now-self.last_request>2):
+                now-self.stream_since>2 and now-self.last_request>2 and self.may_request_flight()):
             if self.status.nav_state!=VehicleStatus.NAVIGATION_STATE_OFFBOARD:
                 self.send_command(VehicleCommand.VEHICLE_CMD_DO_SET_MODE,1,6)
             if self.status.arming_state!=VehicleStatus.ARMING_STATE_ARMED:
                 self.send_command(VehicleCommand.VEHICLE_CMD_COMPONENT_ARM_DISARM,1)
             self.last_request=now
+    def now(self):
+        return (self.get_clock().now().nanoseconds/1e9 if self.sim_time else time.monotonic())-self.start
+    def next_target(self,now,position):
+        """Current setpoint and whether the mission is complete; fleet vehicles override this."""
+        target=self.targets[min(self.waypoint,len(self.targets)-1)]
+        if self.waypoint<len(self.targets) and self.status.arming_state==VehicleStatus.ARMING_STATE_ARMED and math.dist(position,target)<0.35:
+            self.waypoint+=1;target=self.targets[min(self.waypoint,len(self.targets)-1)]
+        return target,self.waypoint>=len(self.targets)
+    def may_request_flight(self):return True  # A fleet vehicle waits for its launch slot.
+    def after_decision(self,now,position,mode,target):pass  # A fleet vehicle reports its state.
     def close(self):
         if self.core.poll() is None:
             self.core.stdin.close()
@@ -178,7 +199,8 @@ class Mission(Node):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--allow-sitl',action='store_true');p.add_argument('--log',required=True)
-    p.add_argument('--model-sha256',help='Accept perception only from this verified model');args=p.parse_args()
+    p.add_argument('--model-sha256',help='Accept perception only from this verified model')
+    args=p.parse_args(remove_ros_args(sys.argv)[1:])
     if not args.allow_sitl:p.error('This adapter is simulation-only. Launch through scripts/run_sitl.sh.')
     rclpy.init();node=Mission(args)
     try:rclpy.spin(node)

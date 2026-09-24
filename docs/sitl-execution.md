@@ -2,18 +2,30 @@
 
 Actual PX4/Gazebo/ROS; procedural camera/lidar; CPU synthetic ONNX; no Qualcomm hardware.
 
-Generated UTC: 2026-09-24T00:49:34.953337+00:00
+Generated UTC: 2026-09-24T18:22:42.343244+00:00
 
 | Scenario | Result | Wall duration (s) | Max estimated altitude (m) | Min estimated obstacle clearance (m) |
 |---|---|---:|---:|---:|
-| nominal | PASS | 50.77 | 3.063 | 1.192 |
-| camera_dropout | PASS | 51.25 | 3.047 | 1.181 |
-| companion_crash | PASS | 31.19 | 2.835 | 3.277 |
-| gps_loss | PASS | 34.76 | 2.914 | 3.215 |
+| nominal | PASS | 131.64 | 3.016 | 1.171 |
+| camera_dropout | PASS | 127.66 | 3.048 | 1.158 |
+| companion_crash | PASS | 66.79 | 2.768 | 3.977 |
+| gps_loss | PASS | 59.10 | 2.742 | 3.728 |
 
 All four scenarios require actual armed offboard state, observed climb, land mode, landed state and final disarm. Normal and camera-recovery runs also require a reached goal, COMPLETE and accepted land command. GPS loss requires a post-injection stale-GNSS landing decision. Companion crash requires a subsequent PX4 failsafe.
 
 Clearance uses valid recorded PX4 position estimates against known cylinders. Invalid estimates after injected GPS loss are excluded; clearance is not established for that degraded interval. This is not Gazebo ground-truth collision verification. Wall duration includes startup and process cleanup.
+
+## Fleet from a moving carrier
+
+Three PX4 instances launch in sequence from pads on a carrier vehicle, fly separate inspection legs at 3, 4 and 5 m, and land back on the carrier while it drives. A ground-station node grants one launch and one landing at a time; each vehicle keeps its own C++ supervisor and PX4 failsafes.
+
+| Vehicle | Goal | Altitude layer (m) | Touchdown pad error (m) | Carrier speed at touchdown (m/s) | Min obstacle clearance (m) |
+|---|---|---:|---:|---:|---:|
+| px4_0 | (9, 9) | 3 | 0.030 | 0.27 | 1.23 |
+| px4_1 | (10, 3) | 4 | 0.034 | 0.27 | 1.36 |
+| px4_2 | (-1, 10) | 5 | 0.037 | 0.27 | 2.16 |
+
+Minimum separation between airborne vehicles: 1.71 m. Carrier travel: 11.7 m. Recording two cameras slows this simulation below real time; the adapters judge freshness on simulation time, as PX4 does.
 
 ## Exact upstream revisions
 

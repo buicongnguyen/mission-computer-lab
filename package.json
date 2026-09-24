@@ -8,7 +8,8 @@
   "devDependencies": {
     "jsdom": "26.1.0",
     "marked": "17.0.5",
-    "mermaid": "11.17.2"
+    "mermaid": "11.17.2",
+    "three": "0.147.0"
   },
   "engines": {
     "node": ">=20"

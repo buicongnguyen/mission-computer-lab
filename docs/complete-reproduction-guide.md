@@ -1,10 +1,10 @@
 # Complete work record and step-by-step reproduction guide
 
-Prepared on 22 September 2026 and reviewed in four passes on 23–24 September 2026 for the WSL-only mission-computer lab. This document records what was built, why each component exists, the problems encountered, the fixes, and the commands you can use to reproduce the tests yourself.
+Prepared on 22 September 2026 and reviewed in six passes on 23–25 September 2026 for the WSL-only mission-computer lab. This document records what was built, why each component exists, the problems encountered, the fixes, and the commands you can use to reproduce the tests yourself.
 
 **If the flight stack is already built, start with section 3.** Otherwise follow section 4 first. You do not need Qualcomm hardware, a flight controller, a GPU, Docker, or a Gazebo window to run these tests.
 
-The current files include the fixes from four review passes; see [the review record](review-report.md) for changes and retest evidence.
+The current files include the fixes from six review passes; see [the review record](review-report.md) for changes and retest evidence.
 
 ## Contents
 
@@ -60,11 +60,11 @@ The completed system runs actual PX4 firmware in software-in-the-loop (SITL). Ga
 | Two dashboard state tests | Passed | Scenario selection, timeline/events and play/pause behavior |
 | Static documentation checks | Passed | Local links, HTML metadata and referenced DOM IDs |
 
-The current 54 Python tests are 35 lightweight tests plus 19 ROS/runner regression tests. The original implementation had 14 plus 5; the additional cases cover the review findings. The six security experiments are also exercised by the lightweight workflow; these counts are different layers of evidence, not a claimed coverage percentage.
+The current 60 Python tests are 35 lightweight tests plus 25 ROS/runner regression tests. The original implementation had 14 plus 5; the additional cases cover the review findings. The six security experiments are also exercised by the lightweight workflow; these counts are different layers of evidence, not a claimed coverage percentage.
 
 ### 1.5 Reviewed and packaged the evidence
 
-The [review record](review-report.md) documents four review passes. They add transport deadlines, payload freshness validation, permanent landing handoff, stricter evidence gates, run-time provenance, process cleanup fixes, intermittent-fault escalation, verification of the stored signed model at boot, operator-takeover handoff and five Mermaid diagrams. That record includes commands for independently rerunning the review checks.
+The [review record](review-report.md) documents six review passes. They add transport deadlines, payload freshness validation, permanent landing handoff, stricter evidence gates, run-time provenance, process cleanup fixes, intermittent-fault escalation, verification of the stored signed model at boot, operator-takeover handoff, the Mermaid diagrams, and in pass 6 simulation-time freshness, recorded Gazebo video, a 3D replay and the three-drone fleet on a moving carrier. That record includes commands for independently rerunning the review checks.
 
 The repository includes domain notes, an architecture guide, runbooks, recorded evidence and two offline replays. A GitHub Actions workflow covers the lightweight suite and documentation checks. Browser state and link checks passed; visual HTML layout review inside the embedded browser was blocked by its local-file URL policy and was not completed.
 
@@ -186,21 +186,21 @@ echo "Exit code: $?"
 
 **Expected:** `Ran 12 tests` and `OK`. These tests do not launch or arm a vehicle. If imports fail, check the sourced workspace and the explicit Python executable.
 
-### Step 3.6 — Run the four actual flight scenarios
+### Step 3.6 — Run the actual flight scenarios
 
-For long recordings, prefer a fresh Linux-filesystem output such as `$SITL_WORKSPACE/retests/$(date +%Y%m%d-%H%M%S)/flights`. The first post-review run under `/mnt/c` stopped with an OS `No data available` I/O error. That failed attempt is preserved in `artifacts/review-final/`; no pass was published from it. The retry uses `/home/n/work/mission-computer-lab/review-final-linux-v2`. If you choose a Linux output, assign its parent to `DRONE_RETEST`, create it with `mkdir -p "$DRONE_RETEST"`, and use that value consistently for the commands below.
+For long recordings, prefer a fresh Linux-filesystem output such as `$SITL_WORKSPACE/retests/$(date +%Y%m%d-%H%M%S)/flights`. The first post-review run under `/mnt/c` stopped with an OS `No data available` I/O error. That failed attempt was kept locally and no pass was published from it; the retry wrote to the Linux filesystem under `$SITL_WORKSPACE`. If you choose a Linux output, assign its parent to `DRONE_RETEST`, create it with `mkdir -p "$DRONE_RETEST"`, and use that value consistently for the commands below.
 
 ```bash
-bash scripts/run_sitl.sh --all --output "$DRONE_RETEST/flights" --timeout 150 2>&1 |
+bash scripts/run_sitl.sh --all --video --output "$DRONE_RETEST/flights" 2>&1 |
   tee "$DRONE_RETEST/flight-console.log"
 echo "Exit code: $?"
 ```
 
 The runner launches and cleans up all required processes itself. **Do not separately start another PX4, agent or Gazebo instance for this command.** Keep flight hardware disconnected from this lab. The configured DDS domain is 42; domain selection is not network authentication or isolation.
 
-Expect progress approximately every 15 seconds. The sequence is `nominal`, `camera_dropout`, `companion_crash`, then `gps_loss`. The reference matrix took about 161 seconds in total; your scheduling, discovery and physics startup can differ. The timeout applies to each scenario and includes startup. The complete matrix must print four PASS results and exit 0. It stops at the first failed case.
+Expect progress approximately every 15 seconds. The sequence is `nominal`, `camera_dropout`, `companion_crash`, `gps_loss`, then the three-drone `fleet_carrier`. Without `--video` the four single-drone flights took about 161 seconds in total; recording slows the simulation, and the pass 6 matrix with video took about 11 minutes including the fleet. Your scheduling, discovery and physics startup can differ. The timeout applies to each scenario after startup, is multiplied by 2.5 with `--video`, and is at least 900 s for the fleet. The complete matrix must print five PASS results and exit 0. It stops at the first failed case.
 
-No Gazebo GUI window is expected: the test launches the simulator headlessly. After a successful scenario, the aircraft has landed and disarmed before cleanup. The HTML replay is a separate recorded visualization.
+No Gazebo GUI window is expected unless you add `--gui`: the test launches the simulator server without a window. After a successful scenario, the aircraft has landed and disarmed before cleanup. The HTML replay is a separate recorded visualization.
 
 ### Step 3.7 — Print a compact results summary
 
@@ -325,7 +325,7 @@ ros2 interface show mission_interfaces/msg/Decision
 bash scripts/test_integration.sh
 ```
 
-Compare the hashes with section 2. The interfaces should display their fields, and all 19 integration tests should pass. Continue with section 3's flight command, using the correct current repository and workspace variables.
+Compare the hashes with section 2. The interfaces should display their fields, and all 25 integration tests should pass. Continue with section 3's flight command, using the correct current repository and workspace variables.
 
 <a id="documents"></a>
 ## 5. Regenerate the documentation
@@ -344,7 +344,7 @@ npm run docs
 
 These commands install the locked `marked`, Mermaid 11.17.2 and test-only jsdom dependencies and render every `docs/*.md` next to its source. Mermaid fences become diagrams using the bundled local script in `docs/assets/`; no CDN is needed. The visible source remains available in a disclosure below each diagram. The renderer embeds the documentation CSS, formats tables/code blocks, and rewrites relative guide links from `.md` to `.html`. It is intended for trusted project documentation.
 
-The committed `package-lock.json` is the reproducible installation input. The renderer also honors a `MARKED_MODULE` path override for an alternative local `marked` build. After rendering, run `node tests/test_diagrams.mjs` to parse every diagram and verify the bundled script, then `node tests/test_dashboard.mjs` and `node tests/test_sitl_dashboard.mjs` for replay state checks. Neither is a browser layout test.
+The committed `package-lock.json` is the reproducible installation input. The renderer also honors a `MARKED_MODULE` path override for an alternative local `marked` build. After rendering, run `node tests/test_diagrams.mjs` to parse every diagram and verify the bundled script, then `node tests/test_dashboard.mjs`, `node tests/test_sitl_dashboard.mjs` and `node tests/test_fleet_dashboard.mjs` for replay state checks. Neither is a browser layout test.
 
 ### Step 5.2 — Check the documents
 
@@ -677,7 +677,7 @@ After deliberate GPS fix loss, PX4 may invalidate horizontal position while keep
 
 ### 8.5 Understand the acceptance criteria
 
-All four scenarios require:
+All four single-drone scenarios require (the fleet's checks are listed in [the SITL guide](sitl-guide.md)):
 
 - More than 30 recorded position samples and more than 20 observed messages each for camera, perception and LiDAR.
 - An observed state with both armed and OFFBOARD, plus an accepted arm ACK.
@@ -861,7 +861,7 @@ cd "$DRONE_REPO"
   --input "$DRONE_RETEST/flights" --workspace "$SITL_WORKSPACE"
 ```
 
-The fast publisher requires the complete eight-scenario/security evidence in `artifacts/latest`. The flight publisher requires the complete set of four passing flight scenarios. A single successful nominal run cannot replace the four-case reference sample.
+The fast publisher requires the complete eight-scenario/security evidence in `artifacts/latest`. The flight publisher requires the complete set of five passing scenarios, four single-drone and the fleet. A single successful nominal run cannot replace the five-case reference sample.
 
 The flight runner now records installed versions, upstream commits and source/binary hashes **before the run**, then checks them again after the matrix. Publication consumes that saved provenance and refuses changed inputs, duplicate/missing scenarios, missing required checks, or mismatched aggregate/per-scenario results. Old pre-review raw runs lack this manifest and cannot replace the new reference sample; rerun them. Source commit names identify the base revision, while file hashes identify reviewed changes that were uncommitted when tested.
 
@@ -876,7 +876,7 @@ npm run docs
 .venv/bin/python tools/check_docs.py
 node tests/test_dashboard.mjs
 node tests/test_sitl_dashboard.mjs
-node tests/test_sitl_dashboard.mjs
+node tests/test_fleet_dashboard.mjs
 ```
 
 These Node tests exercise the committed sample data in a minimal DOM. They do not launch a browser, check pixel layout, or run the simulator. A passing dashboard test is not a substitute for the flight checks.
@@ -885,13 +885,14 @@ These Node tests exercise the committed sample data in a minimal DOM. They do no
 
 From Windows File Explorer, open these files in your usual browser:
 
-- `C:\Users\n\source\repos\Drone_project\docs\complete-reproduction-guide.html`
-- `C:\Users\n\source\repos\Drone_project\web\sitl.html`
-- `C:\Users\n\source\repos\Drone_project\web\index.html`
+- `<your checkout>\docs\complete-reproduction-guide.html`
+- `<your checkout>\web\sitl.html`
+- `<your checkout>\web\fleet.html`
+- `<your checkout>\web\index.html`
 
 Keep the repository folder structure intact: replay HTML loads neighboring CSS, JavaScript and sample data. Moving only one HTML replay file will break its asset paths. The guide HTML embeds its CSS, but links to other project files still require those files.
 
-For the flight replay, select each of the four scenarios, press Play, move the slider to the end, and inspect its acceptance checks and transition list. The trajectory is PX4's recorded estimate. For the fast replay, inspect all eight scenarios, camera frames, estimator behavior and security results. Reload the page after publishing to replace previously loaded data.
+For the flight replay, select each of the four scenarios, press Play, move the slider to the end, and inspect its acceptance checks and transition list; switch between the 2D, 3D and video views. On the fleet page, play the replay and check the launch, landing and touchdown events against the deck camera video. The trajectory is PX4's recorded estimate. For the fast replay, inspect all eight scenarios, camera frames, estimator behavior and security results. Reload the page after publishing to replace previously loaded data.
 
 ### Step 11.4 — Review your local Git changes
 
@@ -1027,7 +1028,7 @@ The parent `results.json` lists scenarios performed in that particular invocatio
 | `integration/observer_node.py` | Independent firmware and application evidence | Can it still record after the mission process group is killed? |
 | `integration/gcs_heartbeat.py` | Local MAVLink GCS heartbeat only | How is this different from the ROS offboard command path? |
 | `integration/run_sitl.py` | Process lifecycle, final parameters, injections and acceptance | Is each PASS based on observed state or merely requested action? |
-| `integration/test_contracts.py`, `integration/test_runner.py` | Twelve ROS boundary and process-cleanup regressions | Can a packet be fresh but invalid? |
+| `integration/test_contracts.py`, `integration/test_runner.py` | 25 ROS boundary, fleet station, deck-landing and process-cleanup regressions | Can a packet be fresh but invalid? |
 | `ros2/mission_interfaces/` | Typed Perception and Decision messages | Which data is needed to audit the inference/decision boundary? |
 | `scripts/` | Install, build and test entry points | Which script changes apt packages, and which just launches a run? |
 | `tools/publish_sample.py`, `tools/publish_sitl.py` | Gate and package reference evidence | Does publication preserve the full raw recording or a compact subset? |
@@ -1114,7 +1115,7 @@ The checked-in implementation and captured logs are the authority for what ran. 
 - [ ] CTest and the 35 lightweight Python tests pass.
 - [ ] All eight fast scenarios and all six security cases pass.
 - [ ] All nineteen integration regression tests pass.
-- [ ] A fresh `--all` flight run contains four passing scenarios with empty failed-check lists.
+- [ ] A fresh `--all` flight run contains five passing scenarios with empty failed-check lists.
 - [ ] I can identify arm/mode/land ACKs and distinguish PX4 navigation state from application state.
 - [ ] I inspected camera recovery, actual invalid GPS fix, and independent firmware response after the companion crash.
 - [ ] I preserved the raw logs/bags and published only evidence from the matching code/environment.

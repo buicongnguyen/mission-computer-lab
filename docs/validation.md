@@ -1,8 +1,12 @@
 # Validation record
 
+## Sixth review pass retest — 25 September 2026
+
+**Result: all five scenarios passed on the final code while recording video, and every recorded input hash matches the published source.** The four single-drone flights and the three-drone fleet ran as one matrix with `--video`, at below real time; the published samples and videos come from this run. Fleet: 32/32 checks; the three drones touched down 3.0, 3.4 and 3.7 cm from their pads while the carrier drove at 0.27 m/s; the closest approach between airborne drones was 1.71 m; the carrier travelled 11.7 m and stopped once. Current checks: one CTest executable, 35 lightweight Python tests (also under `python -O`), 25 ROS/runner regression tests, eight fast scenarios and six signed-artifact cases, plus three replay state tests, theme, diagram and link checks. The fleet page, both videos and the 3D views were inspected in headless Edge and from extracted video frames. Findings, fixes and verification are in [pass 6 of the review record](review-report.md#pass-6).
+
 ## Fifth review pass retest — 24 September 2026
 
-**Result: all four flight scenarios passed on the final code, and every recorded input hash matches the published source.** The published samples come from this run. Current checks: one CTest executable, 35 lightweight Python tests (also under `python -O`), 19 ROS/runner regression tests, eight fast scenarios and six signed-artifact cases, plus replay, theme, diagram and link checks. Findings, fixes and verification are in [pass 5 of the review record](review-report.md#pass-5).
+**Result: all four flight scenarios passed on the final code, and every recorded input hash matches the published source.** Its samples were later replaced by the pass 6 run. Current checks: one CTest executable, 35 lightweight Python tests (also under `python -O`), 19 ROS/runner regression tests, eight fast scenarios and six signed-artifact cases, plus replay, theme, diagram and link checks. Findings, fixes and verification are in [pass 5 of the review record](review-report.md#pass-5).
 
 ## Fourth review pass retest — 24 September 2026
 

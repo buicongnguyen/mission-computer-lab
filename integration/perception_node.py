@@ -9,13 +9,13 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 from mission_interfaces.msg import Perception
 from cryptography.exceptions import InvalidSignature
-from common import SENSOR_QOS, JsonLog
+from common import SENSOR_QOS, JsonLog, mission_topic
 from perception import Detector
 from security import boot_gate,load_public_key
 
 class PerceptionNode(Node):
     def __init__(self,args):
-        super().__init__('onnx_perception')
+        super().__init__('onnx_perception'+(f'_{args.ns}' if args.ns else ''))
         self.log=JsonLog(args.log)
         try:payload,stages=boot_gate(Path(args.model),load_public_key(args.public_key))
         except (OSError,ValueError,InvalidSignature) as error:
@@ -25,8 +25,8 @@ class PerceptionNode(Node):
         self.hash=hashlib.sha256(payload).hexdigest()
         self.log.write('boot',stages=stages,model_sha256=self.hash)
         self.detector=Detector(payload);self.seq=0
-        self.pub=self.create_publisher(Perception,'/mission/perception',SENSOR_QOS)
-        self.create_subscription(Image,'/mission/camera/image',self.frame,SENSOR_QOS)
+        self.pub=self.create_publisher(Perception,mission_topic('perception',args.ns),SENSOR_QOS)
+        self.create_subscription(Image,mission_topic('camera/image',args.ns),self.frame,SENSOR_QOS)
     def frame(self,msg):
         if msg.encoding!='rgb8' or (msg.height,msg.width,msg.step)!=(48,64,192):
             self.log.write('rejected_image',reason='unexpected_layout');return
@@ -42,7 +42,7 @@ class PerceptionNode(Node):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--model',required=True);p.add_argument('--public-key',required=True)
-    p.add_argument('--log',required=True);args=p.parse_args()
+    p.add_argument('--log',required=True);p.add_argument('--ns',default='');args=p.parse_args()
     rclpy.init();node=PerceptionNode(args)
     try:rclpy.spin(node)
     except KeyboardInterrupt:pass

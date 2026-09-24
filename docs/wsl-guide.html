@@ -33,7 +33,7 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 
 /* Paper is always light, whatever theme is on screen. */
 @media print{:root,:root:not([data-theme="light"]),:root[data-theme="dark"]{color-scheme:light;--bg:#fff;--surface:#fff;--surface-2:#e7f1f3;--code-bg:#eef3f5;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--quote-bg:#eef8f7;--quote-ink:#31505b;--pre-bg:#102c3b;--pre-ink:#e3f3f5}}
-</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flight replay</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>WSL runbook and extension guide</h1>
+</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flight replay</a><a href="../web/fleet.html">Fleet ops</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>WSL runbook and extension guide</h1>
 <p>This guide reproduces the executed pipeline. The baseline uses Ubuntu 22.04 in WSL2, C++17 and Python 3.10. It does not require ROS, Gazebo, Docker, a GPU, a Qualcomm SDK, or real flight hardware. The separate PX4/Gazebo/ROS integration has also been implemented and executed; use section 9 to reach its dedicated runbook.</p>
 <h2>1. Open the correct environment</h2>
 <p>From <strong>Windows PowerShell</strong>:</p>
@@ -111,7 +111,7 @@ sudo apt install -y build-essential cmake python3-venv python3-pip git
 <p>This first rechecks the full matrix, then copies the evidence into the shareable <code>artifacts/sample/</code> and the summary into <code>docs/execution.md</code>. A single-scenario run cannot replace the sample because the checker requires all eight scenarios.</p>
 <p>Open <code>web/index.html</code> in a Windows browser. It loads the committed sample directly from local files. Select a scenario, press Play, drag the time slider, and compare the trajectory, estimate, camera output and state events.</p>
 <p>From <strong>Windows PowerShell</strong>, one way to open it is:</p>
-<pre><code class="language-powershell">Start-Process &#39;C:\Users\n\source\repos\Drone_project\web\index.html&#39;
+<pre><code class="language-powershell">Start-Process &#39;&lt;your checkout&gt;\web\index.html&#39;
 </code></pre>
 <p>Alternatively, run a loopback-only server in <strong>Ubuntu</strong>, keep its terminal open, and open the URL in Windows:</p>
 <pre><code class="language-bash">.venv/bin/python -m http.server 8765 --bind 127.0.0.1

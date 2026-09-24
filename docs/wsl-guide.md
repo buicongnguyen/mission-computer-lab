@@ -92,7 +92,7 @@ Open `web/index.html` in a Windows browser. It loads the committed sample direct
 From **Windows PowerShell**, one way to open it is:
 
 ```powershell
-Start-Process 'C:\Users\n\source\repos\Drone_project\web\index.html'
+Start-Process '<your checkout>\web\index.html'
 ```
 
 Alternatively, run a loopback-only server in **Ubuntu**, keep its terminal open, and open the URL in Windows:

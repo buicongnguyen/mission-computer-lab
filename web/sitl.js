@@ -11,6 +11,24 @@
   const format=v=>Number(v).toFixed(2);
   let active,index=0,playing=false,last=0;
   const since=t=>format(Math.max(0,t-active.replay_start_wall_time));
+  // Views: the 2D map, the interactive 3D replay (created on first use) and the recorded Gazebo video.
+  let view='map',replay=null;
+  const views={map:$('view2d'),'3d':$('view3d'),video:$('viewVideo')};
+  function setView(next){view=next;Object.entries(views).forEach(([key,button])=>button.setAttribute('aria-pressed',String(key===next)));
+    $('map').hidden=next!=='map';$('scene3d').hidden=next!=='3d';$('videoPanel').hidden=next!=='video';
+    if(next!=='video')$('flightVideo').pause?.();
+    if(next==='3d'&&!replay&&window.Replay3D){try{replay=new window.Replay3D($('scene3d'));load3d();}catch(error){$('scene3d').textContent='The 3D view needs WebGL: '+error.message;}}
+    if(replay)replay.active=next==='3d';
+    draw();}
+  Object.entries(views).forEach(([key,button])=>button.addEventListener('click',()=>setView(key)));
+  function load3d(){if(!replay)return;const origin=active.plan?active.plan.origin:[0,0,0];
+    const plans=[...(active.plan?[{t:-Infinity,path:active.plan.path}]:[]),...(active.replans||[]).filter(r=>r.path.length).map(r=>({t:r.wall_time,path:r.path}))];
+    replay.load({obstacles:report.obstacles,markers:[{e:0,n:0,color:0xeaeaea},{e:9,n:9,color:0x1fb39b}],
+      vehicles:[{name:'x500',color:0x55d5b4,samples:active.trace.map(f=>({t:f.wall_time,e:f.ned[1],n:f.ned[0],u:-f.ned[2],valid:f.xy_valid!==false})),
+        plans:plans.map(p=>({t:p.t,points:p.path.map(([x,y])=>[x+origin[0],y+origin[1],3])}))}]});}
+  function loadVideo(){const video=$('flightVideo');video.pause?.();
+    if(active.video){video.src=`../artifacts/sitl-sample/${active.scenario}/${active.video}`;$('videoNote').textContent='Recorded by a fixed camera in the Gazebo world during this exact flight, in simulation time. The aircraft is PX4’s x500 model.';}
+    else{video.removeAttribute?.('src');$('videoNote').textContent='No simulator video was recorded for this run.';}}
   $('overall').textContent=`${report.results.filter(r=>r.passed).length} / ${report.results.length} pass`;
   $('provenance').textContent=`Recorded ${report.generated_utc} · ${report.environment.platform}`;
   report.results.forEach((r,i)=>{const o=document.createElement('option');o.value=i;o.textContent=r.scenario.replaceAll('_',' ');$('scenario').append(o);});
@@ -22,7 +40,8 @@
       ...(active.replans||[]).map(r=>({at:r.wall_time,text:r.path.length?`Planner REPLAN · ${r.path.length} cells`:'Planner NO ROUTE'}))];
     if(active.injected_at)events.push({at:active.injected_at,text:'FAULT INJECTED: '+active.scenario.replaceAll('_',' ')});
     events.sort((a,b)=>a.at-b.at);$('events').replaceChildren();
-    events.filter((e,i)=>!i||e.text!==events[i-1].text).forEach(e=>{const d=document.createElement('div');d.className='event';d.textContent=`${since(e.at)} s  ${e.text}`;$('events').append(d);});draw();
+    events.filter((e,i)=>!i||e.text!==events[i-1].text).forEach(e=>{const d=document.createElement('div');d.className='event';d.textContent=`${since(e.at)} s  ${e.text}`;$('events').append(d);});
+    loadVideo();load3d();draw();
   }
   // The route in force at a frame: the first plan, then any later replan.
   const routeAt=frame=>(active.replans||[]).filter(r=>r.wall_time<=frame.wall_time&&r.path.length).map(r=>r.path).at(-1)||(active.plan&&active.plan.path);
@@ -47,10 +66,17 @@
     if(valid){ctx.fillStyle='#55d5b4';ctx.fill();}else{ctx.strokeStyle='#8a9ba3';ctx.lineWidth=2;ctx.stroke();}
     ctx.fillStyle='#e7f4f5';ctx.font='16px system-ui';ctx.fillText(`Estimated altitude ${format(-frame.ned[2])} m${valid?'':' · horizontal estimate invalid'}`,25,h-60);
     if(active.injected_at&&frame.wall_time>=active.injected_at){ctx.fillStyle='#ffbe6b';ctx.fillText('FAULT INJECTED',w-195,30);}
+    if(replay&&view==='3d')replay.setTime(frame.wall_time);
   }
   $('scenario').addEventListener('change',select);$('time').addEventListener('input',e=>{index=Number(e.target.value);draw();});
   $('play').addEventListener('click',()=>{if(index===active.trace.length-1)index=0;playing=!playing;$('play').textContent=playing?'Pause':'Play';});
   function tick(now){if(playing&&now-last>=100){last=now;index=Math.min(index+1,active.trace.length-1);draw();if(index===active.trace.length-1){playing=false;$('play').textContent='Play';}}requestAnimationFrame(tick);}
   window.addEventListener('resize',()=>draw());
   select();requestAnimationFrame(tick);
+  // Deep links such as ?scenario=gps_loss&view=3d&t=0.6 open a scenario, view and point in the flight.
+  const query=typeof URLSearchParams==='function'?new URLSearchParams((window.location&&window.location.search)||''):null;
+  if(query){const wanted=report.results.findIndex(r=>r.scenario===query.get('scenario'));
+    if(wanted>=0){$('scenario').value=String(wanted);select();}
+    if(query.has('t')){index=Math.round(Math.min(1,Math.max(0,Number(query.get('t'))||0))*(active.trace.length-1));draw();}
+    if(['3d','video'].includes(query.get('view')))setView(query.get('view'));}
 })();

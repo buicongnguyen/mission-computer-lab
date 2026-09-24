@@ -1,6 +1,6 @@
 # References
 
-Every project this lab builds on, with its source repository, its official website or documentation, the exact version pinned here, and what it does in the lab. Links were checked on 24 September 2026. Pinned revisions are enforced by [`scripts/build_sitl.sh`](https://github.com/buicongnguyen/mission-computer-lab/blob/main/scripts/build_sitl.sh), `requirements*.lock.txt` and `package-lock.json`; the flight evidence records them again at run time.
+Every project this lab builds on, with its source repository, its official website or documentation, the exact version pinned here, and what it does in the lab. Links were checked on 25 September 2026. Pinned revisions are enforced by [`scripts/build_sitl.sh`](https://github.com/buicongnguyen/mission-computer-lab/blob/main/scripts/build_sitl.sh), `requirements*.lock.txt` and `package-lock.json`; the flight evidence records them again at run time.
 
 ## This project
 
@@ -9,6 +9,7 @@ Every project this lab builds on, with its source repository, its official websi
 | Source code | [github.com/buicongnguyen/mission-computer-lab](https://github.com/buicongnguyen/mission-computer-lab) |
 | Live replay site | [buicongnguyen.github.io/mission-computer-lab](https://buicongnguyen.github.io/mission-computer-lab/) |
 | PX4 flight replay | [web/sitl.html](https://buicongnguyen.github.io/mission-computer-lab/web/sitl.html) |
+| Fleet on a moving carrier | [web/fleet.html](https://buicongnguyen.github.io/mission-computer-lab/web/fleet.html) |
 | Fast policy replay | [web/index.html](https://buicongnguyen.github.io/mission-computer-lab/web/index.html) |
 
 ## Flight stack (executed)
@@ -21,7 +22,8 @@ Every project this lab builds on, with its source repository, its official websi
 | Micro XRCE-DDS Agent | v2.4.3 (`7362281`) | [eProsima/Micro-XRCE-DDS-Agent](https://github.com/eProsima/Micro-XRCE-DDS-Agent/tree/v2.4.3) | [Micro XRCE-DDS docs](https://micro-xrce-dds.docs.eprosima.com/) | Companion-side agent bridging PX4's client to the DDS/ROS 2 network |
 | ROS 2 Humble | Ubuntu 22.04 packages | [ros2/ros2](https://github.com/ros2/ros2) | [docs.ros.org/en/humble](https://docs.ros.org/en/humble/) | Nodes, typed interfaces and QoS for payload, perception and control |
 | rosbag2 | Humble | [ros2/rosbag2](https://github.com/ros2/rosbag2) | [docs.ros.org/en/humble](https://docs.ros.org/en/humble/) | Recording the decision, perception and LiDAR topics as evidence |
-| Gazebo Harmonic | `gz-harmonic` 1.0.0 | [gazebosim/gz-harmonic](https://github.com/gazebosim/gz-harmonic), [gazebosim/gz-sim](https://github.com/gazebosim/gz-sim) | [gazebosim.org](https://gazebosim.org/docs/harmonic/getstarted/) | Vehicle physics and the flight sensors PX4 consumes |
+| Gazebo Harmonic | `gz-harmonic` 1.0.0 | [gazebosim/gz-harmonic](https://github.com/gazebosim/gz-harmonic), [gazebosim/gz-sim](https://github.com/gazebosim/gz-sim) | [gazebosim.org](https://gazebosim.org/docs/harmonic/getstarted/) | Vehicle physics and the flight sensors PX4 consumes; the carrier's drive and odometry; offscreen rendering of the recording cameras |
+| ros_gz bridge | `ros-humble-ros-gzharmonic-bridge` 0.244.12 | [gazebosim/ros_gz](https://github.com/gazebosim/ros_gz/tree/humble/ros_gz_bridge) | [ROS 2 integration](https://gazebosim.org/docs/harmonic/ros2_integration/) | Simulation clock and the carrier's odometry and velocity topics between Gazebo and ROS 2 |
 | MAVLink and pymavlink | pymavlink 2.4.49 | [mavlink/mavlink](https://github.com/mavlink/mavlink), [ArduPilot/pymavlink](https://github.com/ArduPilot/pymavlink) | [mavlink.io](https://mavlink.io/en/) | Local ground-station heartbeat |
 
 ## Perception, security and tooling
@@ -35,6 +37,7 @@ Every project this lab builds on, with its source repository, its official websi
 | Mermaid | 11.17.2 | [mermaid-js/mermaid](https://github.com/mermaid-js/mermaid) | [mermaid.js.org](https://mermaid.js.org/) | Offline diagrams in the guides |
 | marked | 17.0.5 | [markedjs/marked](https://github.com/markedjs/marked) | [marked.js.org](https://marked.js.org/) | Rendering the Markdown guides to HTML |
 | jsdom | 26.1.0 | [jsdom/jsdom](https://github.com/jsdom/jsdom) | — | Inert DOM for diagram syntax tests |
+| three.js | 0.147.0 (r147) | [mrdoob/three.js](https://github.com/mrdoob/three.js/tree/r147) | [threejs.org](https://threejs.org/docs/) | Interactive 3D replay of recorded flights; the last release with a non-module build, so pages also work opened from disk |
 
 ## Upstream guides used for the integration
 
@@ -44,6 +47,9 @@ Every project this lab builds on, with its source repository, its official websi
 - [PX4 uXRCE-DDS bridge (v1.16)](https://docs.px4.io/v1.16/en/middleware/uxrce_dds): versioned topics such as `vehicle_status_v1`.
 - [PX4 Gazebo simulation (v1.16)](https://docs.px4.io/v1.16/en/sim_gazebo_gz/): standalone Gazebo mode and model/world selection.
 - [ROS 2 quality of service](https://docs.ros.org/en/humble/Concepts/Intermediate/About-Quality-of-Service-Settings.html): best-effort sensor subscriptions and endpoint compatibility.
+- [PX4 multi-vehicle simulation with Gazebo (v1.16)](https://docs.px4.io/v1.16/en/sim_gazebo_gz/multi_vehicle_simulation.html): instance numbers, model names and DDS namespaces for the fleet.
+- [ROS 2 clock and time design](https://design.ros2.org/articles/clock_and_time.html): `use_sim_time` and the `/clock` topic that keep every adapter on simulation time.
+- Gazebo system references: [CameraVideoRecorder](https://gazebosim.org/api/sim/8/classgz_1_1sim_1_1systems_1_1CameraVideoRecorder.html) for the recorded videos, [VelocityControl](https://gazebosim.org/api/sim/8/classgz_1_1sim_1_1systems_1_1VelocityControl.html) and [OdometryPublisher](https://gazebosim.org/api/sim/8/classgz_1_1sim_1_1systems_1_1OdometryPublisher.html) for the carrier.
 
 ## Target platforms (referenced, not executed)
 

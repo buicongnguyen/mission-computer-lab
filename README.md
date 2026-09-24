@@ -1,24 +1,26 @@
 # Mission Computer Lab
 
-A reproducible **PX4 + Gazebo + ROS 2 mission-computer simulation**, built around the split between a Qualcomm-class mission computer and an NXP-class PX4 flight controller. A C++17 supervisor gates mission intent on sensor freshness; ROS 2 carries typed payload and control messages over XRCE-DDS; real PX4 firmware flies a Gazebo x500 through takeoff, an A*-planned inspection route and landing. Faults are injected on purpose, and every outcome is checked from independently recorded telemetry.
+A reproducible **PX4 + Gazebo + ROS 2 mission-computer simulation**, built around the split between a Qualcomm-class mission computer and an NXP-class PX4 flight controller. A C++17 supervisor gates mission intent on sensor freshness; ROS 2 carries typed payload and control messages over XRCE-DDS; real PX4 firmware flies a Gazebo x500 through takeoff, an A*-planned inspection route and landing. Faults are injected on purpose, and every outcome is checked from independently recorded telemetry. A fleet scenario flies three drones from a moving carrier vehicle: a ground station sequences launches and landings, each drone flies its own altitude layer, and all three land back on their pads while the carrier drives.
 
-**Live replay: [buicongnguyen.github.io/mission-computer-lab](https://buicongnguyen.github.io/mission-computer-lab/)**: recorded PX4 flights, fault injections and acceptance checks, viewable in the browser without installing anything.
+**Live replay: [buicongnguyen.github.io/mission-computer-lab](https://buicongnguyen.github.io/mission-computer-lab/)**: recorded PX4 flights, fault injections, the fleet on its moving carrier, Gazebo video of each flight and an interactive 3D replay, viewable in the browser without installing anything.
 
 Everything runs on an x86-64 Ubuntu 22.04 host (WSL2). Qualcomm hardware, NPU execution and hardware secure boot are outside what was executed; [Honest boundaries](#honest-boundaries) lists exactly what was and was not run.
 
 ## At a glance
 
-- **4/4 real PX4 SITL flights pass**: nominal mission, camera dropout and recovery, companion-computer crash (PX4 failsafe takes over), and GPS fix loss (HOLD, then LAND). Each requires an observed, ordered climb → land → disarm cycle, not just accepted commands.
+- **5/5 real PX4 SITL scenarios pass**: nominal mission, camera dropout and recovery, companion-computer crash (PX4 failsafe takes over), GPS fix loss (HOLD, then LAND), and the three-drone fleet. Each requires an observed, ordered climb → land → disarm cycle, not just accepted commands.
+- **Fleet from a moving carrier**: three PX4 instances launch in turn from the carrier's pads, inspect separate goals at 3, 4 and 5 m, and land back on their own pads one at a time while the carrier drives at 0.27 m/s. Worst touchdown error 3.7 cm; closest approach between airborne drones 1.71 m; 32/32 fleet checks.
+- **See it fly**: every published flight has Gazebo video recorded in simulation time and an interactive three.js 3D replay; `--gui` opens the live Gazebo window for demonstrations.
 - **8/8 fast policy scenarios** in an accelerated harness, including IMU loss, link loss, inference overrun and low battery.
 - **Signed model boot gate**: the model is signed at release; at boot the stored file is verified (Ed25519, version floor, device binding) and only the verified bytes are loaded. Tampered or unsigned models stop the perception node.
-- **Layered tests**: C++ contract suite, 35 Python tests (including multi-seed closed-loop runs), 19 ROS boundary tests, dashboard state tests, Mermaid/HTML checks, and CI that also runs the suite under `python -O`.
-- **Five recorded review passes**: each defect is paired with its fix and regression test in [the review record](docs/review-report.md).
+- **Layered tests**: C++ contract suite, 35 Python tests (including multi-seed closed-loop runs), 25 ROS boundary tests (including the fleet station and deck landing), three replay state tests, Mermaid/HTML checks, and CI that also runs the suite under `python -O`.
+- **Six recorded review passes**: each defect is paired with its fix and regression test in [the review record](docs/review-report.md).
 
 ## Ten-minute tour
 
-1. **See it fly**: the [live flight replay](https://buicongnguyen.github.io/mission-computer-lab/web/sitl.html) (or [`web/sitl.html`](web/sitl.html) in a clone) replays recorded PX4 telemetry, mode transitions and acceptance checks for all four flights. The [fast policy replay](https://buicongnguyen.github.io/mission-computer-lab/web/index.html) covers all eight harness scenarios.
+1. **See it fly**: the [live flight replay](https://buicongnguyen.github.io/mission-computer-lab/web/sitl.html) (or [`web/sitl.html`](web/sitl.html) in a clone) replays recorded PX4 telemetry, mode transitions and acceptance checks for all four single-drone flights, as a 2D map, a 3D scene or the Gazebo video. The [fleet page](https://buicongnguyen.github.io/mission-computer-lab/web/fleet.html) shows the three drones and the moving carrier, with an overview video and the carrier's deck camera. The [fast policy replay](https://buicongnguyen.github.io/mission-computer-lab/web/index.html) covers all eight harness scenarios.
 2. **Understand the design**: [architecture and contracts](docs/architecture.md): data path, supervisor protocol, state machine, threat model.
-3. **Read the core**: [`src/supervisor.cpp`](src/supervisor.cpp) (health policy, ~80 lines) and [`integration/mission_node.py`](integration/mission_node.py) (ROS ↔ PX4 adapter: freshness, frames, arming rules, handoff to PX4).
+3. **Read the core**: [`src/supervisor.cpp`](src/supervisor.cpp) (health policy, ~80 lines), [`integration/mission_node.py`](integration/mission_node.py) (ROS ↔ PX4 adapter: freshness, frames, arming rules, handoff to PX4), and for the fleet [`integration/fleet_station_node.py`](integration/fleet_station_node.py) and [`integration/fleet_mission_node.py`](integration/fleet_mission_node.py).
 4. **Check the evidence**: [flight results and exact upstream revisions](docs/sitl-execution.md) and [the review record](docs/review-report.md).
 
 ## How the project maps to mission-computer work
@@ -31,9 +33,10 @@ Everything runs on an x86-64 Ubuntu 22.04 host (WSL2). Qualcomm hardware, NPU ex
 | Reliability and failure ownership | HOLD/LAND supervisor with dwell times and intermittent-fault escalation; permanent handoff to PX4 on failsafe, disarm, estimator loss or operator mode change; companion-crash failsafe | Hardware-in-the-loop and flight qualification |
 | AI/ML deployment | CPU `ExecutionProvider` selected and recorded; latency budget enforced by the supervisor | QNN/NPU conversion, quantization, profiling, power/thermal |
 | Platform security | Signed artifact manifest (hash, version floor, device identity) verified from disk at boot; six tamper/rollback/identity cases; threat model | Boot ROM, fuses, TEE, protected key provisioning, persistent anti-rollback |
-| Telemetry, logging, diagnostics | Independent observer process, JSONL logs, ROS bags, PX4 logs, run-time provenance hashes | Fleet telemetry and on-target diagnostics |
+| Multi-vehicle operations | Three PX4 instances with per-vehicle namespaces and system IDs; a station on a moving carrier that grants launch and landing clearances; altitude layering; lead-compensated landing on a moving deck with go-around | Radio links and their latency or loss, relative positioning on the deck (RTK or vision), deck motion, wind, airspace procedures |
+| Telemetry, logging, diagnostics | Independent observer per vehicle, JSONL logs, ROS bags, PX4 logs, a station log, run-time provenance hashes | Fleet telemetry at scale and on-target diagnostics |
 | DevOps and testing | CMake/CTest, unittest suites, GitHub Actions, docs drift check, evidence schema gates | Target image builds (Yocto/BSP) |
-| Operator dashboards | Two offline JavaScript replays driven by recorded results, with light and dark themes | Live ground-station UI |
+| Operator dashboards | Three offline replays driven by recorded results (2D, 3D and recorded Gazebo video), with light and dark themes | Live ground-station UI |
 
 ## What actually runs
 
@@ -46,6 +49,9 @@ C++17 mission supervisor ↔ Python via actual process IPC
           ↓
 ROS offboard velocity + mode/arm/land commands → PX4 → Gazebo x500
 Independent observer + ROS bag + firmware logs → acceptance checks → replay
+
+Fleet: station on a moving carrier → launch/land clearances → three copies of the stack above
+Gazebo overview and deck cameras → H.264 video in simulation time → replay pages
 ```
 
 The ONNX graph is hand-authored brightness segmentation. Perception freshness gates mission health; detections do not steer or pursue objects. Procedural LiDAR builds the occupancy map; scans taken in flight trigger a replan if they reveal an obstacle the first scan could not see. PX4 uses EKF2 in SITL; the separate fast harness uses an educational six-state filter. Neither demonstrates GPS-denied SLAM. The MAVLink process supplies a local GCS heartbeat; offboard control uses ROS 2/DDS.
@@ -61,14 +67,16 @@ bash scripts/run_all.sh
 .venv/bin/python tools/publish_sample.py
 ```
 
-Then open `web/index.html`. The committed samples make both replays usable without installing anything; for a loopback server run `python3 -m http.server 8765 --bind 127.0.0.1` and open `http://localhost:8765/web/sitl.html`.
+Then open `web/index.html`. The committed samples make every replay usable without installing anything; for a loopback server run `python3 -m http.server 8765 --bind 127.0.0.1` and open `http://localhost:8765/web/sitl.html`.
 
 **Real PX4 flights** (after the one-time install and build in [the SITL guide](docs/sitl-guide.md)):
 
 ```bash
-bash scripts/run_sitl.sh --all --output ~/work/mission-computer-lab/retests/my-run
+bash scripts/run_sitl.sh --all --video --output ~/work/mission-computer-lab/retests/my-run
 ~/work/mission-computer-lab/venv/bin/python tools/publish_sitl.py --input ~/work/mission-computer-lab/retests/my-run
 ```
+
+`--all` runs the four single-drone scenarios and then the fleet. `--video` records each flight from the world's cameras; `--gui` also opens the live Gazebo window (WSLg). For one scenario use `--scenario fleet_carrier` (or `nominal`, `camera_dropout`, `companion_crash`, `gps_loss`).
 
 Run one instance at a time, with no flight hardware attached. [The complete reproduction guide](docs/complete-reproduction-guide.md) covers fresh setup, every test layer, evidence inspection and the debugging history.
 
@@ -76,12 +84,12 @@ Run one instance at a time, with no flight hardware attached. [The complete repr
 
 | Layer | Result | Where |
 |---|---|---|
-| PX4 / Gazebo / ROS 2 flights | 4/4 scenarios, all named checks pass, inputs unchanged during the run | [SITL report](docs/sitl-execution.md), [raw evidence](artifacts/sitl-sample/report.json) |
+| PX4 / Gazebo / ROS 2 flights | 5/5 scenarios (four single-drone, one three-drone fleet), all named checks pass, inputs unchanged during the run | [SITL report](docs/sitl-execution.md), [raw evidence](artifacts/sitl-sample/report.json) |
 | Fast policy scenarios | 8/8 | [Execution report](docs/execution.md) |
 | Signed-artifact policy cases | 6/6 behave as specified | Same report |
 | C++ supervisor contracts | 1 CTest program, including degraded-link escalation | [`tests/test_supervisor.cpp`](tests/test_supervisor.cpp) |
 | Python unit and process tests | 35 | [`tests/`](tests/) |
-| ROS boundary and runner tests | 19 | [`integration/test_*.py`](integration/) |
+| ROS boundary and runner tests | 25 | [`integration/test_*.py`](integration/) |
 
 | Fast scenario | Intended evidence |
 |---|---|
@@ -98,9 +106,9 @@ Timings are WSL wall-clock observations of a tiny graph and local IPC, not real-
 
 ## Honest boundaries
 
-**Executed:** PX4 SITL, Gazebo physics and flight sensors, EKF2, ROS 2 typed payload messages, DDS, MAVLink heartbeat, procedural camera/LiDAR, CPU ONNX, A*, C++ supervision and process kill, Ed25519 artifact verification, fault checks and recorded replays.
+**Executed:** PX4 SITL (one vehicle, and three at once for the fleet), Gazebo physics and flight sensors, a driven carrier vehicle, Gazebo-rendered recording cameras, EKF2, ROS 2 typed payload messages, DDS, MAVLink heartbeat, procedural camera/LiDAR, CPU ONNX, A*, C++ supervision and process kill, Ed25519 artifact verification, fault checks and recorded replays.
 
-**Not executed:** Qualcomm BSP/boot ROM/fuses/TEE, NPU/GPU inference, rendered Gazebo payload camera/LiDAR, trained detection, VIO, real OTA installation or physical drone tests. Battery input in the SITL adapter is fixed at a simulated 95%; low-battery policy is tested in the fast harness. The signing key is ephemeral per run and its public key is not in protected storage.
+**Not executed:** Qualcomm BSP/boot ROM/fuses/TEE, NPU/GPU inference, rendered Gazebo payload camera/LiDAR (the rendered cameras only film the flights), inter-vehicle radio links, relative positioning for deck landing, deck motion or wind, re-launching from a moving deck (stock PX4 GNSS checks read the deck's motion as drift; see [the SITL guide](docs/sitl-guide.md)), trained detection, VIO, real OTA installation or physical drone tests. Battery input in the SITL adapter is fixed at a simulated 95%; low-battery policy is tested in the fast harness. The signing key is ephemeral per run and its public key is not in protected storage.
 
 No credentials or production signing keys are included. This repository does not establish safety, security or aerospace certification.
 
@@ -111,10 +119,10 @@ No credentials or production signing keys are included. This repository does not
 | `src/`, `include/` | C++ supervisor, validation and process protocol |
 | `tools/` | Sensors, perception, estimator/planner, security, evidence harness and publishers |
 | `integration/`, `ros2/` | ROS nodes, typed interfaces, MAVLink heartbeat and real flight orchestrator |
-| `simulation/` | Gazebo inspection world with x500 and obstacles |
+| `simulation/` | Gazebo worlds: single-drone inspection, and the fleet with a moving carrier; each has recording cameras |
 | `tests/` | Policy, model, planning, localization, security, transport and evidence checks |
 | `scripts/` | WSL bootstrap, SITL install/build and one-command verification |
-| `web/` | Replay dashboards driven by recorded results |
+| `web/` | Replay dashboards (2D, 3D, video) driven by recorded results; three.js vendored in `web/vendor/` |
 | `artifacts/sample/`, `artifacts/sitl-sample/` | Compact reference evidence for both replays |
 | `docs/` | Architecture, runbooks, domain notes, references, execution reports and review record (Markdown with rendered HTML) |
 
@@ -133,3 +141,4 @@ The core open-source stack, pinned to the versions the evidence was recorded wit
 | Gazebo | Harmonic | [gazebosim/gz-sim](https://github.com/gazebosim/gz-sim), [PX4/PX4-gazebo-models](https://github.com/PX4/PX4-gazebo-models) | [gazebosim.org](https://gazebosim.org/docs/harmonic/getstarted/) |
 | ONNX Runtime | 1.20.1 | [microsoft/onnxruntime](https://github.com/microsoft/onnxruntime) | [onnxruntime.ai](https://onnxruntime.ai/) |
 | MAVLink | pymavlink 2.4.49 | [mavlink/mavlink](https://github.com/mavlink/mavlink) | [mavlink.io](https://mavlink.io/en/) |
+| three.js | 0.147.0 | [mrdoob/three.js](https://github.com/mrdoob/three.js/tree/r147) | [threejs.org](https://threejs.org/docs/) |

@@ -1,6 +1,6 @@
 # Logic and code review record
 
-Review dates: 23 September 2026 (passes 1–3) and 24 September 2026 (passes 4 and 5). Scope: the WSL mission-computer lab, including C++ policy contracts, Python adapters and transport, flight orchestration, evidence publication, replays and guides. Five sequential passes were performed over the same implementation; later passes also reviewed earlier fixes. This is a local engineering review, not a flight qualification or a claim that all possible defects have been eliminated.
+Review dates: 23 September 2026 (passes 1–3), 24 September 2026 (passes 4 and 5) and 25 September 2026 (pass 6). Scope: the WSL mission-computer lab, including C++ policy contracts, Python adapters and transport, flight orchestration, evidence publication, replays and guides. Six sequential passes were performed over the same implementation; later passes also reviewed earlier fixes. This is a local engineering review, not a flight qualification or a claim that all possible defects have been eliminated.
 
 The current source contains the fixes below. The measured reference artifacts identify runtime inputs by SHA-256, including source changes that were uncommitted when tested.
 
@@ -112,11 +112,43 @@ Also added: light and dark themes with a remembered toggle and theme-aware diagr
 
 Not changed, and recorded as remaining work: the ROS contract tests still need a ROS container job before CI can run them, DDS traffic is not isolated or authenticated, and the SITL battery input remains fixed.
 
+<a id="pass-6"></a>
+## Pass 6 — Watching the flights, and a fleet from a moving carrier
+
+Review date: 25 September 2026. This pass added three ways to see the simulation (Gazebo video recorded during each flight, a live Gazebo window for demonstrations, and an interactive 3D replay) and a new scenario: three drones launching from and landing back on a moving carrier vehicle. Building the fleet exposed defects that a single drone at the origin could not. Most first appeared in failed or incorrect runs (the first recording run and fleet runs 1 to 3); the station's clock, the payload's first-pose handling and the recording timeout were found by reviewing the new code.
+
+| Finding | Why it mattered | Fix and regression evidence |
+|---|---|---|
+| High: the adapters judged freshness on the wall clock while PX4 ran on simulation time | Recording video slows the simulation (real-time factor 0.64 with one camera, 0.41 with two). On the first fleet run, healthy telemetry aged past its wall-clock deadlines on the ground, and the supervisors escalated to LAND before take-off | Gazebo's `/clock` is bridged into ROS and every adapter runs with `use_sim_time`, matching the supervisor contract's single simulation clock; hardware still uses the monotonic clock. Evidence: every scenario in the published matrix passed while recording, at well below real time |
+| High: every command was addressed to system 1 | In the fleet, the second vehicle ignored 142 arm and mode requests and never took off, because PX4 accepts only commands addressed to its own `MAV_SYS_ID` | Each adapter takes `--system-id` (PX4 instance + 1). Contract test `test_commands_are_addressed_to_this_vehicle` |
+| Medium: the carrier restarted after its final stop | Landed vehicles keep reporting their last phase, `descend`, which satisfied the start condition again, so the carrier drove off with the fleet on board | A `parked` latch makes the stop final. Contract test drives the station through recovery and asserts exactly one start and one stop |
+| Medium: the station timed launch spacing on the wall clock | At reduced real-time factor the 4 s gap shrank in simulated time | The station runs on simulation time. Contract test checks both the airborne condition and the gap with an injected clock |
+| Medium: only PX4 instance 0 received a ground-station heartbeat | Instances 1 and 2 failed preflight with "No connection to the ground control station" | The heartbeat process sends to each instance's MAVLink port |
+| Medium: `--video` silently produced no file | Gazebo's recorder encodes to a temporary file in the server's working directory and renames it on stop; the rename cannot cross from Linux storage to the Windows mount | Gazebo runs in the output directory; results list a video only when the file exists, and the fleet page test requires each published video |
+| Medium, recorded and not changed: PX4 treats a moving deck as GNSS drift | After touchdown each drone's estimate stayed where it landed while the carrier carried it away (up to 4 m of error), and PX4 reported "GPS Horizontal Pos Drift too high". EKF2 runs its GNSS drift and speed checks only on the ground and at rest, and a drone on a deck at a steady 0.27 m/s is at rest to its IMU, so EKF2 skips the GNSS samples. The failing preflight check would also block re-arming while the carrier moves (observed as a preflight failure; re-arming was not attempted) | Firmware settings were left at their defaults, because loosening a GNSS quality gate is an aircraft-level decision. The acceptance checks already use only touchdown and airborne samples. The fleet replay now draws landed drones on their pads, with a regression assertion, and the SITL guide explains the behavior and the design options |
+| Low: fleet-only integration faults | A camera named `deck` on a link with a `deck` visual crashed Gazebo; a station log field named `kind` collided with the logger's own argument; payload scans before the first pose were placed at the world origin, wrong for vehicles spawned elsewhere; the wall-clock timeout did not allow for slower recording runs | Unique sensor names; the field is `grant`; no scan until a pose arrives, with each vehicle's spawn offset applied; the timeout scales by 2.5 with `--video`. Contract tests cover landing order (one at a time, lowest holding layer first), lead-compensated pad tracking and the descent go-around |
+
+Added in this pass: `simulation/worlds/fleet.sdf` (carrier with three pads, a deck camera and an overview camera), `integration/fleet_mission_node.py` and `integration/fleet_station_node.py`, per-vehicle namespaces throughout the adapters, the [fleet page](../web/fleet.html) with 3D and video views, the 3D and video views on the [flight replay](../web/sitl.html), and a fleet page state test in CI.
+
+| Pass 6 verification | Observed result |
+|---|---|
+| C++ Release build and CTest | 1/1 passed |
+| Lightweight Python tests | 35/35 passed; also under `python -O` |
+| ROS boundary and runner tests | 25/25 passed, including five new fleet tests: launch spacing, carrier parking, landing order, pad lead and go-around |
+| Fast scenario matrix / signed-artifact cases | 8/8 passed / 6/6 behaved as specified |
+| PX4/Gazebo/ROS matrix with video on the final code | 5/5 passed: the four single-drone flights with every named check, then the fleet with 32/32 checks; `inputs_unchanged: true`; all 37 recorded source hashes match the published files; about 11 minutes of wall time at below real-time speed |
+| Fleet measurements | Touchdown 3.0, 3.4 and 3.7 cm from the pads with the carrier at 0.27 m/s; closest approach between airborne drones 1.71 m; minimum estimated obstacle clearance 1.23 m; carrier travel 11.7 m with one start and one stop |
+| Recorded video | Six recordings (four single-drone, fleet overview and deck camera), 23 MB in total at 600 kbps; frames from every recording were extracted and inspected |
+| Web checks | Six Mermaid diagrams parse; the three replay state suites, the theme test and link checks pass on the repository and on the assembled Pages layout; the fleet page, its 3D view and the architecture diagram were inspected in headless Edge |
+
+Not changed, and recorded as remaining work: the ROS contract tests still need a ROS container job before CI can run them, the moving-deck GNSS behavior above needs an aircraft-level design before any re-launch from a moving carrier, and the station has no lost-link or authentication model.
+
 ## Diagrams and how to read them
 
 | Document | Diagram | What it explains |
 |---|---|---|
 | [Architecture](architecture.md) | Fast-harness data-flow chart | Sensor, estimator, planner, supervisor and evidence paths; bounding boxes are observations rather than steering commands |
+| [Architecture](architecture.md) | Fleet data-flow chart | Station, carrier and three per-vehicle stacks; what flows to and from the station |
 | [Architecture](architecture.md) | C++ state graph | INIT, ACTIVE, HOLD, LAND and COMPLETE; the ROS handoff boundary is explained alongside it |
 | [SITL runbook](sitl-guide.md) | Mermaid sequence diagram | Process startup, typed data, supervision, terminal handoff, crash fallback and independent flight observations |
 | [Complete reproduction guide](complete-reproduction-guide.md#pipeline) | Dependency graph | WSL, compiler, Python, ROS, PX4, Gazebo, interfaces, tests and generated documentation |
@@ -137,18 +169,18 @@ bash scripts/test_integration.sh
 .venv/bin/python -O -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-Expected: one CTest executable passes; 35 lightweight Python tests pass; eight fast scenarios pass; six security experiments behave as specified; 19 integration tests pass. Running the Python cases with `-O` also verifies evidence gates do not rely on removable `assert` statements. These commands do not start a physical aircraft.
+Expected: one CTest executable passes; 35 lightweight Python tests pass; eight fast scenarios pass; six security experiments behave as specified; 25 integration tests pass. Running the Python cases with `-O` also verifies evidence gates do not rely on removable `assert` statements. These commands do not start a physical aircraft.
 
 For the actual flight matrix, use a fresh Linux output directory and retain it for later inspection:
 
 ```bash
 export SITL_WORKSPACE="$HOME/work/mission-computer-lab"
 REVIEW_RUN="$SITL_WORKSPACE/retests/review-$(date +%Y%m%d-%H%M%S)"
-bash scripts/run_sitl.sh --all --output "$REVIEW_RUN" --timeout 150
+bash scripts/run_sitl.sh --all --video --output "$REVIEW_RUN"
 echo "Flight runner exit code: $?"
 ```
 
-Expect four PASS lines and exit code zero. Do not publish if the runner failed. `results.json` contains detailed named checks; `provenance.json` must have `inputs_unchanged: true`. If a run fails, inspect its scenario `result.json`, `runner-error.log` if present, application logs and independent `observer.jsonl` before making a new attempt. Process cleanup still runs on a caught failure. Keep failed runs for comparison.
+Expect five PASS lines (four single-drone scenarios, then the fleet) and exit code zero. Do not publish if the runner failed. `results.json` contains detailed named checks; `provenance.json` must have `inputs_unchanged: true`. If a run fails, inspect its scenario `result.json`, `runner-error.log` if present, application logs and independent `observer.jsonl` before making a new attempt. Process cleanup still runs on a caught failure. Keep failed runs for comparison.
 
 After a successful full matrix:
 
@@ -165,6 +197,8 @@ npm run docs
 node tests/test_diagrams.mjs
 node tests/test_dashboard.mjs
 node tests/test_sitl_dashboard.mjs
+node tests/test_fleet_dashboard.mjs
+node tests/test_theme.mjs
 npm audit
 ```
 
@@ -175,7 +209,7 @@ Back in Ubuntu WSL:
 git diff --check
 ```
 
-Expect five Mermaid definitions to parse, offline bundle checks to pass, both replay state suites to pass and all local HTML links/anchors to resolve. The audit result can change as new advisories are published.
+Expect every Mermaid definition to parse, offline bundle checks to pass, all three replay state suites and the theme test to pass, and all local HTML links and anchors to resolve. The audit result can change as new advisories are published.
 
 ## Recorded verification and remaining boundaries
 

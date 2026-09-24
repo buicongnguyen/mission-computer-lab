@@ -61,7 +61,7 @@ def flight_cycle_checks(records,gps_loss_at=None):
                 (gps_loss_at is not None and p['wall_time']>=gps_loss_at) for p in positions))}
 
 
-def bag_has_topics(folder):
+def bag_has_topics(folder,topics=('/mission/decision','/mission/perception','/mission/lidar/scan')):
     if not (folder/'metadata.yaml').is_file():return False
     seen=set()
     for database in folder.glob('*.db3'):
@@ -69,4 +69,4 @@ def bag_has_topics(folder):
         with closing(sqlite3.connect(database.as_uri()+'?mode=ro',uri=True)) as connection:
             seen.update(row[0] for row in connection.execute(
                 'SELECT DISTINCT topics.name FROM topics JOIN messages ON messages.topic_id=topics.id'))
-    return {'/mission/decision','/mission/perception','/mission/lidar/scan'}<=seen
+    return set(topics)<=seen

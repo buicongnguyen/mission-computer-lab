@@ -20,7 +20,18 @@ from evidence_contracts import read_records,flight_cycle_checks,bag_has_topics
 from perception import create_model
 from provenance import capture
 from security import provision,public_key_hex
-SCENARIOS=('nominal','camera_dropout','companion_crash','gps_loss')
+SCENARIOS=('nominal','camera_dropout','companion_crash','gps_loss','fleet_carrier')
+# Three vehicles launch from pads on a carrier; each flies its own leg at its own altitude layer.
+FLEET=[{'ns':'px4_0','pad':-1.1,'goal':(9,9),'altitude':3.},
+       {'ns':'px4_1','pad':0.,'goal':(10,3),'altitude':4.},
+       {'ns':'px4_2','pad':1.1,'goal':(-1,10),'altitude':5.}]
+CARRIER_START=(0.,-1.5);DECK=0.6
+# Adapter nodes judge freshness on Gazebo's clock, as PX4 does: recording video can slow the simulation
+# below real time, and wall-clock freshness would then report healthy links as stale.
+SIM_TIME=['--ros-args','-p','use_sim_time:=true']
+CLOCK_BRIDGE='/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'
+SITL_PARAMETERS={'COM_RC_IN_MODE':'4','COM_RCL_EXCEPT':'4','NAV_DLL_ACT':'2','COM_OF_LOSS_T':'0.5',
+                 'COM_OBL_RC_ACT':'4','COM_FAIL_ACT_T':'0','COM_DISARM_LAND':'1','SYS_FAILURE_EN':'1'}
 
 class Processes:
     def __init__(self,output,env):self.output=output;self.env=env;self.children=[];self.handles=[]
@@ -47,7 +58,16 @@ class Processes:
         for h in self.handles:h.close()
         if errors:raise RuntimeError('Cleanup failed: '+'; '.join(errors))
 
-def run_scenario(name,workspace,base_output,timeout):
+def record_video(env,path=None,service='/overview/record_video'):
+    """Start recording a world camera to `path`, or stop when `path` is None."""
+    request=f'start: true, format: "mp4", save_filename: "{path}"' if path else 'stop: true'
+    reply=subprocess.run(['gz','service','-s',service,'--reqtype','gz.msgs.VideoRecord',
+                          '--reptype','gz.msgs.Boolean','--timeout','5000','--req',request],
+                         env=env,capture_output=True,text=True,timeout=15)
+    if 'data: true' not in reply.stdout:
+        raise RuntimeError('Video recorder did not '+('start' if path else 'stop')+': '+(reply.stdout+reply.stderr).strip())
+
+def run_scenario(name,workspace,base_output,timeout,video=False,gui=False):
     output=base_output/name
     if output.exists():raise RuntimeError(f'Output already exists: {output}. Choose a fresh --output directory.')
     output.mkdir(parents=True);run_dir=workspace/'runs'/f'{name}-{time.time_ns()}';run_dir.mkdir(parents=True)
@@ -61,14 +81,19 @@ def run_scenario(name,workspace,base_output,timeout):
         'PX4_PARAM_COM_OBL_RC_ACT':'4','PX4_PARAM_COM_FAIL_ACT_T':'0','PX4_PARAM_COM_DISARM_LAND':'1',
         'PX4_PARAM_SYS_FAILURE_EN':'1'})
     processes=Processes(output,env);injected_at=None;last_progress=0;error=None
-    launched=time.monotonic();armed_seen=False;flying_since=None
+    launched=time.monotonic();armed_seen=False;flying_since=None;recording=False
     try:
         agent_library_path=str(workspace/'agent-install/lib')+':'+env.get('LD_LIBRARY_PATH','')
         processes.launch('agent',['env','LD_LIBRARY_PATH='+agent_library_path,
                                   str(workspace/'agent-install/bin/MicroXRCEAgent'),'udp4','-p','8888','-v','3'])
-        processes.launch('gazebo',['gz','sim','-r','-s',str(ROOT/'simulation/worlds/inspection.sdf')])
+        # Headless EGL rendering serves the overview camera; it does not change the flight physics. The
+        # recorder encodes to a temporary file in the server's working directory and renames it on stop,
+        # so run the server in the output folder (a rename cannot cross from /mnt/c to the Linux disk).
+        processes.launch('gazebo',['gz','sim','-r','-s','-v','2','--headless-rendering',
+                                   str(ROOT/'simulation/worlds/inspection.sdf')],cwd=output)
         processes.launch('px4',[str(build/'bin/px4'),'-d',str(build/'etc'),'-w',str(run_dir)])
         processes.launch('gcs',[sys.executable,str(ROOT/'integration/gcs_heartbeat.py')])
+        if gui:processes.launch('gui',['gz','sim','-g'])  # Live 3D view (WSLg); closing it does not fail the run.
         # Airframe startup can overwrite environment parameter overrides. Apply
         # and record the final simulation policy only after rcS has completed.
         startup_deadline=time.monotonic()+40
@@ -84,8 +109,10 @@ def run_scenario(name,workspace,base_output,timeout):
                                    stdout=parameter_log,stderr=subprocess.STDOUT,check=True,timeout=5)
                     subprocess.run([str(build/'bin/px4-param'),'show',parameter],env=env,
                                    stdout=parameter_log,stderr=subprocess.STDOUT,check=True,timeout=5)
+        if video:record_video(env,output/'flight.mp4');recording=True
         processes.launch('observer',[sys.executable,str(ROOT/'integration/observer_node.py'),'--log',str(output/'observer.jsonl')])
-        payload=processes.launch('payload',[sys.executable,str(ROOT/'integration/payload_node.py'),'--camera-drop-for','0.8'])
+        processes.launch('clock',['ros2','run','ros_gz_bridge','parameter_bridge',CLOCK_BRIDGE])
+        payload=processes.launch('payload',[sys.executable,str(ROOT/'integration/payload_node.py'),'--camera-drop-for','0.8',*SIM_TIME])
         # Act as the release authority: sign the stored model, keep the private key in memory and
         # hand the node only a public key stored outside the artifact folder.
         model=output/'detector.onnx';create_model(model);release_key=Ed25519PrivateKey.generate()
@@ -95,13 +122,14 @@ def run_scenario(name,workspace,base_output,timeout):
                          '--model',str(model),'--public-key',str(trust_anchor),'--log',str(output/'perception.jsonl')])
         mission=processes.launch('mission',[sys.executable,str(ROOT/'integration/mission_node.py'),
                              '--allow-sitl','--log',str(output/'mission.jsonl'),
-                             '--model-sha256',hashlib.sha256(model.read_bytes()).hexdigest()])
+                             '--model-sha256',hashlib.sha256(model.read_bytes()).hexdigest(),*SIM_TIME])
         # Capture selected typed application topics; raw firmware evidence is independently logged.
         processes.launch('rosbag',['ros2','bag','record','-o',str(output/'rosbag'),
                                   '/mission/decision','/mission/perception','/mission/lidar/scan'])
         while time.monotonic()-launched<timeout:
             time.sleep(0.25)
-            failures=[n for n,p in processes.children if p.poll() is not None and not(n=='mission' and name=='companion_crash' and injected_at)]
+            failures=[n for n,p in processes.children if p.poll() is not None and n!='gui'
+                      and not(n=='mission' and name=='companion_crash' and injected_at)]
             if failures:raise RuntimeError('Processes exited: '+', '.join(failures))
             records=read_records(output/'observer.jsonl',live=True)
             states=[r for r in records if r['kind']=='status'];poses=[r for r in records if r['kind']=='position']
@@ -132,6 +160,14 @@ def run_scenario(name,workspace,base_output,timeout):
         error=str(exc)
         (output/'runner-error.log').write_text(traceback.format_exc(),encoding='utf-8')
     finally:
+        if recording:
+            # Stop while Gazebo still runs, then give the encoder a moment to finalize the file.
+            try:
+                record_video(env)
+                for _ in range(50):
+                    if (output/'flight.mp4').is_file() and (output/'flight.mp4').stat().st_size:break
+                    time.sleep(0.1)
+            except Exception as exc:error=(error+'; ' if error else '')+str(exc)
         try:processes.close()
         except Exception as exc:error=(error+'; ' if error else '')+str(exc)
     records=read_records(output/'observer.jsonl');mission_records=read_records(output/'mission.jsonl')
@@ -185,7 +221,157 @@ def run_scenario(name,workspace,base_output,timeout):
             'trace':poses,'decisions':decisions,'mission_transitions':transitions,
             'gps_states':[r for r in records if r['kind']=='gps'],
             'plan':next((r for r in mission_records if r['kind']=='plan'),None),
-            'replans':[r for r in mission_records if r['kind']=='replan']}
+            'replans':[r for r in mission_records if r['kind']=='replan'],
+            'video':'flight.mp4' if (output/'flight.mp4').is_file() else None}
+    (output/'result.json').write_text(json.dumps(result,indent=2,allow_nan=False),encoding='utf-8')
+    print(name,'PASS' if result['passed'] else 'FAIL',json.dumps(checks),error or '',flush=True)
+    return result
+
+def resample(trace,times):
+    """World positions at the given wall times (nearest earlier sample), or None before the first sample."""
+    out,i=[],0
+    for t in times:
+        while i+1<len(trace) and trace[i+1]['wall_time']<=t:i+=1
+        out.append(trace[i] if trace and trace[0]['wall_time']<=t else None)
+    return out
+
+def run_fleet(workspace,base_output,timeout,video=False,gui=False):
+    name='fleet_carrier';output=base_output/name
+    if output.exists():raise RuntimeError(f'Output already exists: {output}. Choose a fresh --output directory.')
+    output.mkdir(parents=True);stamp=time.time_ns()
+    px4=workspace/'PX4-Autopilot';build=px4/'build/px4_sitl_default'
+    env={k:v for k,v in os.environ.items() if not k.startswith('PX4_PARAM_')}
+    env.update({'HEADLESS':'1','GZ_IP':'127.0.0.1','GZ_PARTITION':f'mission_{os.getpid()}_{name}',
+        'GZ_SIM_RESOURCE_PATH':str(px4/'Tools/simulation/gz/models'),'PX4_GZ_STANDALONE':'1','PX4_GZ_WORLD':'fleet',
+        'PX4_SYS_AUTOSTART':'4001','PX4_SIM_MODEL':'gz_x500',**{'PX4_PARAM_'+k:v for k,v in SITL_PARAMETERS.items()}})
+    processes=Processes(output,env);error=None;launched=time.monotonic();recording=[];last_progress=0
+    spawns={v['ns']:[CARRIER_START[0]+v['pad'],CARRIER_START[1],DECK] for v in FLEET}
+    try:
+        agent_library_path=str(workspace/'agent-install/lib')+':'+env.get('LD_LIBRARY_PATH','')
+        processes.launch('agent',['env','LD_LIBRARY_PATH='+agent_library_path,
+                                  str(workspace/'agent-install/bin/MicroXRCEAgent'),'udp4','-p','8888','-v','3'])
+        processes.launch('gazebo',['gz','sim','-r','-s','-v','2','--headless-rendering',
+                                   str(ROOT/'simulation/worlds/fleet.sdf')],cwd=output)
+        # One PX4 per airframe: instance N attaches to x500_N, uses DDS namespace px4_N and system ID N+1.
+        for i,v in enumerate(FLEET):
+            run_dir=workspace/'runs'/f'{name}-{v["ns"]}-{stamp}';run_dir.mkdir(parents=True)
+            processes.launch(f'px4_{i}',['env',f'PX4_GZ_MODEL_NAME=x500_{i}',f'PX4_UXRCE_DDS_NS={v["ns"]}',
+                                         str(build/'bin/px4'),'-i',str(i),'-d',str(build/'etc'),'-w',str(run_dir)])
+            time.sleep(1)
+        processes.launch('gcs',[sys.executable,str(ROOT/'integration/gcs_heartbeat.py'),
+                                '--ports',','.join(str(18570+i) for i in range(len(FLEET)))])
+        if gui:processes.launch('gui',['gz','sim','-g'])
+        startup_deadline=time.monotonic()+60
+        while not all('Startup script returned successfully' in (output/f'px4_{i}.log').read_text() for i in range(len(FLEET))):
+            if time.monotonic()>startup_deadline:raise RuntimeError('PX4 startup timeout')
+            if any(p.poll() is not None for n,p in processes.children if n!='gui'):raise RuntimeError('Startup process exited')
+            time.sleep(0.2)
+        with (output/'parameters.log').open('w') as parameter_log:
+            for i in range(len(FLEET)):
+                for parameter,value in SITL_PARAMETERS.items():
+                    for action in (['set',parameter,value],['show',parameter]):
+                        subprocess.run([str(build/'bin/px4-param'),'--instance',str(i),*action],env=env,
+                                       stdout=parameter_log,stderr=subprocess.STDOUT,check=True,timeout=5)
+        # The carrier's odometry and drive command cross between Gazebo and ROS 2 through the bridge.
+        processes.launch('bridge',['ros2','run','ros_gz_bridge','parameter_bridge',CLOCK_BRIDGE,
+                                   '/model/carrier/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+                                   '/model/carrier/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist'])
+        if video:
+            for file,service in (('flight.mp4','/overview/record_video'),('deck.mp4','/deck/record_video')):
+                record_video(env,output/file,service);recording.append((file,service))
+        model=output/'detector.onnx';create_model(model);release_key=Ed25519PrivateKey.generate()
+        provision(model,release_key);trust_anchor=workspace/'runs'/f'{name}-trust-anchor-{stamp}.pub'
+        trust_anchor.write_text(public_key_hex(release_key)+'\n');del release_key
+        model_sha256=hashlib.sha256(model.read_bytes()).hexdigest()
+        for i,v in enumerate(FLEET):
+            ns=v['ns'];spawn=[str(c) for c in spawns[ns]]
+            processes.launch(f'observer_{ns}',[sys.executable,str(ROOT/'integration/observer_node.py'),'--ns',ns,
+                                               '--log',str(output/f'observer_{ns}.jsonl')])
+            processes.launch(f'payload_{ns}',[sys.executable,str(ROOT/'integration/payload_node.py'),'--ns',ns,'--spawn',*spawn,*SIM_TIME])
+            processes.launch(f'perception_{ns}',[sys.executable,str(ROOT/'integration/perception_node.py'),'--ns',ns,
+                             '--model',str(model),'--public-key',str(trust_anchor),'--log',str(output/f'perception_{ns}.jsonl')])
+            processes.launch(f'mission_{ns}',[sys.executable,str(ROOT/'integration/fleet_mission_node.py'),'--allow-sitl',
+                             '--ns',ns,'--spawn',*spawn,'--goal',*[str(g) for g in v['goal']],'--altitude',str(v['altitude']),
+                             '--pad',str(v['pad']),'--system-id',str(i+1),'--model-sha256',model_sha256,
+                             '--log',str(output/f'mission_{ns}.jsonl'),*SIM_TIME])
+        processes.launch('station',[sys.executable,str(ROOT/'integration/fleet_station_node.py'),
+                                    '--drones',','.join(v['ns'] for v in FLEET),'--log',str(output/'station.jsonl'),*SIM_TIME])
+        processes.launch('rosbag',['ros2','bag','record','-o',str(output/'rosbag'),
+                                   *[f'/{v["ns"]}/mission/decision' for v in FLEET],'/fleet/clearance','/model/carrier/odometry'])
+        while time.monotonic()-launched<timeout:
+            time.sleep(0.5)
+            failures=[n for n,p in processes.children if p.poll() is not None and n!='gui']
+            if failures:raise RuntimeError('Processes exited: '+', '.join(failures))
+            station=read_records(output/'station.jsonl',live=True)
+            touchdowns={r['drone'] for r in station if r['kind']=='touchdown'}
+            if touchdowns=={v['ns'] for v in FLEET}:
+                time.sleep(3);break  # Let the carrier stop and the logs settle.
+            if time.monotonic()-last_progress>15:
+                last_progress=time.monotonic();carrier=next((r for r in reversed(station) if r['kind']=='carrier'),None)
+                print(name,'elapsed',round(time.monotonic()-launched),'s touchdowns',sorted(touchdowns),
+                      'carrier',carrier and round(carrier['e'],1),flush=True)
+        else:error='scenario_timeout'
+    except Exception as exc:
+        error=str(exc)
+        (output/'runner-error.log').write_text(traceback.format_exc(),encoding='utf-8')
+    finally:
+        for file,service in recording:
+            try:
+                record_video(env,None,service)
+                for _ in range(50):
+                    if (output/file).is_file() and (output/file).stat().st_size:break
+                    time.sleep(0.1)
+            except Exception as exc:error=(error+'; ' if error else '')+str(exc)
+        try:processes.close()
+        except Exception as exc:error=(error+'; ' if error else '')+str(exc)
+    station=read_records(output/'station.jsonl')
+    carrier=[r for r in station if r['kind']=='carrier'];grants=[r for r in station if r['kind']=='clearance']
+    touchdowns={r['drone']:r for r in station if r['kind']=='touchdown'}
+    checks={};vehicles=[]
+    for v in FLEET:
+        ns=v['ns'];spawn=spawns[ns]
+        records=read_records(output/f'observer_{ns}.jsonl');mission_records=read_records(output/f'mission_{ns}.jsonl')
+        statuses=[r for r in records if r['kind']=='status']
+        # Observer positions are PX4 local NED from the spawn point; convert to world ENU.
+        trace=[{'wall_time':p['wall_time'],'e':p['ned'][1]+spawn[0],'n':p['ned'][0]+spawn[1],'u':-p['ned'][2]+spawn[2],
+                'valid':p['valid']} for p in records if p['kind']=='position']
+        phases=[r for r in mission_records if r['kind']=='phase'];names=[p['phase'] for p in phases]
+        inspect=next((p for p in phases if p['phase']=='inspect'),None);touchdown=touchdowns.get(ns)
+        clearance=min((math.hypot(t['e']-x,t['n']-y)-r for t in trace if t['valid'] and t['u']>DECK+0.3
+                       for x,y,r in OBSTACLES),default=0.)
+        checks[f'{ns}_offboard_entered']=any(s['nav_state']==14 and s['arming_state']==2 for s in statuses)
+        checks[f'{ns}_takeoff_observed']=max((t['u'] for t in trace),default=0.)>2.
+        checks[f'{ns}_goal_reached']=bool(inspect and math.dist(inspect['position'][:2],v['goal'])<0.6)
+        checks[f'{ns}_returned_to_carrier']='rendezvous' in names and 'descend' in names
+        checks[f'{ns}_landed_on_pad']=bool(touchdown and touchdown['pad_error'] is not None and touchdown['pad_error']<0.4
+                                           and abs(touchdown['position'][2]-DECK)<0.35)
+        checks[f'{ns}_carrier_moving_at_touchdown']=bool(touchdown and touchdown['carrier'] and touchdown['carrier']['speed']>0.15)
+        checks[f'{ns}_disarmed_at_end']=bool(statuses and statuses[-1]['arming_state']==1)
+        checks[f'{ns}_no_failsafe']=not any(s['failsafe'] for s in statuses)
+        checks[f'{ns}_obstacle_clearance']=clearance>0.5
+        vehicles.append({**v,'goal':list(v['goal']),'spawn':spawn,'trace':trace,'statuses':statuses,'phases':phases,
+                         'plan':next((r for r in mission_records if r['kind']=='plan'),None),
+                         'replans':[r for r in mission_records if r['kind']=='replan'],
+                         'transitions':[r for r in mission_records if r['kind']=='transition'],
+                         'touchdown':touchdown,'min_clearance_m':clearance})
+    # Separation from the independent observers, time-aligned at 5 Hz while at least two are airborne.
+    times=[t['wall_time'] for t in vehicles[0]['trace']][::2] if vehicles and vehicles[0]['trace'] else []
+    tracks=[resample(v['trace'],times) for v in vehicles];separations=[]
+    for k in range(len(times)):
+        airborne=[tr[k] for tr in tracks if tr[k] and tr[k]['u']>DECK+0.5]
+        separations+=[math.dist((a['e'],a['n'],a['u']),(b['e'],b['n'],b['u'])) for j,a in enumerate(airborne) for b in airborne[j+1:]]
+    min_separation=min(separations) if separations else None
+    lands=[g for g in grants if g['grant']=='land']
+    checks['fleet_min_separation']=min_separation is not None and min_separation>1.0
+    checks['landings_sequenced']=len(lands)==len(FLEET) and all(
+        lands[k-1]['drone'] in touchdowns and lands[k]['wall_time']>=touchdowns[lands[k-1]['drone']]['wall_time'] for k in range(1,len(lands)))
+    checks['carrier_moved']=bool(carrier) and carrier[-1]['e']-carrier[0]['e']>3.
+    checks['rosbag_recorded']=bag_has_topics(output/'rosbag',[f'/{v["ns"]}/mission/decision' for v in FLEET]+['/fleet/clearance'])
+    checks['no_runner_error']=error is None
+    result={'scenario':name,'passed':all(checks.values()),'checks':checks,'error':error,
+            'duration_wall_s':round(time.monotonic()-launched,2),'vehicles':vehicles,'carrier':carrier,'clearances':grants,
+            'min_separation_m':min_separation,'deck_height_m':DECK,
+            'videos':{k:f for k,f in (('overview','flight.mp4'),('deck','deck.mp4')) if (output/f).is_file()}}
     (output/'result.json').write_text(json.dumps(result,indent=2,allow_nan=False),encoding='utf-8')
     print(name,'PASS' if result['passed'] else 'FAIL',json.dumps(checks),error or '',flush=True)
     return result
@@ -197,14 +383,19 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--workspace',type=Path,required=True)
     p.add_argument('--scenario',choices=SCENARIOS,default='nominal');p.add_argument('--all',action='store_true')
     p.add_argument('--output',type=Path,default=ROOT/'artifacts/sitl-latest');p.add_argument('--timeout',type=float,default=150.)
+    p.add_argument('--video',action='store_true',help='Record each flight from the world overview camera to flight.mp4')
+    p.add_argument('--gui',action='store_true',help='Open the live Gazebo 3D window (WSLg) while flying')
     args=p.parse_args();workspace=args.workspace.resolve();out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
     if not math.isfinite(args.timeout) or args.timeout<=0:p.error('--timeout must be finite and positive')
     if any(out.iterdir()):p.error('--output must be an empty directory to preserve prior evidence')
     provenance={'captured_at_unix':time.time(),'environment':capture(workspace)}
     (out/'provenance.json').write_text(json.dumps(provenance,indent=2))
     results=[]
+    # The guard is wall-clock; recording runs the simulation at roughly 0.4-0.6x real time.
+    timeout=args.timeout*(2.5 if args.video else 1.)
     for name in (SCENARIOS if args.all else (args.scenario,)):
-        results.append(run_scenario(name,workspace,out,args.timeout))
+        if name=='fleet_carrier':results.append(run_fleet(workspace,out,max(timeout,900.),video=args.video,gui=args.gui))
+        else:results.append(run_scenario(name,workspace,out,timeout,video=args.video,gui=args.gui))
         if not results[-1]['passed']:break
     (out/'results.json').write_text(json.dumps(results,indent=2,allow_nan=False))
     provenance['inputs_unchanged']=provenance['environment']==capture(workspace)

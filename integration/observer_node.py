@@ -6,11 +6,11 @@ from rclpy.node import Node
 from px4_msgs.msg import VehicleLocalPosition,VehicleStatus,VehicleCommandAck,VehicleLandDetected,FailsafeFlags,SensorGps
 from mission_interfaces.msg import Decision,Perception
 from sensor_msgs.msg import Image,LaserScan
-from common import SENSOR_QOS,JsonLog,px4_topic
+from common import SENSOR_QOS,JsonLog,mission_topic,px4_topic
 
 class Observer(Node):
     def __init__(self,args):
-        super().__init__('mission_evidence_observer');self.log=JsonLog(args.log)
+        ns=args.ns;super().__init__('mission_evidence_observer'+(f'_{ns}' if ns else ''));self.log=JsonLog(args.log)
         self.counts={};self.previous_status=None;self.last_pose_log=0;self.previous_gps=None
         for name,typ,callback in [('vehicle_status',VehicleStatus,self.status),
                                   ('vehicle_local_position',VehicleLocalPosition,self.pose),
@@ -18,11 +18,11 @@ class Observer(Node):
                                   ('vehicle_command_ack',VehicleCommandAck,self.ack),
                                   ('failsafe_flags',FailsafeFlags,self.failsafe),
                                   ('vehicle_gps_position',SensorGps,self.gps)]:
-            self.create_subscription(typ,px4_topic(name,typ),callback,SENSOR_QOS)
-        self.create_subscription(Decision,'/mission/decision',self.decision,10)
-        self.create_subscription(Perception,'/mission/perception',lambda m:self.count('perception'),SENSOR_QOS)
-        self.create_subscription(Image,'/mission/camera/image',lambda m:self.count('image'),SENSOR_QOS)
-        self.create_subscription(LaserScan,'/mission/lidar/scan',lambda m:self.count('scan'),SENSOR_QOS)
+            self.create_subscription(typ,px4_topic(name,typ,ns=ns),callback,SENSOR_QOS)
+        self.create_subscription(Decision,mission_topic('decision',ns),self.decision,10)
+        self.create_subscription(Perception,mission_topic('perception',ns),lambda m:self.count('perception'),SENSOR_QOS)
+        self.create_subscription(Image,mission_topic('camera/image',ns),lambda m:self.count('image'),SENSOR_QOS)
+        self.create_subscription(LaserScan,mission_topic('lidar/scan',ns),lambda m:self.count('scan'),SENSOR_QOS)
         self.create_timer(1.,lambda:self.log.write('counts',**self.counts))
     def count(self,name):self.counts[name]=self.counts.get(name,0)+1
     def status(self,m):
@@ -53,7 +53,7 @@ class Observer(Node):
                                          position=[float(v) for v in m.position_enu],waypoint=int(m.waypoint),camera_age=float(m.camera_age))
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--log',required=True);args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--log',required=True);p.add_argument('--ns',default='');args=p.parse_args()
     rclpy.init();node=Observer(args)
     try:rclpy.spin(node)
     except KeyboardInterrupt:pass
