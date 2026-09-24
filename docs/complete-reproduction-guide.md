@@ -60,7 +60,7 @@ The completed system runs actual PX4 firmware in software-in-the-loop (SITL). Ga
 | Two dashboard state tests | Passed | Scenario selection, timeline/events and play/pause behavior |
 | Static documentation checks | Passed | Local links, HTML metadata and referenced DOM IDs |
 
-The current 42 Python tests are 28 lightweight tests plus 14 ROS/runner regression tests. The original implementation had 14 plus 5; the additional cases cover the review findings. The six security experiments are also exercised by the lightweight workflow; these counts are different layers of evidence, not a claimed coverage percentage.
+The current 54 Python tests are 35 lightweight tests plus 19 ROS/runner regression tests. The original implementation had 14 plus 5; the additional cases cover the review findings. The six security experiments are also exercised by the lightweight workflow; these counts are different layers of evidence, not a claimed coverage percentage.
 
 ### 1.5 Reviewed and packaged the evidence
 
@@ -170,7 +170,7 @@ bash scripts/run_all.sh 2>&1 | tee "$DRONE_RETEST/lightweight-console.log"
 echo "Exit code: $?"
 ```
 
-**Expected:** CTest passes, 28 Python tests pass, eight scenarios print `PASS`, and the artifact checker reports eight scenarios and six security cases. The final exit code must be 0. If it is not, stop and inspect the captured log before publishing anything.
+**Expected:** CTest passes, 35 Python tests pass, eight scenarios print `PASS`, and the artifact checker reports eight scenarios and six security cases. The final exit code must be 0. If it is not, stop and inspect the captured log before publishing anything.
 
 This command refreshes `artifacts/latest/`. The console transcript has a unique path, but the lightweight harness's default raw output directory is reused. The committed `artifacts/sample/` remains unchanged.
 
@@ -325,7 +325,7 @@ ros2 interface show mission_interfaces/msg/Decision
 bash scripts/test_integration.sh
 ```
 
-Compare the hashes with section 2. The interfaces should display their fields, and all 14 integration tests should pass. Continue with section 3's flight command, using the correct current repository and workspace variables.
+Compare the hashes with section 2. The interfaces should display their fields, and all 19 integration tests should pass. Continue with section 3's flight command, using the correct current repository and workspace variables.
 
 <a id="documents"></a>
 ## 5. Regenerate the documentation
@@ -463,7 +463,7 @@ ROM/fuse and bootloader/kernel stages are explicit labels. WSL already boots its
 
 The fast harness has a six-state position/velocity Kalman filter with noisy GNSS and known world-frame acceleration. It is an educational filter without full attitude/bias estimation. The flight integration instead consumes actual PX4 EKF2 local-position estimates derived from Gazebo flight sensors.
 
-The planar payload LiDAR produces 72 world-aligned rays out to 14 m. An initial scan populates a 1 m grid with inflated obstacle returns; four-neighbor A* plans to `(9,9)`. The mission first climbs to 3 m, then follows waypoints at that height. It advances when the estimated position is within 0.35 m of the current target. The map is static; no online replanning or moving-obstacle avoidance is implemented.
+The planar payload LiDAR produces 72 world-aligned rays out to 14 m. The first scan populates a 1 m grid with inflated obstacle returns and four-neighbor A* plans to `(9,9)`. Every later scan is added to the grid, placed where the vehicle was when it was captured, and the remaining route is replanned if it becomes blocked; with no route left, the mission lands. The mission first climbs to 3 m, then follows waypoints at that height. It advances when the estimated position is within 0.35 m of the current target. Obstacles are assumed static; moving-obstacle prediction is not implemented.
 
 The world has cylindrical obstacles centered at `(4,3)`, `(6,6)` and `(2,7)` with radii 1, 1.1 and 0.8 m. The same idealized geometry drives the procedural LiDAR. A simulated scanner with this known geometry is simpler than a calibrated real sensor.
 
@@ -641,7 +641,7 @@ Expected nominal behavior is INIT → ACTIVE → COMPLETE in the application, wi
 bash scripts/run_sitl.sh --scenario camera_dropout --output "$DRONE_SINGLE/camera_dropout-run" --timeout 150
 ```
 
-The payload stops publishing images for 0.8 s, starting 18 s after the payload node begins. The stale capture stamp eventually exceeds the 0.3 s perception threshold; the supervisor issues HOLD. Once fresh frames return and the recovery dwell completes, ACTIVE resumes. The aircraft must subsequently reach the goal, request landing, land and disarm.
+The payload stops publishing images for 0.8 s when the runner signals it, 3 s after the vehicle is first observed above 2 m, so the fault is always exercised in flight. The stale capture stamp eventually exceeds the 0.3 s perception threshold; the supervisor issues HOLD. Once fresh frames return and the recovery dwell completes, ACTIVE resumes. The aircraft must subsequently reach the goal, request landing, land and disarm.
 
 Each individual command uses a distinct child directory under `DRONE_SINGLE`. Repeating any individual case requires a new root or child name.
 
@@ -1085,7 +1085,7 @@ The smaller harness additionally demonstrates educational estimation, fast fault
 | Camera/LiDAR realism | Rendered or recorded sensors, calibration, timing, body transforms, noise and perception datasets |
 | Trained perception | Licensed data/model, meaningful class definition, held-out accuracy, small-object recall and false-alarm evaluation |
 | GPS-denied navigation | Validated VIO/LiDAR odometry, sensor fusion and degraded-estimator behavior |
-| Dynamic autonomy | Online mapping/replanning and moving-obstacle handling |
+| Dynamic autonomy | Moving-obstacle prediction and avoidance; replanning here covers static obstacles revealed by later scans |
 | SITL battery behavior | Replace the fixed battery input and test low-battery behavior through firmware telemetry |
 | Landing command robustness | The reviewed terminal handoff is latched and tested; application-level acknowledgment/retry policy remains future work, with PX4 failsafe as the current fallback |
 | Trust and updates | Protected key provisioning, persistent rollback state, signed boot chain, A/B updates and recovery |
@@ -1111,9 +1111,9 @@ The checked-in implementation and captured logs are the authority for what ran. 
 ### 16.4 Reproduction checklist
 
 - [ ] I ran the commands inside the correct Windows/Ubuntu shells and used the intended source/build paths.
-- [ ] CTest and the 28 lightweight Python tests pass.
+- [ ] CTest and the 35 lightweight Python tests pass.
 - [ ] All eight fast scenarios and all six security cases pass.
-- [ ] All fourteen integration regression tests pass.
+- [ ] All nineteen integration regression tests pass.
 - [ ] A fresh `--all` flight run contains four passing scenarios with empty failed-check lists.
 - [ ] I can identify arm/mode/land ACKs and distinguish PX4 navigation state from application state.
 - [ ] I inspected camera recovery, actual invalid GPS fix, and independent firmware response after the companion crash.

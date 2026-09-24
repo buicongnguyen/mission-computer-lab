@@ -1,6 +1,6 @@
 # Logic and code review record
 
-Review dates: 23 September 2026 (passes 1–3) and 24 September 2026 (pass 4). Scope: the WSL mission-computer lab, including C++ policy contracts, Python adapters and transport, flight orchestration, evidence publication, replays and guides. Four sequential passes were performed over the same implementation; later passes also reviewed earlier fixes. This is a local engineering review, not a flight qualification or a claim that all possible defects have been eliminated.
+Review dates: 23 September 2026 (passes 1–3) and 24 September 2026 (passes 4 and 5). Scope: the WSL mission-computer lab, including C++ policy contracts, Python adapters and transport, flight orchestration, evidence publication, replays and guides. Five sequential passes were performed over the same implementation; later passes also reviewed earlier fixes. This is a local engineering review, not a flight qualification or a claim that all possible defects have been eliminated.
 
 The current source contains the fixes below. The measured reference artifacts identify runtime inputs by SHA-256, including source changes that were uncommitted when tested.
 
@@ -83,6 +83,35 @@ Review date: 24 September 2026. Every source file was re-read, and each hypothes
 
 The flight matrix was rerun after the last source change, so the published per-file provenance hashes match the shared source files exactly. The recorded `source_commit` is the base revision in the development history, which this repository does not include; use the per-file SHA-256 hashes to match evidence to source.
 
+<a id="pass-5"></a>
+## Pass 5 — Independent review, planner safety and the published site
+
+Review date: 24 September 2026. Three independent reviewers covered the C++ and Python core, the ROS/PX4 orchestration, and the browser and documentation tooling. Every finding below was reproduced before it was fixed.
+
+| Finding | Why it mattered | Fix and regression evidence |
+|---|---|---|
+| High: LAND stopped descending at an estimated zero altitude | After GNSS loss the dead-reckoned altitude drifts low; 8 of 20 seeds left the fast-harness vehicle hovering 0.1–0.4 m above ground until timeout. The published PASS relied on seed 17 | LAND now descends at 0.3–0.7 m/s until touchdown is detected. A C++ test covers estimates at and below zero; a multi-seed test runs every landing scenario on 8 seeds |
+| Medium: the single-scan map let A* plan through a hidden cylinder | From the origin, the (6,6) cylinder is mostly occluded by (4,3), so six cells inside real obstacles were free. Goals such as (10,6) planned straight through it (clearance −1.1 m); the shipped goal was safe only by tie-breaking | Both harnesses now add every scan to the map, placed where the vehicle was at capture, and replan when the remaining route closes; with no route left the SITL mission lands. All 28 goals whose first plan was unsafe now complete with at least 1.0 m clearance. The shipped route needs no replan, so recorded flights are unchanged |
+| Medium: the camera fault was timed from process start | The dropout fired 18 s after the payload node started, so slower startup could have tested it on the ground, and the check accepted any HOLD | The runner now signals the dropout 3 s after the vehicle is observed above 2 m, and the HOLD must follow the injection. Pass 5 flight: airborne at 7.2 s, injected at 10.2 s, HOLD at 10.5 s, recovered at 11.6 s |
+| Medium: SIGTERM or SIGHUP orphaned the whole simulation | Children run in their own sessions, so a closed terminal left PX4, Gazebo and the agent running and blocked every later run | The runner converts both signals into a normal exit so its cleanup always runs |
+| Medium: the site deployed even when CI failed, and new pages escaped the stale-HTML check | `git diff` ignores untracked files, and the Pages workflow ran independently of tests | Pages now deploys only commits whose CI passed and checks links against the assembled site. CI fails on any untracked or modified generated HTML |
+| Medium: the flight replay showed PX4 DESCEND as a raw `12` | The headline GPS-loss failsafe was unreadable; preflight-only changes produced duplicate rows and the first event read `-0.00 s` | Full PX4 v1.16 state names, preflight shown, duplicates dropped, times clamped. Replay tests now load the browser data file, drive real animation frames and assert named states |
+| Low: several evidence and interface gaps | Overflowing numbers such as `1e999` passed the non-finite guard; the publisher could leave a mixed sample; the artifact checker trusted the harness's own pass flags; transport tests accepted any error; perception from an unverified model counted as fresh; nominal flights did not reject unexpected faults; ground altitude drift before arming could trip the geofence | Strict JSON parsing everywhere; atomic sample swap with a nearest-rank percentile; cross-checks of terminal mode, events, clearance, error and boot stages; specific transport errors; the mission node accepts only the verified model hash; nominal and camera flights require no unexpected HOLD, LAND or failsafe; altitude is re-zeroed until arming |
+| Low: replay and accessibility details | Invalid PX4 estimates were drawn as real motion; canvases were blurry on high-DPI screens and unreadable on phones; the 11–12 m map rows were cut off; the focus ring and control borders were below 3:1 contrast; every diagram was captioned "Pipeline diagram" | Invalid estimates are grey and dashed; canvases follow the displayed size and pixel ratio; the map scale fits the grid; focus and borders meet 3:1 in both themes; captions follow the diagram type |
+
+Also added: light and dark themes with a remembered toggle and theme-aware diagrams, a references page linking every upstream project's source and documentation, and links between the site and the repository.
+
+| Pass 5 verification | Observed result |
+|---|---|
+| C++ Release build and CTest | 1/1 passed, including the LAND descent and degraded-link cases |
+| Lightweight Python tests | 35/35 passed, including multi-seed and hidden-obstacle closed-loop runs; also under `python -O` |
+| ROS boundary and runner tests | 19/19 passed |
+| Fast scenario matrix / signed-artifact cases | 8/8 passed / 6/6 behaved as specified |
+| PX4/Gazebo/ROS matrix on the final code | 4/4 passed with every named check, including the new in-flight camera and no-unexpected-fault checks; `inputs_unchanged: true`; all 35 recorded input hashes match the published files |
+| Web checks | Diagram parsing, both replay suites, the theme test and link checks pass; light and dark pages were inspected in headless Edge |
+
+Not changed, and recorded as remaining work: the ROS contract tests still need a ROS container job before CI can run them, DDS traffic is not isolated or authenticated, and the SITL battery input remains fixed.
+
 ## Diagrams and how to read them
 
 | Document | Diagram | What it explains |
@@ -108,7 +137,7 @@ bash scripts/test_integration.sh
 .venv/bin/python -O -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-Expected: one CTest executable passes; 28 lightweight Python tests pass; eight fast scenarios pass; six security experiments behave as specified; 14 integration tests pass. Running the Python cases with `-O` also verifies evidence gates do not rely on removable `assert` statements. These commands do not start a physical aircraft.
+Expected: one CTest executable passes; 35 lightweight Python tests pass; eight fast scenarios pass; six security experiments behave as specified; 19 integration tests pass. Running the Python cases with `-O` also verifies evidence gates do not rely on removable `assert` statements. These commands do not start a physical aircraft.
 
 For the actual flight matrix, use a fresh Linux output directory and retain it for later inspection:
 
@@ -165,6 +194,6 @@ Expect five Mermaid definitions to parse, offline bundle checks to pass, both re
 
 The final local results and measured flight values are linked in [the validation record](validation.md), [fast execution report](execution.md) and [PX4 execution report](sitl-execution.md). The intermediate pass-3 Linux run passed three flights but failed the overly broad GPS validity check; its result was preserved unchanged, as were the first failed attempt and the final pass-3 run, locally with their bags and logs. Compact current evidence, from the pass 4 run, is published under `artifacts/sample/` and `artifacts/sitl-sample/`.
 
-The review does not turn the procedural camera into a trained detector or the WSL host into a Qualcomm board. The executed boundary remains CPU ONNX, procedural payload sensors, static A*, simulated dynamics and actual PX4 firmware. Battery input in the flight adapter is still fixed, timing synchronization is single-host, and no VIO, NPU benchmark, secure boot fuse operation, dynamic replanning or flight certification is claimed.
+The review does not turn the procedural camera into a trained detector or the WSL host into a Qualcomm board. The executed boundary remains CPU ONNX, procedural payload sensors, A* with scan-driven replanning of static obstacles, simulated dynamics and actual PX4 firmware. Battery input in the flight adapter is still fixed, timing synchronization is single-host, and no VIO, NPU benchmark, secure boot fuse operation, dynamic replanning or flight certification is claimed.
 
 Land commands are one-shot; the adapter stops offboard proof-of-life after handoff and relies on the configured PX4 fallback if needed. The suite does not currently inject a dropped land-command packet. Browser layout inspection was not completed because the embedded browser's local-file security policy blocked access. Diagram parsing, static packaging/links and replay state tests are verified separately; they are not pixel-level visual verification. GitHub-hosted CI has not run because this work remains local.

@@ -50,7 +50,7 @@ Synthetic world ──► RGB camera┘                 ▼
                     JSON / CSV / events / actual camera frames / browser replay
 ```
 
-Perception is an observed payload branch: its freshness and latency affect supervision, but its bounding box does not steer the vehicle. LiDAR informs the initial static plan. The planner is not doing visual pursuit, dynamic obstacle avoidance or SLAM.
+Perception is an observed payload branch: its freshness and latency affect supervision, but its bounding box does not steer the vehicle. LiDAR builds the occupancy map for A*; every later scan is added, and the route is replanned if it closes. The planner is not doing visual pursuit, dynamic obstacle avoidance or SLAM.
 
 ## Component boundaries
 
@@ -60,7 +60,7 @@ Perception is an observed payload branch: its freshness and latency affect super
 | Camera | `tools/perception.py` | 64 × 48 RGB, 10 Hz, fixed synthetic background and moving bright silhouette. No camera extrinsics or photorealism. |
 | ONNX detector | Same module; opset 13, IR 8 | ReduceMean + Greater segmentation. One CPU thread. Untrained and deliberately tiny. |
 | LiDAR | `tools/world.py` | 72 ideal planar rays, 14 m range. Circular obstacles; no occlusion noise, material effects or 3-D geometry. |
-| Map and planner | Same module | One initial scan, 1 m grid, 1 m return inflation, four-neighbor A*. No online map updates or replanning. |
+| Map and planner | Same module | Scans accumulate into a 1 m grid with 1 m return inflation; four-neighbor A* replans when a new scan blocks the remaining route. A single scan from the origin cannot see the mostly occluded (6,6) cylinder, so replanning is required for safety, not an optimization. Static obstacles only; no moving-obstacle prediction. |
 | Localization | Same module | Six-state position/velocity Kalman filter, known world-frame acceleration, 5 Hz noisy GNSS. No attitude, gravity, bias estimation, VIO or true GPS-denied navigation. |
 | Supervisor | `include/supervisor.hpp`, `src/supervisor.cpp` | 20 Hz simulated evaluation; freshness, sequence/range validation, speed/geofence limits, recovery dwell and latched landing. |
 | Process transport | `src/main.cpp`, `tools/run_demo.py` | Real Python/C++ pipes, line-delimited numeric contract. No network authentication, MAVLink or DDS. |
@@ -141,7 +141,7 @@ INIT ── healthy dwell ──► ACTIVE ── mission done ──► COMPLET
 Any state ── hard limit / low battery ────────► LAND
 ```
 
-HOLD outputs zero velocity in this ideal plant. It does not prove that a real aircraft can hold position when its estimator is invalid. LAND is a bounded descent command in the toy model; actual actions must depend on estimator validity, environment and autopilot policy. COMPLETE remains stationary at the final waypoint. The harness also applies truth-based ground contact; that is simulator mechanics, not an available real-world sensor.
+HOLD outputs zero velocity in this ideal plant. It does not prove that a real aircraft can hold position when its estimator is invalid. LAND is a descent between 0.3 and 0.7 m/s that continues until touchdown is detected, even when a drifted estimate already reads zero altitude; actual actions must depend on estimator validity, environment and autopilot policy. COMPLETE remains stationary at the final waypoint. The harness also applies truth-based ground contact; that is simulator mechanics, not an available real-world sensor.
 
 ## Threat model and implemented evidence
 
@@ -160,7 +160,7 @@ This is artifact verification, not an OTA updater. It has no download transport,
 
 ## Evidence and acceptance criteria
 
-The executable suite includes one CTest program with multiple supervisor checks, 28 Python unit/integration tests, eight scenario runs, and six signed-artifact cases. Tests fail the run on unexpected terminal mode, collision with a modeled obstacle, excessive estimator error, missing required transitions, malformed evidence or failed update checks.
+The executable suite includes one CTest program with multiple supervisor checks, 35 Python unit/integration tests, eight scenario runs, and six signed-artifact cases. Tests fail the run on unexpected terminal mode, collision with a modeled obstacle, excessive estimator error, missing required transitions, malformed evidence or failed update checks.
 
 The eight scenarios cover nominal completion; recoverable camera loss and inference overload; sustained GNSS, link and IMU loss; low battery; and an actual supervisor-process kill. Every scenario records events, sampled states, camera frames, LiDAR endpoints, measurements and checks. The [execution report](execution.md) contains the observed values.
 

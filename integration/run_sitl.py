@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Launch only task-owned local simulation processes, record evidence, then clean up."""
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -84,9 +85,7 @@ def run_scenario(name,workspace,base_output,timeout):
                     subprocess.run([str(build/'bin/px4-param'),'show',parameter],env=env,
                                    stdout=parameter_log,stderr=subprocess.STDOUT,check=True,timeout=5)
         processes.launch('observer',[sys.executable,str(ROOT/'integration/observer_node.py'),'--log',str(output/'observer.jsonl')])
-        payload=[sys.executable,str(ROOT/'integration/payload_node.py')]
-        if name=='camera_dropout':payload+=['--camera-drop-at','18','--camera-drop-for','0.8']
-        processes.launch('payload',payload)
+        payload=processes.launch('payload',[sys.executable,str(ROOT/'integration/payload_node.py'),'--camera-drop-for','0.8'])
         # Act as the release authority: sign the stored model, keep the private key in memory and
         # hand the node only a public key stored outside the artifact folder.
         model=output/'detector.onnx';create_model(model);release_key=Ed25519PrivateKey.generate()
@@ -95,7 +94,8 @@ def run_scenario(name,workspace,base_output,timeout):
         processes.launch('perception',[sys.executable,str(ROOT/'integration/perception_node.py'),
                          '--model',str(model),'--public-key',str(trust_anchor),'--log',str(output/'perception.jsonl')])
         mission=processes.launch('mission',[sys.executable,str(ROOT/'integration/mission_node.py'),
-                             '--allow-sitl','--log',str(output/'mission.jsonl')])
+                             '--allow-sitl','--log',str(output/'mission.jsonl'),
+                             '--model-sha256',hashlib.sha256(model.read_bytes()).hexdigest()])
         # Capture selected typed application topics; raw firmware evidence is independently logged.
         processes.launch('rosbag',['ros2','bag','record','-o',str(output/'rosbag'),
                                   '/mission/decision','/mission/perception','/mission/lidar/scan'])
@@ -109,9 +109,10 @@ def run_scenario(name,workspace,base_output,timeout):
                 state=states[-1];armed_seen|=state['arming_state']==2
                 if state['arming_state']==2 and poses and -poses[-1]['ned'][2]>2 and flying_since is None:
                     flying_since=time.monotonic()
-                if name in ('companion_crash','gps_loss') and flying_since and time.monotonic()-flying_since>3 and injected_at is None:
+                if name!='nominal' and flying_since and time.monotonic()-flying_since>3 and injected_at is None:
                     injected_at=time.time()
                     if name=='companion_crash':processes.stop(mission,signal.SIGKILL)
+                    elif name=='camera_dropout':os.kill(payload.pid,signal.SIGUSR1)  # In flight, not at a fixed uptime.
                     else:
                         # v1.16's Gazebo bridge does not acknowledge `failure gps
                         # off`. Its supported SIM_GPS_USED parameter drives fix
@@ -159,8 +160,15 @@ def run_scenario(name,workspace,base_output,timeout):
         checks['mission_complete']=any(r.get('mode')=='COMPLETE' for r in transitions)
         checks['goal_reached']=any(r.get('mode')=='COMPLETE' and math.dist(r['position'],[9.,9.,3.])<0.5 for r in decisions)
         checks['landing_ack_accepted']=any(a['command']==21 and a['result']==0 for a in acks)
+        # Only the injected fault may interrupt these flights: no other HOLD or LAND and no PX4 failsafe.
+        allowed={'nominal':set(),'camera_dropout':{'vision_stale'}}[name]
+        checks['no_unexpected_faults']=(not any(s['failsafe'] for s in statuses) and
+            all(t['mode'] not in ('HOLD','LAND') or (t['mode']=='HOLD' and t['reason'] in allowed) for t in transitions))
     if name=='camera_dropout':
-        holds=[r for r in decisions if r['mode']=='HOLD' and r['reason']=='vision_stale' and r['camera_age']>0.3]
+        checks['fault_injected']=injected_at is not None
+        # The HOLD must follow the in-flight injection, not a startup gap before takeoff.
+        holds=[r for r in decisions if r['mode']=='HOLD' and r['reason']=='vision_stale' and r['camera_age']>0.3
+               and injected_at is not None and r['wall_time']>=injected_at]
         checks['camera_hold_observed']=bool(holds)
         checks['camera_recovered']=bool(holds and any(r['mode']=='ACTIVE' and r['wall_time']>holds[0]['wall_time'] for r in decisions))
     if name=='companion_crash':
@@ -176,12 +184,16 @@ def run_scenario(name,workspace,base_output,timeout):
             'injected_at':injected_at,'statuses':statuses,'acks':acks,'message_counts':counts[-1] if counts else {},
             'trace':poses,'decisions':decisions,'mission_transitions':transitions,
             'gps_states':[r for r in records if r['kind']=='gps'],
-            'plan':next((r for r in mission_records if r['kind']=='plan'),None)}
-    (output/'result.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
+            'plan':next((r for r in mission_records if r['kind']=='plan'),None),
+            'replans':[r for r in mission_records if r['kind']=='replan']}
+    (output/'result.json').write_text(json.dumps(result,indent=2,allow_nan=False),encoding='utf-8')
     print(name,'PASS' if result['passed'] else 'FAIL',json.dumps(checks),error or '',flush=True)
     return result
 
 def main():
+    # Children run in their own sessions, so a closed terminal or a CI cancel must still reach the
+    # `finally` cleanup; otherwise PX4, Gazebo and the agent survive and block the next run.
+    for sig in (signal.SIGTERM,signal.SIGHUP):signal.signal(sig,lambda number,frame:sys.exit(128+number))
     p=argparse.ArgumentParser();p.add_argument('--workspace',type=Path,required=True)
     p.add_argument('--scenario',choices=SCENARIOS,default='nominal');p.add_argument('--all',action='store_true')
     p.add_argument('--output',type=Path,default=ROOT/'artifacts/sitl-latest');p.add_argument('--timeout',type=float,default=150.)
@@ -194,7 +206,7 @@ def main():
     for name in (SCENARIOS if args.all else (args.scenario,)):
         results.append(run_scenario(name,workspace,out,args.timeout))
         if not results[-1]['passed']:break
-    (out/'results.json').write_text(json.dumps(results,indent=2))
+    (out/'results.json').write_text(json.dumps(results,indent=2,allow_nan=False))
     provenance['inputs_unchanged']=provenance['environment']==capture(workspace)
     (out/'provenance.json').write_text(json.dumps(provenance,indent=2))
     return 0 if provenance['inputs_unchanged'] and all(r['passed'] for r in results) else 1

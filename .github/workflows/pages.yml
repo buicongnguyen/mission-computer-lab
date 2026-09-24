@@ -1,8 +1,11 @@
-# Publishes the offline replays, rendered guides and evidence to GitHub Pages.
+# Publishes the offline replays, rendered guides and evidence to GitHub Pages,
+# but only for commits whose simulation-evidence CI run passed.
 name: Deploy replay site to Pages
 
 on:
-  push:
+  workflow_run:
+    workflows: ["simulation-evidence"]
+    types: [completed]
     branches: ["main"]
   workflow_dispatch:
 
@@ -13,16 +16,19 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - name: Assemble the site with the repository's relative layout
         run: |
           mkdir -p _site/artifacts
@@ -30,6 +36,8 @@ jobs:
           cp -r artifacts/sample artifacts/sitl-sample _site/artifacts/
           touch _site/.nojekyll
           printf '%s\n' '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=web/sitl.html"><title>Mission Computer Lab</title><a href="web/sitl.html">PX4 flight replay</a>' > _site/index.html
+      - name: Check links against the published layout, not the repository tree
+        run: python3 tools/check_docs.py _site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

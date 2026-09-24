@@ -16,6 +16,8 @@ jobs:
         run: PYTHON=python bash scripts/run_all.sh
       - name: Evidence gates must not depend on assert statements
         run: python -O -m unittest discover -s tests -p 'test_*.py'
+      - name: SITL runner process-cleanup tests (no ROS needed)
+        run: python -m unittest discover -s integration -p 'test_runner.py'
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -23,10 +25,13 @@ jobs:
         run: |
           npm ci
           npm run docs
-          git diff --exit-code -- docs/ || { echo 'Committed HTML is stale; run npm run docs'; exit 1; }
+          # Includes untracked output, so a new page whose HTML was never committed also fails.
+          stale=$(git status --porcelain --untracked-files=all -- docs/)
+          [ -z "$stale" ] || { echo "Committed HTML is stale or missing; run npm run docs:"; echo "$stale"; exit 1; }
           node tests/test_diagrams.mjs
           node tests/test_dashboard.mjs
           node tests/test_sitl_dashboard.mjs
+          node tests/test_theme.mjs
           python tools/check_docs.py
       - uses: actions/upload-artifact@v4
         with:

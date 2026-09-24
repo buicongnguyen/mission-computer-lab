@@ -72,8 +72,10 @@ Decision Supervisor::step(const Sample& s) {
                    s.target.z - s.position.z};
         const double speed = std::sqrt(command.x*command.x + command.y*command.y + command.z*command.z);
         if (speed > 2) { command.x *= 2/speed; command.y *= 2/speed; command.z *= 2/speed; }
-    } else if (mode_ == Mode::Land && s.position.z > 0) {
-        command.z = -std::min(0.7, s.position.z);
+    } else if (mode_ == Mode::Land) {
+        // Keep descending until the vehicle detects touchdown: after GNSS loss the altitude
+        // estimate drifts, and stopping at an estimated zero left the aircraft hovering.
+        command.z = -std::clamp(s.position.z, 0.3, 0.7);
     }
     return {mode_, reason, command};
 }

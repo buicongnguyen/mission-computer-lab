@@ -104,7 +104,7 @@ The matrix stops at the first failed scenario so its logs can be investigated. A
 | Scenario | Injection boundary | Evidence to inspect |
 |---|---|---|
 | Nominal | No deliberate fault | Arm acknowledgment, offboard state, climb, route completion, PX4 land state and disarm |
-| Camera dropout | Payload stops publishing images for 0.8 seconds | Perception timestamp becomes stale; C++ emits HOLD; fresh frames plus recovery dwell allow ACTIVE again |
+| Camera dropout | Payload stops publishing images for 0.8 seconds, signalled 3 s after the vehicle climbs above 2 m | Perception timestamp becomes stale; C++ emits HOLD; fresh frames plus recovery dwell allow ACTIVE again |
 | Companion crash | Runner sends SIGKILL to the mission process group, including C++ | Independent observer survives; PX4 detects lost offboard proof-of-life and applies its own land policy |
 | GPS loss | Set the Gazebo bridge's `SIM_GPS_USED=0` through PX4 | Observed invalid GPS fix, rejection of fresh-but-invalid packets, HOLD then LAND, land and disarm |
 
@@ -127,7 +127,7 @@ PX4 local position is NED: north, east, down. Application coordinates are ENU: e
 
 Do not compare PX4 boot microseconds directly with ROS wall-clock seconds. The mission adapter tracks monotonic receipt time only when a firmware source timestamp advances. Image and scan source stamps must advance and cannot be in the future; their capture age is converted to a fixed monotonic timestamp on receipt. Mission deadlines therefore do not follow ROS wall-clock jumps. Repeating an old PX4 sample cannot refresh health. A new GPS packet also requires a 3-D fix and valid NED velocity to refresh navigation health. High-rate position receipt monitors the link; approximately 2 Hz vehicle status has a separate 1.5-second freshness bound. This single-host experiment does not validate a distributed clock synchronization design.
 
-The initial occupancy map is static. Payload scan geometry is generated from the same idealized obstacle configuration used by the world. Sensor occlusion, reflective materials, rolling shutter, calibration error and moving-obstacle avoidance are outside this experiment. EKF position telemetry is an estimate, not Gazebo ground truth; a clearance calculation from that estimate is not a certified collision guarantee.
+The occupancy map starts from the first scan and grows with every later scan; the mission node replans if the remaining route closes and lands if no route remains. Payload scan geometry is generated from the same idealized obstacle configuration used by the world. Sensor occlusion, reflective materials, rolling shutter, calibration error and moving-obstacle avoidance are outside this experiment. EKF position telemetry is an estimate, not Gazebo ground truth; a clearance calculation from that estimate is not a certified collision guarantee.
 
 ## 5. Inspect the evidence
 

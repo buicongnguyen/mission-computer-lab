@@ -1,4 +1,5 @@
 """Regression checks for failures found at the real ROS/PX4 boundary."""
+from collections import deque
 import json
 from pathlib import Path
 import tempfile
@@ -51,8 +52,11 @@ class MissionBoundaries(unittest.TestCase):
             targets=[[1.,0.,3.]],waypoint=0,stream_since=0.,last_request=-100.,
             last={'imu':5.,'gps':5.,'pose':5.,'status':5.},sequence=1,core=Mock(),
             last_mode=None,log=Mock(),land_requested=False,send_command=Mock(),
-            decisions=Mock(),control=Mock(),setpoint=Mock(),get_clock=Mock())
-        a.payload_time=MethodType(Mission.payload_time,a)
+            decisions=Mock(),control=Mock(),setpoint=Mock(),get_clock=Mock(),blocked=set(),track=deque(maxlen=40),
+            model_sha256=None)
+        a.mapped_scan=a.scan  # No new scan unless a test supplies one.
+        for method in ('payload_time','scan_points','position_at','map_scan'):
+            setattr(a,method,MethodType(getattr(Mission,method),a))
         a.get_clock.return_value.now.return_value.to_msg.return_value=Time(sec=105)
         a.get_clock.return_value.now.return_value.nanoseconds=105000000000
         return a
@@ -111,6 +115,41 @@ class MissionBoundaries(unittest.TestCase):
         self.assertEqual([c.args[0] for c in a.log.write.call_args_list].count('estimator_invalid'),1)
         a.pose.xy_valid=True;self.tick(a,'ACTIVE')
         a.send_command.assert_not_called();a.control.publish.assert_called_once()
+    @staticmethod
+    def scan_at(distance,angle):
+        return SimpleNamespace(ranges=[distance],angle_min=angle,angle_increment=0.1,range_min=0.05,range_max=14.)
+    def test_new_scan_that_closes_the_route_replans_around_it(self):
+        a=self.adapter();a.targets=[[0.,0.,3.],[1.,0.,3.],[2.,0.,3.],[3.,0.,3.]];a.waypoint=1
+        a.payload_times={'lidar':5.};a.track.append((5.,[1.,0.,3.]))
+        a.scan=self.scan_at(1.,0.)  # A return at (2,0), one cell ahead of the vehicle.
+        self.assertTrue(a.map_scan([1.,0.,3.]))
+        self.assertIn((2,0),a.blocked)
+        self.assertFalse(any((round(x),round(y)) in a.blocked for x,y,_ in a.targets[1:]))
+        self.assertEqual(a.targets[-1][:2],[9.,9.])
+        self.assertTrue(any(c.args[0]=='replan' for c in a.log.write.call_args_list))
+    def test_scan_is_mapped_where_it_was_captured(self):
+        a=self.adapter();a.track.extend([(4.9,[0.,0.,3.]),(5.4,[3.,0.,3.])]);a.payload_times={'lidar':4.95}
+        a.scan=self.scan_at(2.,0.)
+        a.map_scan([3.,0.,3.])
+        self.assertIn((2,0),a.blocked);self.assertNotIn((5,0),a.blocked)
+    def test_no_remaining_route_lands_and_hands_off(self):
+        a=self.adapter();a.targets=[[0.,0.,3.],[1.,0.,3.]];a.waypoint=1;a.blocked={(9,9)}
+        a.scan=self.scan_at(0.5,0.)  # Closes the route ahead while the goal is already mapped as blocked.
+        self.assertEqual(self.tick(a,'ACTIVE'),0)
+        self.assertTrue(a.handed_off);a.send_command.assert_called_once()
+        self.assertTrue(any(c.kwargs.get('reason')=='no_safe_route' for c in a.log.write.call_args_list))
+    def test_perception_from_an_unverified_model_is_not_fresh(self):
+        a=self.adapter();a.model_sha256='a'*64
+        msg=SimpleNamespace(header=SimpleNamespace(stamp=Time(sec=199)),inference_ms=1.,model_sha256='b'*64)
+        with patch('mission_node.ros_seconds',return_value=200.),patch('mission_node.time.monotonic',return_value=105.):
+            Mission.vision(a,msg);self.assertNotIn('camera',a.payload_times)
+            msg.model_sha256='a'*64;Mission.vision(a,msg);self.assertIn('camera',a.payload_times)
+    def test_ground_altitude_drift_before_arming_is_rezeroed(self):
+        a=self.adapter();a.pose.z=0.2  # NED: the estimate has drifted 0.2 m below the first sample.
+        a.payload_times={'camera':5.,'lidar':5.}
+        with patch('mission_node.time.monotonic',return_value=105.),patch('mission_node.exchange',return_value=('INIT','test',[0.,0.,0.])) as core:
+            Mission.tick(a)
+        self.assertEqual(core.call_args.args[1][9],0.)  # Relative altitude sent to the supervisor.
     def test_terminal_observer_sample_is_not_lost_to_decimation(self):
         observer=SimpleNamespace(log=Mock(),count=lambda name:None)
         msg=Decision();msg.sequence=1;msg.mode='COMPLETE'

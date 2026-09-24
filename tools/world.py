@@ -24,16 +24,29 @@ def lidar(position, obstacles=OBSTACLES, rays=72, max_range=14):
         hits.append({'x':px+dx*distance,'y':py+dy*distance,'range':distance,'hit':hit})
     return hits
 
-def occupancy(scan, inflation=1.0):
-    # A single synthetic scan yields surface returns, not a complete SLAM map.
-    blocked=set()
+def occupancy(scan, inflation=1.0, blocked=None):
+    # One scan sees only unoccluded surfaces (the (6,6) cylinder is mostly hidden from the
+    # origin). Callers keep adding scans as the vehicle moves and replan when a route closes.
+    blocked=set() if blocked is None else blocked
     for point in scan:
         if point['hit']:
-            for x in range(-2,13):
-                for y in range(-2,13):
-                    if math.hypot(x-point['x'],y-point['y']) <= inflation:
+            px,py=point['x'],point['y']
+            for x in range(max(-2,math.floor(px-inflation)),min(12,math.ceil(px+inflation))+1):
+                for y in range(max(-2,math.floor(py-inflation)),min(12,math.ceil(py+inflation))+1):
+                    if math.hypot(x-px,y-py) <= inflation:
                         blocked.add((x,y))
     return blocked
+
+def route_blocked(cells, blocked):
+    return any((round(x),round(y)) in blocked for x,y,*_ in cells)
+
+def replan(position, goal, blocked, radius=2):
+    """Plan from the nearest free cell to the current position; [] when no route exists."""
+    px,py=position[:2]
+    free=[(math.hypot(x-px,y-py),(x,y)) for x in range(round(px)-radius,round(px)+radius+1)
+          for y in range(round(py)-radius,round(py)+radius+1)
+          if -2<=x<=12 and -2<=y<=12 and (x,y) not in blocked]
+    return astar(min(free)[1],goal,blocked) if free else []
 
 def astar(start, goal, blocked):
     if start in blocked or goal in blocked: return []

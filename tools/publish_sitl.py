@@ -3,62 +3,82 @@
 import argparse
 from datetime import datetime,timezone
 import json
+import math
 from pathlib import Path
 import shutil
-from evidence_contracts import require_matrix,read_records
+import tempfile
+from evidence_contracts import require_matrix,read_records,strict_loads
 from world import OBSTACLES
 
 ROOT=Path(__file__).resolve().parents[1]
+FILES=('result.json','parameters.log','perception.jsonl','mission.jsonl','gps-injection.log','px4.log')
+
+def nearest_rank(values,p):
+    values=sorted(values)
+    return values[max(0,math.ceil(p/100*len(values))-1)] if values else None
 
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--input',type=Path,required=True)
     parser.add_argument('--workspace',type=Path,help='Legacy option; environment is read from run-time provenance')
     args=parser.parse_args();source=args.input.resolve()
-    results=json.loads((source/'results.json').read_text())
+    results=strict_loads((source/'results.json').read_text())
     expected={'nominal','camera_dropout','companion_crash','gps_loss'}
     require_matrix(results,expected)
-    provenance=json.loads((source/'provenance.json').read_text())
+    provenance=strict_loads((source/'provenance.json').read_text())
     if provenance.get('inputs_unchanged') is not True:
         raise ValueError('Runtime inputs changed during the experiment; rerun the matrix')
-    # Validate every source before touching the reference sample.
+    # Validate and derive everything before the reference sample is touched.
     for result in results:
         required={'telemetry_received','offboard_entered','takeoff_observed','disarmed_at_end',
             'landed_at_end','estimated_obstacle_clearance','altitude_bounded','land_mode_observed',
             'image_messages','perception_messages','lidar_messages','arming_ack_accepted',
             'no_runner_error','ordered_flight_cycle','final_pose_near_ground','finite_positions','estimator_valid_before_fault','rosbag_recorded'}
         if result['scenario'] in ('nominal','camera_dropout'):
-            required.update(('mission_complete','goal_reached','landing_ack_accepted'))
-        if result['scenario']=='camera_dropout':required.update(('camera_hold_observed','camera_recovered'))
+            required.update(('mission_complete','goal_reached','landing_ack_accepted','no_unexpected_faults'))
+        if result['scenario']=='camera_dropout':required.update(('fault_injected','camera_hold_observed','camera_recovered'))
         if result['scenario']=='companion_crash':required.update(('fault_injected','px4_failsafe_after_crash'))
         if result['scenario']=='gps_loss':required.update(('fault_injected','gps_fault_handled','gps_fix_lost'))
         if not required<=result['checks'].keys():raise ValueError('Missing required checks: '+result['scenario'])
         folder=source/result['scenario']
-        if json.loads((folder/'result.json').read_text())!=result:
+        if strict_loads((folder/'result.json').read_text())!=result:
             raise ValueError('Summary differs from per-scenario evidence: '+result['scenario'])
         for name in ('parameters.log','px4.log','perception.jsonl','mission.jsonl'):
             if not (folder/name).is_file() or not (folder/name).stat().st_size:
                 raise ValueError('Missing source evidence: '+str(folder/name))
-        read_records(folder/'perception.jsonl');read_records(folder/'mission.jsonl')
-    sample=ROOT/'artifacts/sitl-sample';sample.mkdir(exist_ok=True)
-    environment=provenance['environment'];revisions=environment['upstream_revisions']
-    shutil.copy2(source/'provenance.json',sample/'provenance.json')
-    for result in results:
-        name=result['scenario'];destination=sample/name;destination.mkdir(exist_ok=True)
-        for file in ('result.json','parameters.log','perception.jsonl','mission.jsonl','gps-injection.log','px4.log'):
-            if (source/name/file).exists():shutil.copy2(source/name/file,destination/file)
-        observations=[json.loads(line) for line in (source/name/'perception.jsonl').read_text().splitlines()]
-        inference=[r['inference_ms'] for r in observations if r['kind']=='inference']
-        inference.sort()
-        result['onnx_sampled_p95_ms']=inference[min(len(inference)-1,int(.95*len(inference)))] if inference else None
+        if not result['trace']:raise ValueError('Empty flight trace: '+result['scenario'])
+        for metric in ('duration_wall_s','max_altitude_m','minimum_estimated_clearance_m'):
+            if not isinstance(result[metric],(int,float)) or not math.isfinite(result[metric]):
+                raise ValueError(f'Invalid {metric}: '+result['scenario'])
+        read_records(folder/'mission.jsonl')
+        inference=[r['inference_ms'] for r in read_records(folder/'perception.jsonl') if r['kind']=='inference']
+        result['onnx_sampled_p95_ms']=nearest_rank(inference,95)
         result['onnx_timing_note']='One logged timing per ten frames; CPU synthetic graph; not an NPU benchmark.'
-        first=result['trace'][0]['wall_time']
-        result['replay_start_wall_time']=first
+        result['replay_start_wall_time']=result['trace'][0]['wall_time']
+    environment=provenance['environment'];revisions=environment['upstream_revisions']
     report={'generated_utc':datetime.now(timezone.utc).isoformat(),'environment':environment,'provenance':provenance,
             'boundary':'Actual PX4/Gazebo/ROS; procedural camera/lidar; CPU synthetic ONNX; no Qualcomm hardware.',
             'obstacles':[list(o) for o in OBSTACLES],'results':results}
-    (sample/'report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
-    (sample/'report-data.js').write_text('window.SITL_REPORT='+json.dumps(report,separators=(',',':'))+';\n',encoding='utf-8')
+    serialized=json.dumps(report,indent=2,allow_nan=False)
+    # Build the new sample beside the old one and swap it in, so a failure never leaves a mixture
+    # and files from an earlier run (such as an old gps-injection.log) cannot survive.
+    sample=ROOT/'artifacts/sitl-sample'
+    staging=Path(tempfile.mkdtemp(prefix='.sitl-sample-',dir=sample.parent))
+    try:
+        shutil.copy2(source/'provenance.json',staging/'provenance.json')
+        for result in results:
+            destination=staging/result['scenario'];destination.mkdir()
+            for file in FILES:
+                if (source/result['scenario']/file).exists():shutil.copy2(source/result['scenario']/file,destination/file)
+        (staging/'report.json').write_text(serialized,encoding='utf-8')
+        (staging/'report-data.js').write_text('window.SITL_REPORT='+json.dumps(report,separators=(',',':'),allow_nan=False)+';\n',encoding='utf-8')
+        retired=sample.with_name('.sitl-sample-retired')
+        if retired.exists():shutil.rmtree(retired)
+        if sample.exists():sample.rename(retired)
+        staging.rename(sample)
+        if retired.exists():shutil.rmtree(retired)
+    finally:
+        if staging.exists():shutil.rmtree(staging)
     lines=['# PX4 / ROS 2 / Gazebo execution evidence','',report['boundary'],'',
            'Generated UTC: '+report['generated_utc'],'',
            '| Scenario | Result | Wall duration (s) | Max estimated altitude (m) | Min estimated obstacle clearance (m) |',

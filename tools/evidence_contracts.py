@@ -5,13 +5,28 @@ import math
 import sqlite3
 
 
+def _reject_constant(value):
+    raise ValueError('Nonfinite JSON: '+value)
+
+
+def _finite_float(text):
+    # parse_constant only sees NaN/Infinity literals; 1e999 overflows to inf through parse_float.
+    value=float(text)
+    if not math.isfinite(value):raise ValueError('Nonfinite JSON: '+text)
+    return value
+
+
+def strict_loads(text):
+    return json.loads(text,parse_constant=_reject_constant,parse_float=_finite_float)
+
+
 def read_records(path, live=False):
     if not path.exists():return []
     lines=path.read_text(encoding='utf-8').splitlines(keepends=True)
     if live and lines and not lines[-1].endswith('\n'):lines.pop()
     records=[]
     for line in lines:
-        item=json.loads(line,parse_constant=lambda value: (_ for _ in ()).throw(ValueError('Nonfinite JSON: '+value)))
+        item=strict_loads(line)
         if not isinstance(item,dict):raise ValueError('JSONL record must be an object')
         records.append(item)
     return records

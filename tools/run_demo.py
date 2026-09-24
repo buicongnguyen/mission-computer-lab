@@ -18,7 +18,7 @@ import onnxruntime as ort
 from perception import Detector, camera_frame, create_model
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from security import boot_gate, provision, security_experiments
-from world import GOAL, OBSTACLES, Localizer, astar, lidar, occupancy
+from world import GOAL, OBSTACLES, Localizer, astar, lidar, occupancy, replan, route_blocked
 from supervisor_client import exchange
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -38,15 +38,16 @@ def png_data(frame):
 def percentile(values,p):
     return float(np.percentile(values,p)) if values else None
 
-def run_scenario(name, detector, seed, binary):
+def run_scenario(name, detector, seed, binary, goal=GOAL):
     rng=np.random.default_rng(seed)
     truth=np.zeros(3); velocity=np.zeros(3); prior_velocity=np.zeros(3)
     localizer=Localizer()
     scan=lidar(truth)
     blocked=occupancy(scan)
-    path=astar((0,0),GOAL,blocked)
+    path=astar((0,0),goal,blocked)
     if not path: raise RuntimeError('no initial path')
-    waypoints=[[0,0,3]]+[[x,y,3] for x,y in path[1:]]+[[*GOAL,0]]
+    waypoints=[[0,0,3]]+[[x,y,3] for x,y in path[1:]]+[[*goal,0]]
+    plans=[{'time':0.,'path':path}]; stranded=None
     waypoint=0; stamps={'imu':0.,'gnss':0.,'vision':0.,'link':0.}
     trace=[]; events=[]; rt=[]; inference=[]; errors=[]; modes=[]
     last_mode=None; detection={'bbox':None,'inference_ms':0}; camera=png_data(camera_frame(0))
@@ -75,9 +76,18 @@ def run_scenario(name, detector, seed, binary):
                 camera=png_data(frame); stamps['vision']=now
             if step%2==0 and not link_bad: stamps['link']=now
             scan=lidar(truth)  # ideal 2-D sensor; localization/calibration error is not modeled here
-            complete=waypoint>=len(waypoints)
-            target=waypoints[min(waypoint,len(waypoints)-1)]
-            if not complete and np.linalg.norm(estimate-np.array(target))<0.22:
+            if step%5==0:
+                before=len(blocked); occupancy(scan,blocked=blocked)
+                # Scans from new positions reveal occluded obstacles; reroute only if the rest of the route closed.
+                if len(blocked)>before and not stranded and 1<=waypoint<len(waypoints)-1 and route_blocked(waypoints[waypoint:-1],blocked):
+                    route=replan(estimate,goal,blocked)
+                    plans.append({'time':now,'path':route})
+                    events.append({'time':now,'mode':'REPLAN' if route else 'NO_ROUTE','reason':'route_blocked_by_new_scan'})
+                    if route: waypoints=waypoints[:waypoint]+[[x,y,3] for x,y in route]+[[*goal,0]]
+                    else: stranded=[float(estimate[0]),float(estimate[1]),3.]  # hold; never report completion
+            complete=waypoint>=len(waypoints) and not stranded
+            target=stranded or waypoints[min(waypoint,len(waypoints)-1)]
+            if not complete and not stranded and np.linalg.norm(estimate-np.array(target))<0.22:
                 accepted_targets.append(waypoint); waypoint+=1
                 complete=waypoint>=len(waypoints)
                 target=waypoints[min(waypoint,len(waypoints)-1)]
@@ -144,7 +154,7 @@ def run_scenario(name, detector, seed, binary):
                        'localization_rmse_m':float(np.sqrt(np.mean(np.square(errors)))),
                        'max_localization_error_m':max(errors),'min_obstacle_clearance_m':min_clearance,
                        'waypoints_reached':len(accepted_targets)},
-            'events':events,'path':path,'blocked':[list(p) for p in sorted(blocked)],'trace':trace}
+            'events':events,'path':path,'plans':plans,'blocked':[list(p) for p in sorted(blocked)],'trace':trace}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

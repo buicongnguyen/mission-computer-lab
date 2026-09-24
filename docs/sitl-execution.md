@@ -2,14 +2,14 @@
 
 Actual PX4/Gazebo/ROS; procedural camera/lidar; CPU synthetic ONNX; no Qualcomm hardware.
 
-Generated UTC: 2026-09-23T17:05:39.355922+00:00
+Generated UTC: 2026-09-24T00:49:34.953337+00:00
 
 | Scenario | Result | Wall duration (s) | Max estimated altitude (m) | Min estimated obstacle clearance (m) |
 |---|---|---:|---:|---:|
-| nominal | PASS | 49.75 | 3.027 | 1.183 |
-| camera_dropout | PASS | 50.93 | 2.988 | 1.228 |
-| companion_crash | PASS | 30.12 | 2.952 | 3.345 |
-| gps_loss | PASS | 33.35 | 2.835 | 3.130 |
+| nominal | PASS | 50.77 | 3.063 | 1.192 |
+| camera_dropout | PASS | 51.25 | 3.047 | 1.181 |
+| companion_crash | PASS | 31.19 | 2.835 | 3.277 |
+| gps_loss | PASS | 34.76 | 2.914 | 3.215 |
 
 All four scenarios require actual armed offboard state, observed climb, land mode, landed state and final disarm. Normal and camera-recovery runs also require a reached goal, COMPLETE and accepted land command. GPS loss requires a post-injection stale-GNSS landing decision. Companion crash requires a subsequent PX4 failsafe.
 

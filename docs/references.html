@@ -1,0 +1,227 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>References</title><style>/* Color tokens. Light is the default; dark follows the system unless the page's toggle chose a theme. */
+:root{color-scheme:light;
+  --bg:#f2f6f7;--surface:#fff;--surface-2:#e7f1f3;--code-bg:#eef3f5;--status-bg:#edf7f4;
+  --ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--line-soft:#e3eaed;
+  --link:#006c86;--teal:#067c80;--accent:#067c80;--accent-ink:#fff;--ok:#057864;--focus:#b36b00;
+  --nav-bg:#112e3d;--nav-ink:#d8f7f2;--pre-bg:#102c3b;--pre-ink:#e3f3f5;--pipe-bg:#143849;--pipe-ink:#e9f8f5;
+  --quote-bg:#eef8f7;--quote-ink:#31505b;--btn-bg:#fff;--btn-line:#6f8a97;--btn-hover:#dbf4ed;
+  --badge-bg:#d7f3e9;--badge-ink:#14634c;--badge-line:#b3deca;
+  --notice-bg:#fff8e9;--notice-line:#b47b24;--err-bg:#fdeaea;--err-ink:#962222}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --bg:#0b161d;--surface:#122530;--surface-2:#18313e;--code-bg:#1b3442;--status-bg:#16322f;
+  --ink:#e2eef2;--muted:#9db3be;--line:#284150;--line-soft:#213845;
+  --link:#74d3e6;--teal:#3cc1bd;--accent:#3cc1bd;--accent-ink:#04211f;--ok:#63d6ae;--focus:#ffb000;
+  --nav-bg:#071117;--nav-ink:#d8f7f2;--pre-bg:#07141b;--pre-ink:#e3f3f5;--pipe-bg:#1a4254;--pipe-ink:#e9f8f5;
+  --quote-bg:#14303a;--quote-ink:#c7dde3;--btn-bg:#152b37;--btn-line:#6e8d9c;--btn-hover:#1d3a47;
+  --badge-bg:#123b31;--badge-ink:#8fe6c6;--badge-line:#1f5a4a;
+  --notice-bg:#2a2313;--notice-line:#d6a24a;--err-bg:#3b1a1a;--err-ink:#ffb4b4}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --bg:#0b161d;--surface:#122530;--surface-2:#18313e;--code-bg:#1b3442;--status-bg:#16322f;
+  --ink:#e2eef2;--muted:#9db3be;--line:#284150;--line-soft:#213845;
+  --link:#74d3e6;--teal:#3cc1bd;--accent:#3cc1bd;--accent-ink:#04211f;--ok:#63d6ae;--focus:#ffb000;
+  --nav-bg:#071117;--nav-ink:#d8f7f2;--pre-bg:#07141b;--pre-ink:#e3f3f5;--pipe-bg:#1a4254;--pipe-ink:#e9f8f5;
+  --quote-bg:#14303a;--quote-ink:#c7dde3;--btn-bg:#152b37;--btn-line:#6e8d9c;--btn-hover:#1d3a47;
+  --badge-bg:#123b31;--badge-ink:#8fe6c6;--badge-line:#1f5a4a;
+  --notice-bg:#2a2313;--notice-line:#d6a24a;--err-bg:#3b1a1a;--err-ink:#ffb4b4}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:16px/1.65 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}a{color:var(--link);text-underline-offset:3px}nav{background:var(--nav-bg);display:flex;gap:28px;align-items:center;flex-wrap:wrap;padding:20px 5%;font-size:14px}nav a{color:var(--nav-ink);text-decoration:none}nav a:first-child{font-weight:750;letter-spacing:1.5px;margin-right:auto}.document{max-width:1060px;margin:38px auto;padding:46px 60px;background:var(--surface);border:1px solid var(--line);border-radius:14px}h1{font-size:clamp(30px,5vw,46px);line-height:1.14;letter-spacing:-1.3px;margin:0 0 24px}h2{font-size:26px;margin:44px 0 16px;line-height:1.3;border-top:1px solid var(--line);padding-top:25px}h3{font-size:20px;margin:26px 0 10px}p,li{max-width:85ch}blockquote{margin:20px 0;border-left:4px solid var(--teal);padding:12px 22px;background:var(--quote-bg);color:var(--quote-ink)}blockquote p{margin:0}table{border-collapse:collapse;width:100%;font-size:14px;display:block;overflow:auto}td,th{border:1px solid var(--line);padding:12px;text-align:left;vertical-align:top}th{background:var(--surface-2)}pre{background:var(--pre-bg);color:var(--pre-ink);padding:20px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.6}code{font-family:Consolas,monospace}p code,li code,td code{background:var(--code-bg);padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}footer{padding:25px;text-align:center;color:var(--muted);font-size:13px}button,select,input{font:inherit}button,select{padding:8px 14px;border-radius:6px;border:1px solid var(--btn-line);background:var(--btn-bg);color:var(--ink)}button{cursor:pointer}button:hover{background:var(--btn-hover)}:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+/* Grid items default to min-width:auto, so a canvas bitmap or a long unbroken string widened the page past a phone screen. */
+.grid>*,.metrics>*,.bottom>*{min-width:0}canvas{max-width:100%}.sub,#provenance{overflow-wrap:anywhere}
+nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:var(--nav-ink);border-color:rgba(216,247,242,.35)}nav .theme-toggle:hover{background:rgba(216,247,242,.12)}
+@media(max-width:700px){.document{padding:28px 20px;margin:16px 12px}nav{gap:15px;font-size:12px}td,th{min-width:120px}}@media print{nav,footer{display:none}.document{margin:0;padding:0;border:0;max-width:none}body{background:white}h2{break-after:avoid}pre{white-space:pre-wrap}a{color:inherit}}
+
+.diagram{margin:24px 0;border:1px solid var(--line);border-radius:10px;padding:16px;background:var(--surface);overflow:auto}.diagram pre.mermaid{background:var(--surface);color:var(--ink);text-align:center;padding:8px;margin:0;min-width:440px}.diagram svg{max-width:100%;height:auto}.diagram figcaption{font-size:13px;color:var(--muted);margin:10px 0}.diagram details{font-size:13px}.diagram summary{cursor:pointer}.diagram .diagram-error{text-align:left;white-space:pre-wrap}@media print{.diagram{break-inside:avoid}.diagram details{display:none}}
+
+/* Paper is always light, whatever theme is on screen. */
+@media print{:root,:root:not([data-theme="light"]),:root[data-theme="dark"]{color-scheme:light;--bg:#fff;--surface:#fff;--surface-2:#e7f1f3;--code-bg:#eef3f5;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--quote-bg:#eef8f7;--quote-ink:#31505b;--pre-bg:#102c3b;--pre-ink:#e3f3f5}}
+</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flight replay</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>References</h1>
+<p>Every project this lab builds on, with its source repository, its official website or documentation, the exact version pinned here, and what it does in the lab. Links were checked on 24 September 2026. Pinned revisions are enforced by <a href="https://github.com/buicongnguyen/mission-computer-lab/blob/main/scripts/build_sitl.sh"><code>scripts/build_sitl.sh</code></a>, <code>requirements*.lock.txt</code> and <code>package-lock.json</code>; the flight evidence records them again at run time.</p>
+<h2>This project</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Link</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Source code</td>
+<td><a href="https://github.com/buicongnguyen/mission-computer-lab">github.com/buicongnguyen/mission-computer-lab</a></td>
+</tr>
+<tr>
+<td>Live replay site</td>
+<td><a href="https://buicongnguyen.github.io/mission-computer-lab/">buicongnguyen.github.io/mission-computer-lab</a></td>
+</tr>
+<tr>
+<td>PX4 flight replay</td>
+<td><a href="https://buicongnguyen.github.io/mission-computer-lab/web/sitl.html">web/sitl.html</a></td>
+</tr>
+<tr>
+<td>Fast policy replay</td>
+<td><a href="https://buicongnguyen.github.io/mission-computer-lab/web/index.html">web/index.html</a></td>
+</tr>
+</tbody></table>
+<h2>Flight stack (executed)</h2>
+<table>
+<thead>
+<tr>
+<th>Project</th>
+<th>Version used</th>
+<th>Source</th>
+<th>Website and documentation</th>
+<th>Role in this lab</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PX4 Autopilot</td>
+<td>v1.16.0 (<code>6ea3539</code>)</td>
+<td><a href="https://github.com/PX4/PX4-Autopilot/tree/v1.16.0">PX4/PX4-Autopilot</a></td>
+<td><a href="https://px4.io/">px4.io</a>, <a href="https://docs.px4.io/v1.16/en/">PX4 Guide v1.16</a></td>
+<td>Flight firmware in SITL: EKF2, offboard mode, land mode and failsafes</td>
+</tr>
+<tr>
+<td>px4_msgs</td>
+<td>release/1.16 (<code>392e831</code>)</td>
+<td><a href="https://github.com/PX4/px4_msgs/tree/release/1.16">PX4/px4_msgs</a></td>
+<td><a href="https://docs.px4.io/v1.16/en/middleware/uxrce_dds">uXRCE-DDS bridge</a></td>
+<td>ROS 2 message definitions that match the firmware&#39;s uORB topics</td>
+</tr>
+<tr>
+<td>PX4 Gazebo models</td>
+<td>Bundled with PX4 v1.16</td>
+<td><a href="https://github.com/PX4/PX4-gazebo-models">PX4/PX4-gazebo-models</a></td>
+<td><a href="https://docs.px4.io/v1.16/en/sim_gazebo_gz/">Gazebo simulation</a></td>
+<td>x500 quadcopter model flown in the inspection world</td>
+</tr>
+<tr>
+<td>Micro XRCE-DDS Agent</td>
+<td>v2.4.3 (<code>7362281</code>)</td>
+<td><a href="https://github.com/eProsima/Micro-XRCE-DDS-Agent/tree/v2.4.3">eProsima/Micro-XRCE-DDS-Agent</a></td>
+<td><a href="https://micro-xrce-dds.docs.eprosima.com/">Micro XRCE-DDS docs</a></td>
+<td>Companion-side agent bridging PX4&#39;s client to the DDS/ROS 2 network</td>
+</tr>
+<tr>
+<td>ROS 2 Humble</td>
+<td>Ubuntu 22.04 packages</td>
+<td><a href="https://github.com/ros2/ros2">ros2/ros2</a></td>
+<td><a href="https://docs.ros.org/en/humble/">docs.ros.org/en/humble</a></td>
+<td>Nodes, typed interfaces and QoS for payload, perception and control</td>
+</tr>
+<tr>
+<td>rosbag2</td>
+<td>Humble</td>
+<td><a href="https://github.com/ros2/rosbag2">ros2/rosbag2</a></td>
+<td><a href="https://docs.ros.org/en/humble/">docs.ros.org/en/humble</a></td>
+<td>Recording the decision, perception and LiDAR topics as evidence</td>
+</tr>
+<tr>
+<td>Gazebo Harmonic</td>
+<td><code>gz-harmonic</code> 1.0.0</td>
+<td><a href="https://github.com/gazebosim/gz-harmonic">gazebosim/gz-harmonic</a>, <a href="https://github.com/gazebosim/gz-sim">gazebosim/gz-sim</a></td>
+<td><a href="https://gazebosim.org/docs/harmonic/getstarted/">gazebosim.org</a></td>
+<td>Vehicle physics and the flight sensors PX4 consumes</td>
+</tr>
+<tr>
+<td>MAVLink and pymavlink</td>
+<td>pymavlink 2.4.49</td>
+<td><a href="https://github.com/mavlink/mavlink">mavlink/mavlink</a>, <a href="https://github.com/ArduPilot/pymavlink">ArduPilot/pymavlink</a></td>
+<td><a href="https://mavlink.io/en/">mavlink.io</a></td>
+<td>Local ground-station heartbeat</td>
+</tr>
+</tbody></table>
+<h2>Perception, security and tooling</h2>
+<table>
+<thead>
+<tr>
+<th>Project</th>
+<th>Version used</th>
+<th>Source</th>
+<th>Website and documentation</th>
+<th>Role in this lab</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ONNX Runtime</td>
+<td>1.20.1</td>
+<td><a href="https://github.com/microsoft/onnxruntime">microsoft/onnxruntime</a></td>
+<td><a href="https://onnxruntime.ai/">onnxruntime.ai</a></td>
+<td>CPU inference of the detector, loaded from verified bytes</td>
+</tr>
+<tr>
+<td>ONNX</td>
+<td>1.17.0</td>
+<td><a href="https://github.com/onnx/onnx">onnx/onnx</a></td>
+<td><a href="https://onnx.ai/">onnx.ai</a></td>
+<td>Authoring and checking the hand-built segmentation graph</td>
+</tr>
+<tr>
+<td>NumPy</td>
+<td>1.26.4</td>
+<td><a href="https://github.com/numpy/numpy">numpy/numpy</a></td>
+<td><a href="https://numpy.org/">numpy.org</a></td>
+<td>Sensor frames, Kalman filter and metrics</td>
+</tr>
+<tr>
+<td>pyca/cryptography</td>
+<td>44.0.3</td>
+<td><a href="https://github.com/pyca/cryptography">pyca/cryptography</a></td>
+<td><a href="https://cryptography.io/">cryptography.io</a></td>
+<td>Ed25519 signing and verification of the model manifest</td>
+</tr>
+<tr>
+<td>Mermaid</td>
+<td>11.17.2</td>
+<td><a href="https://github.com/mermaid-js/mermaid">mermaid-js/mermaid</a></td>
+<td><a href="https://mermaid.js.org/">mermaid.js.org</a></td>
+<td>Offline diagrams in the guides</td>
+</tr>
+<tr>
+<td>marked</td>
+<td>17.0.5</td>
+<td><a href="https://github.com/markedjs/marked">markedjs/marked</a></td>
+<td><a href="https://marked.js.org/">marked.js.org</a></td>
+<td>Rendering the Markdown guides to HTML</td>
+</tr>
+<tr>
+<td>jsdom</td>
+<td>26.1.0</td>
+<td><a href="https://github.com/jsdom/jsdom">jsdom/jsdom</a></td>
+<td>—</td>
+<td>Inert DOM for diagram syntax tests</td>
+</tr>
+</tbody></table>
+<h2>Upstream guides used for the integration</h2>
+<ul>
+<li><a href="https://docs.px4.io/v1.16/en/ros2/user_guide">PX4 ROS 2 user guide (v1.16)</a>: client/agent architecture, message alignment and companion setup.</li>
+<li><a href="https://docs.px4.io/v1.16/en/ros2/offboard_control">PX4 ROS 2 offboard control example (v1.16)</a>: the setpoint and proof-of-life pattern the mission adapter follows.</li>
+<li><a href="https://docs.px4.io/v1.16/en/flight_modes/offboard">PX4 offboard mode (v1.16)</a>: entry requirements and loss behavior.</li>
+<li><a href="https://docs.px4.io/v1.16/en/middleware/uxrce_dds">PX4 uXRCE-DDS bridge (v1.16)</a>: versioned topics such as <code>vehicle_status_v1</code>.</li>
+<li><a href="https://docs.px4.io/v1.16/en/sim_gazebo_gz/">PX4 Gazebo simulation (v1.16)</a>: standalone Gazebo mode and model/world selection.</li>
+<li><a href="https://docs.ros.org/en/humble/Concepts/Intermediate/About-Quality-of-Service-Settings.html">ROS 2 quality of service</a>: best-effort sensor subscriptions and endpoint compatibility.</li>
+</ul>
+<h2>Target platforms (referenced, not executed)</h2>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Links</th>
+<th>Relevance</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qualcomm IQ9 series</td>
+<td><a href="https://docs.qualcomm.com/bundle/publicresource/87-83840-1_REV_A_Qualcomm_IQ9_Series_Product_Brief.pdf">Product brief</a>, <a href="https://www.qualcomm.com/developer/blog/2024/12/secure-boot-as-part-of-platform-security-architecture-modern-system-on-chip">secure boot architecture</a></td>
+<td>Mission-computer target family and its hardware trust chain</td>
+</tr>
+<tr>
+<td>Qualcomm AI acceleration</td>
+<td><a href="https://onnxruntime.ai/docs/execution-providers/QNN-ExecutionProvider.html">ONNX Runtime QNN execution provider</a>, <a href="https://workbench.aihub.qualcomm.com/docs/index.html">Qualcomm AI Hub docs</a>, <a href="https://github.com/quic/ai-hub-models">quic/ai-hub-models</a></td>
+<td>Path from the CPU provider used here to NPU execution</td>
+</tr>
+<tr>
+<td>NXP MR-VMU-RT1176</td>
+<td><a href="https://www.nxp.com/design/design-center/development-boards-and-designs/VEHICLE-MANAGEMENT-UNIT">NXP product page</a>, <a href="https://nxp.gitbook.io/vmu-rt1176">NXP VMU documentation</a>, <a href="https://docs.px4.io/main/en/flight_controller/nxp_mr_vmu_rt1176">PX4 board guide</a></td>
+<td>NXP-based PX4 flight-controller class that the SITL firmware stands in for</td>
+</tr>
+</tbody></table>
+<p>The <a href="domain-notes.html">domain notes</a> discuss these platforms in context, and the <a href="architecture.html">architecture guide</a> maps each simulated component to its production counterpart.</p>
+</main><footer>Mission Computer Lab · software simulation portfolio · <a href="https://github.com/buicongnguyen/mission-computer-lab">source on GitHub</a> · 2026</footer></body></html>

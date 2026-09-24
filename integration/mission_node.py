@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """SITL-only ROS 2 adapter around the tested C++ supervisor; never use on hardware."""
 import argparse
+from collections import deque
 import math
 import subprocess
 import time
@@ -11,7 +12,7 @@ from px4_msgs.msg import (VehicleLocalPosition,VehicleStatus,SensorCombined,Sens
                           OffboardControlMode,TrajectorySetpoint,VehicleCommand)
 from mission_interfaces.msg import Perception,Decision
 from common import ROOT,SENSOR_QOS,JsonLog,px4_topic,stamp_seconds,ros_seconds
-from world import astar,occupancy,GOAL
+from world import astar,occupancy,replan,route_blocked,GOAL
 from supervisor_client import exchange
 
 class Mission(Node):
@@ -23,6 +24,7 @@ class Mission(Node):
         self.targets=None;self.waypoint=0;self.stream_since=None;self.last_request=-1e9
         self.land_requested=False;self.last_mode=None;self.flight_seen=False;self.offboard_seen=False;self.handed_off=False
         self.payload_stamps={};self.payload_times={}
+        self.blocked=set();self.mapped_scan=None;self.track=deque(maxlen=40);self.model_sha256=args.model_sha256
         self.core=subprocess.Popen([str(ROOT/'build/mission_supervisor')],stdin=subprocess.PIPE,
                                    stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,bufsize=1)
         for name,typ,key in [('vehicle_local_position',VehicleLocalPosition,'pose'),
@@ -64,7 +66,30 @@ class Mission(Node):
         if self.payload_time('lidar',msg):self.scan=msg
     def vision(self,msg):
         if not math.isfinite(msg.inference_ms) or msg.inference_ms<0:return
+        # Only results from the model the boot gate verified may count as fresh vision.
+        if self.model_sha256 and msg.model_sha256!=self.model_sha256:return
         if self.payload_time('camera',msg):self.perception=msg
+    def scan_points(self,position):
+        s=self.scan;points=[]
+        for i,r in enumerate(s.ranges):
+            if math.isfinite(r) and s.range_min<=r<s.range_max:
+                angle=s.angle_min+i*s.angle_increment
+                points.append({'x':position[0]+r*math.cos(angle),'y':position[1]+r*math.sin(angle),'hit':True})
+        return points
+    def position_at(self,when):
+        # Place a scan where the vehicle was when it was captured, not where it is now.
+        return min(self.track,key=lambda item:abs(item[0]-when))[1] if self.track else None
+    def map_scan(self,position):
+        """Add the latest scan to the map and replan if it closes the rest of the route; False if no route remains."""
+        self.mapped_scan=self.scan
+        before=len(self.blocked)
+        occupancy(self.scan_points(self.position_at(self.payload_times['lidar']) or position),blocked=self.blocked)
+        ahead=self.targets[max(self.waypoint,1):]
+        if len(self.blocked)==before or self.waypoint<1 or not ahead or not route_blocked(ahead,self.blocked):return True
+        route=replan(position,GOAL,self.blocked)
+        self.log.write('replan',path=route,position=position)
+        if route:self.targets=self.targets[:self.waypoint]+[[float(x),float(y),3.] for x,y in route]
+        return bool(route)
     def send_command(self,command,p1=0.,p2=0.):
         m=VehicleCommand();m.timestamp=self.get_clock().now().nanoseconds//1000
         m.command=command;m.param1=float(p1);m.param2=float(p2)
@@ -89,16 +114,20 @@ class Mission(Node):
             return  # Stop offboard proof-of-life; its 2 s pre-stream restarts if the estimate recovers.
         if self.origin is None:
             self.origin=[self.pose.y,self.pose.x,self.pose.z]
-            hits=[]
-            for i,r in enumerate(self.scan.ranges):
-                if math.isfinite(r) and self.scan.range_min<=r<self.scan.range_max:
-                    angle=self.scan.angle_min+i*self.scan.angle_increment
-                    hits.append({'x':r*math.cos(angle),'y':r*math.sin(angle),'hit':True})
-            path=astar((0,0),GOAL,occupancy(hits))
+            self.blocked=occupancy(self.scan_points([0.,0.]));self.mapped_scan=self.scan
+            path=astar((0,0),GOAL,self.blocked)
             if not path:raise RuntimeError('no planned path')
             self.targets=[[0.,0.,3.]]+[[float(x),float(y),3.] for x,y in path[1:]]
             self.log.write('plan',path=path,source='ROS LaserScan',origin=self.origin)
+        # Until the vehicle arms, re-zero altitude on the ground so estimator drift cannot trip the
+        # geofence floor (-0.1 m) before takeoff; the horizontal plan frame stays fixed.
+        if not self.flight_seen:self.origin[2]=self.pose.z
         position=[self.pose.y-self.origin[0],self.pose.x-self.origin[1],self.origin[2]-self.pose.z]
+        self.track.append((now,position))
+        if self.scan is not self.mapped_scan and not self.map_scan(position):
+            self.send_command(VehicleCommand.VEHICLE_CMD_NAV_LAND);self.land_requested=True
+            self.handed_off=True;self.log.write('handoff',reason='no_safe_route')
+            return  # Scans closed every route to the goal; land where the vehicle is.
         if self.stream_since is None:self.stream_since=now
         target=self.targets[min(self.waypoint,len(self.targets)-1)]
         if self.waypoint<len(self.targets) and self.status.arming_state==VehicleStatus.ARMING_STATE_ARMED and math.dist(position,target)<0.35:
@@ -148,7 +177,8 @@ class Mission(Node):
         self.log.close()
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--allow-sitl',action='store_true');p.add_argument('--log',required=True);args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--allow-sitl',action='store_true');p.add_argument('--log',required=True)
+    p.add_argument('--model-sha256',help='Accept perception only from this verified model');args=p.parse_args()
     if not args.allow_sitl:p.error('This adapter is simulation-only. Launch through scripts/run_sitl.sh.')
     rclpy.init();node=Mission(args)
     try:rclpy.spin(node)

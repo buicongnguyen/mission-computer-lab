@@ -1,8 +1,12 @@
 # Validation record
 
+## Fifth review pass retest — 24 September 2026
+
+**Result: all four flight scenarios passed on the final code, and every recorded input hash matches the published source.** The published samples come from this run. Current checks: one CTest executable, 35 lightweight Python tests (also under `python -O`), 19 ROS/runner regression tests, eight fast scenarios and six signed-artifact cases, plus replay, theme, diagram and link checks. Findings, fixes and verification are in [pass 5 of the review record](review-report.md#pass-5).
+
 ## Fourth review pass retest — 24 September 2026
 
-**Result: all four flight scenarios passed on the final code, and the run-time input hashes remained unchanged.** The published samples come from this run. Current checks: one CTest executable, 28 lightweight Python tests (also under `python -O`), 14 ROS/runner regression tests, eight fast scenarios and six signed-artifact cases. Findings, fixes and verification are in [pass 4 of the review record](review-report.md#pass-4).
+**Result: all four flight scenarios passed on the final code, and the run-time input hashes remained unchanged.** Its samples were later replaced by the pass 5 run. Checks at that time: one CTest executable, 28 lightweight Python tests (also under `python -O`), 14 ROS/runner regression tests, eight fast scenarios and six signed-artifact cases. Findings, fixes and verification are in [pass 4 of the review record](review-report.md#pass-4).
 
 ## Three-pass review retest — 23 September 2026
 

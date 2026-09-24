@@ -5,8 +5,8 @@ import tempfile
 import sqlite3
 import unittest
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
-from evidence_contracts import require_matrix,read_records,flight_cycle_checks,bag_has_topics
-from check_artifacts import validate,SCENARIOS,SECURITY,COMMON_CHECKS
+from evidence_contracts import require_matrix,read_records,flight_cycle_checks,bag_has_topics,strict_loads
+from check_artifacts import validate,SCENARIOS,SECURITY,COMMON_CHECKS,COMPLETING,BOOT
 
 class EvidenceTests(unittest.TestCase):
     def test_empty_or_partial_rosbag_does_not_prove_recording(self):
@@ -54,8 +54,11 @@ class EvidenceTests(unittest.TestCase):
         records[2]['valid']=False
         self.assertFalse(flight_cycle_checks(records,gps_loss_at=2.5)['estimator_valid_before_fault'])
     def test_invalid_security_or_nan_trace_rejected(self):
-        report={'schema_version':1,'results':[{'scenario':s,'passed':True,'checks':dict.fromkeys(COMMON_CHECKS|{'hold_then_recover','hold_then_land','independent_watchdog'},True),
-            'trace':[{'time':0.},{'time':1.}],'events':[{}]} for s in SCENARIOS],
+        terminal=lambda s:'COMPLETE' if s in COMPLETING else 'LAND'
+        report={'schema_version':1,'boot':[{'stage':stage,'status':status} for stage,status in BOOT],
+            'results':[{'scenario':s,'passed':True,'checks':dict.fromkeys(COMMON_CHECKS|{'hold_then_recover','hold_then_land','independent_watchdog'},True),
+            'trace':[{'time':0.},{'time':1.}],'events':[{'mode':'ACTIVE'},{'mode':'REPLAN'},{'mode':terminal(s)}],
+            'summary':{'terminal_mode':terminal(s),'min_obstacle_clearance_m':1.2,'max_localization_error_m':0.1}} for s in SCENARIOS],
             'security':[{'case':s,'passed':True,'accepted':s=='valid_update','expected':s=='valid_update'} for s in SECURITY],
             'environment':{'providers':['CPUExecutionProvider']}}
         validate(report)
@@ -65,5 +68,29 @@ class EvidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):validate(bad)
         bad=deepcopy(report);bad['security'][0]['accepted']=not bad['security'][0]['accepted']
         with self.assertRaises(ValueError):validate(bad)
+    def test_pass_flags_are_cross_checked_against_recorded_data(self):
+        # Each mutated report below still claims every check passed.
+        base={'schema_version':1,'boot':[{'stage':stage,'status':status} for stage,status in BOOT],
+            'results':[{'scenario':s,'passed':True,'checks':dict.fromkeys(COMMON_CHECKS|{'hold_then_recover','hold_then_land','independent_watchdog'},True),
+            'trace':[{'time':0.}],'events':[{'mode':'COMPLETE' if s in COMPLETING else 'LAND'}],
+            'summary':{'terminal_mode':'COMPLETE' if s in COMPLETING else 'LAND','min_obstacle_clearance_m':1.,'max_localization_error_m':.1}} for s in SCENARIOS],
+            'security':[{'case':s,'passed':True,'accepted':s=='valid_update','expected':s=='valid_update'} for s in SECURITY],
+            'environment':{'providers':['CPUExecutionProvider']}}
+        validate(base)
+        for mutate in (lambda r:r.update(schema_version=True),
+                       lambda r:r['boot'][2].update(status='FAILED'),
+                       lambda r:r['results'][0]['summary'].update(terminal_mode='HOLD'),
+                       lambda r:r['results'][0]['events'].append({'mode':'HOLD'}),
+                       lambda r:r['results'][0]['summary'].update(min_obstacle_clearance_m=-3),
+                       lambda r:r['results'][0]['summary'].update(max_localization_error_m=float('nan'))):
+            bad=deepcopy(base);mutate(bad)
+            with self.assertRaises(ValueError):validate(bad)
+    def test_overflowing_numbers_are_not_accepted_as_finite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'log.jsonl'
+            path.write_text('{"kind":"inference","inference_ms":1e999}\n')
+            with self.assertRaisesRegex(ValueError,'Nonfinite'):read_records(path)
+        with self.assertRaisesRegex(ValueError,'Nonfinite'):strict_loads('[-1e400]')
+        self.assertEqual(strict_loads('{"a":1.5}'),{'a':1.5})
 
 if __name__=='__main__':unittest.main()

@@ -13,7 +13,7 @@ def exchange(process, fields, timeout):
     while b'\n' not in data:
         remaining = deadline-time.monotonic()
         if remaining <= 0 or not select.select([process.stdout], [], [], remaining)[0]:
-            raise RuntimeError('C++ supervisor response timeout (including partial lines)')
+            raise RuntimeError('C++ supervisor response timeout'+(' after a partial line' if data else ''))
         chunk = os.read(process.stdout.fileno(), 4096)
         if not chunk:
             raise RuntimeError('C++ supervisor closed its response pipe')

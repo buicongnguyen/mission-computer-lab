@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -12,6 +13,7 @@ from security import (boot_gate, load_public_key, provision, public_key_hex, sig
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from world import Localizer, astar, lidar, occupancy, GOAL, OBSTACLES
+import run_demo
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -97,6 +99,40 @@ class PlanningTests(unittest.TestCase):
         kf=Localizer(); _,start=kf.step(np.zeros(3),None,0.05)
         for _ in range(20): _,end=kf.step(np.zeros(3),None,0.05)
         self.assertGreater(end,start)
+
+def route_clearance(path):
+    """Smallest distance from the straight segments between cells to a real cylinder surface."""
+    return min(math.hypot(ax+(bx-ax)*i/20-cx,ay+(by-ay)*i/20-cy)-r for cx,cy,r in OBSTACLES
+               for (ax,ay),(bx,by) in zip(path,path[1:]) for i in range(21))
+
+class HarnessRobustnessTests(unittest.TestCase):
+    """Closed-loop harness runs with the real C++ supervisor, beyond the single published seed."""
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp=tempfile.TemporaryDirectory()
+        path=Path(cls.tmp.name)/'model.onnx'; create_model(path); cls.detector=Detector(path)
+        cls.binary=ROOT/'build/mission_supervisor'
+    @classmethod
+    def tearDownClass(cls): cls.tmp.cleanup()
+    def test_hidden_obstacle_forces_a_replan_instead_of_a_collision(self):
+        goal=(10,6)
+        # From the origin the (6,6) cylinder is mostly occluded, so the first plan crosses it.
+        self.assertLess(route_clearance(astar((0,0),goal,occupancy(lidar([0,0,0])))),0)
+        result=run_demo.run_scenario('nominal',self.detector,17,self.binary,goal=goal)
+        self.assertTrue(result['passed'],result['checks'])
+        self.assertGreater(len(result['plans']),1)
+        self.assertGreater(result['summary']['min_obstacle_clearance_m'],0.9)
+        self.assertTrue(any(e['mode']=='REPLAN' for e in result['events']))
+    def test_published_route_needs_no_replan(self):
+        result=run_demo.run_scenario('nominal',self.detector,17,self.binary)
+        self.assertTrue(result['passed']); self.assertEqual(len(result['plans']),1)
+    def test_landing_scenarios_pass_on_every_seed(self):
+        # LAND once stopped at an estimated zero altitude; after GNSS loss that left 8/20 seeds hovering.
+        for name in ('gps_dropout','imu_dropout','link_dropout','low_battery'):
+            for seed in range(8):
+                with self.subTest(scenario=name,seed=seed):
+                    result=run_demo.run_scenario(name,self.detector,seed,self.binary)
+                    self.assertTrue(result['passed'],result['checks'])
 
 class ProcessContractTests(unittest.TestCase):
     def test_malformed_frame_emits_no_command(self):

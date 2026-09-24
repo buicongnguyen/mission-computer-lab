@@ -44,6 +44,15 @@ int main() {
     auto land = loss.step(b);
     require(land.mode == Mode::Land && land.velocity.z < 0 && land.velocity.x == 0, "sustained loss must land");
     require(loss.step(sample(5)).mode == Mode::Land, "land must latch");
+    // A drifted estimate at or below ground must not stop the descent before touchdown.
+    double t = 6;
+    for (double z : {0.0, -0.05}) {
+        b = sample(t); b.position.z = z; t += 0.5;
+        const auto d = loss.step(b);
+        require(d.mode == Mode::Land && d.velocity.z <= -0.3 + 1e-9, "land keeps a minimum descent rate");
+    }
+    b = sample(t); b.position.z = 5;
+    require(loss.step(b).velocity.z >= -0.7 - 1e-9, "land descent rate is bounded");
     Supervisor degraded;
     degraded.step(sample(0)); degraded.step(sample(1));
     // Link packets every 0.6 s: each gap goes stale, then briefly recovers.
