@@ -1,5 +1,7 @@
 # Complete work record and step-by-step reproduction guide
 
+The latest fixes, known limitations and repeatable checks are in [Review fixes](review-fixes.md) and [Current validation](validation.md).
+
 Prepared on 22 September 2026 and reviewed in seven passes on 23–26 September 2026 for the WSL-only mission-computer lab. This document records what was built, why each component exists, the problems encountered, the fixes, and the commands you can use to reproduce the tests yourself.
 
 **If the flight stack is already built, start with section 3.** Otherwise follow section 4 first. You do not need Qualcomm hardware, a flight controller, a GPU, Docker, or a Gazebo window to run these tests.

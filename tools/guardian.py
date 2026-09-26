@@ -292,7 +292,8 @@ def keep_clear_step(own_p,previous,tracks,now,cfg,horizon,free):
     episode=previous is not None and previous.get('action')=='keep_clear' and now<previous.get('until',-INF)
     if episode:
         at_target=conflicts(previous['target'],tracks,now,cfg,horizon)
-        if not at_target and opens_range(own_p,previous['target'],relevant(own_p,tracks,now,cfg)):return previous
+        if (not at_target and free(previous['target'])
+                and opens_range(own_p,previous['target'],relevant(own_p,tracks,now,cfg))):return previous
         return keep_clear_order(own_p,conflicts(own_p,tracks,now,cfg,horizon) or at_target,tracks,now,cfg,free,
                                 until=previous['until'])
     near=conflicts(own_p,tracks,now,cfg,horizon)
@@ -300,7 +301,8 @@ def keep_clear_step(own_p,previous,tracks,now,cfg,horizon,free):
 
 def keep_clear_order(own_p,near,tracks,now,cfg,free,until=None):
     point,miss=keep_clear(own_p,[(tr.predict(now),tr.v) for tr in tracks],cfg,free,avoid=relevant(own_p,tracks,now,cfg))
-    return {'action':'keep_clear','target':point,'miss':miss,
+    # With no local tracks, predicted clearance is unbounded. Omit that metric from JSON orders/logs.
+    return {'action':'keep_clear','target':point,**({'miss':miss} if math.isfinite(miss) else {}),
             'until':now+max(t for _,t,_ in near)+cfg.clear_time/2 if near else until,
             't_cpa':min((t for _,t,_ in near),default=None),'tracks':[tr.id for tr,_,_ in near]}
 
@@ -318,7 +320,8 @@ def onboard_decide(now,own_p,tracks,link_age,order,cfg,free=lambda p:True,rally=
     if link_age>cfg.lost_link_return and rally is not None:return 'lost_link_return',list(rally),'onboard',{}
     if link_age>cfg.lost_link:return 'lost_link_hold',None,'onboard',{}
     action,target=order.get('action','watch'),order.get('target')
-    if action in ('keep_clear','disperse') and target and not opens_range(own_p,target,relevant(own_p,tracks,now,cfg)):
+    if action in ('keep_clear','disperse') and target and (not free(target)
+            or not opens_range(own_p,target,relevant(own_p,tracks,now,cfg))):
         # The station planned this move from a report that is already a few seconds old; from where the
         # guardian really is, it would close on a track it can see. It keeps the intent, not the move.
         o=keep_clear_order(own_p,[],tracks,now,cfg,free,until=order.get('until',now+cfg.clear_time))

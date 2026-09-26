@@ -15,7 +15,7 @@ from rclpy.utilities import remove_ros_args
 from std_msgs.msg import String
 from fleet_mission_node import FleetMission
 from mission_node import Mission
-from px4_msgs.msg import VehicleCommand
+from px4_msgs.msg import VehicleStatus
 from guardian import INF,Tracker,onboard_decide,relevant
 from guardian_layout import CFG,free_space,reserved_for
 from world import astar
@@ -38,7 +38,8 @@ class GuardianMission(FleetMission):
     def on_clearance(self,msg):
         try:data=json.loads(msg.data)
         except ValueError:return
-        self.clearance=data['clearance'].get(self.ns,{});self.order=data['orders'].get(self.ns) or self.order
+        if not self.accept_clearance(data):return
+        self.order=data.get('orders',{}).get(self.ns) or self.order
         self.posture=data.get('posture');self.last_uplink=self.now()
         if self.carrier:self.rally=[self.carrier[0],self.carrier[1],self.altitude]  # Pre-briefed: last heard, not live.
         if (data.get('nav_mode') or {}).get(self.ns)=='gnss' and self.nav_offset is not None:
@@ -71,23 +72,30 @@ class GuardianMission(FleetMission):
     def extra_state(self):
         raw=FleetMission.world_position(self)
         return {'action':self.action,'layer':self.layer,'posture':self.posture,'gnss_position':raw,
+                'blocked_cells':sorted(self.blocked),
                 'nav':'station' if self.nav_offset is not None else 'gnss',
                 'link_age':None if self.last_uplink is None else round(self.now()-self.last_uplink,2)}
     def next_target(self,now,position):
+        # Independent navigation/link/reflex gates apply in transit and on approach as well as on watch.
+        if self.phase!='watch' and self.status.arming_state==VehicleStatus.ARMING_STATE_ARMED:
+            override=self.guard(now,position,emergency_only=True)
+            if override is not None:return override,False
         if self.phase=='outbound':
             target,done=Mission.next_target(self,now,position)
             if done:self.set_phase('watch',now,position=position)
             return target,False
         if self.phase=='watch':return self.guard(now,position),False
         return super().next_target(now,position)
-    def guard(self,now,position):
+    def guard(self,now,position,emergency_only=False):
         self.onboard.update(now,[]);tracks=self.onboard.confirmed()
         link_age=INF if self.last_uplink is None else now-self.last_uplink
         fix_age=None if self.nav_offset is None else now-self.nav_fix_at
-        action,target,layer,detail=onboard_decide(now,position,tracks,link_age,self.order,CFG,
+        order={'action':'continue'} if emergency_only else self.order
+        action,target,layer,detail=onboard_decide(now,position,tracks,link_age,order,CFG,
                                                   free=lambda p:free_space(position,p,blocked=self.blocked),
                                                   rally=self.rally,previous=self.reflex,fix_age=fix_age)
         self.reflex=detail if (action,layer)==('keep_clear','onboard') else None
+        if emergency_only and layer!='onboard':return None
         if layer=='station' and self.order.get('authority'):layer=self.order['authority']
         if action=='recover':
             self.log_decision(now,position,action,layer,None,tracks,link_age,detail)
@@ -95,8 +103,7 @@ class GuardianMission(FleetMission):
         if action=='land_in_place':
             # Its GNSS is known to be spoofed and the station's fixes have stopped: no position can be trusted.
             self.log_decision(now,position,action,layer,None,tracks,link_age,detail)
-            self.send_command(VehicleCommand.VEHICLE_CMD_NAV_LAND);self.land_requested=True
-            self.handed_off=True;self.log.write('handoff',reason='navigation_unverified')
+            self.handoff_land('navigation_unverified')
             return list(position)
         if action=='lost_link_return':
             # Fly a planned route to the rally point (clear of the cylinders and the other posts), then hold

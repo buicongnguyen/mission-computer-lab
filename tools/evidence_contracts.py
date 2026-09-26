@@ -70,3 +70,17 @@ def bag_has_topics(folder,topics=('/mission/decision','/mission/perception','/mi
             seen.update(row[0] for row in connection.execute(
                 'SELECT DISTINCT topics.name FROM topics JOIN messages ON messages.topic_id=topics.id'))
     return set(topics)<=seen
+
+
+def fleet_landing_confirmed(records,touchdown):
+    """Independent airborne -> fresh landed/contact -> disarm evidence; OFFBOARD deck landings need no AUTO_LAND."""
+    if not touchdown:return False
+    statuses=[r for r in records if r['kind']=='status']
+    armed=next((r['wall_time'] for r in statuses if r['arming_state']==2 and r['nav_state']==14),math.inf)
+    airborne=next((r['wall_time'] for r in records if r['kind']=='position' and r['wall_time']>=armed
+                   and r.get('valid') and -r['ned'][2]>1.4),math.inf)
+    if not statuses or statuses[-1]['arming_state']!=1:return False
+    disarm=statuses[-1]['wall_time']
+    return disarm>airborne and any(r['kind']=='land' and r.get('landed') is True and r.get('ground_contact') is True
+        and r['wall_time']>airborne and abs(r['wall_time']-disarm)<=2.
+        and abs(r['wall_time']-touchdown['wall_time'])<=2. for r in records)

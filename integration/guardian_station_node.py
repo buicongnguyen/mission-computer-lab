@@ -34,7 +34,7 @@ class GuardianStation(Station):
         self.create_subscription(String,'/station/fixes',self.on_fixes,10)
         self.create_subscription(String,'/center/decision',self.on_decision,10)
     def on_state(self,drone,msg):
-        super().on_state(drone,msg);self.heard[drone]=self.now()  # Receipt time: a jammed guardian's state goes stale.
+        if super().on_state(drone,msg):self.heard[drone]=self.now()
     def on_detections(self,msg):
         try:data=json.loads(msg.data)
         except ValueError:return
@@ -134,7 +134,11 @@ class GuardianStation(Station):
             others=[s['position'] for d,s in self.states.items() if d!=name and s.get('armed') and d in fresh]
             wide=[(s['position'],2.+CFG.guardian_speed*min(5.,now-self.heard.get(d,now))) for d,s in self.states.items()
                   if d!=name and s.get('armed') and d not in fresh]
-            return lambda p:free_space(view[name]['p'],p,others,reserved=reserved_for(name),wide=wide)
+            # Plan against the vehicle's conservative mapped cells as well as the station's known geometry.
+            # Otherwise the station can repeatedly send a geometrically clear route the vehicle must reject.
+            blocked={tuple(cell) for cell in fresh[name].get('blocked_cells',[])}
+            return lambda p:(free_space(view[name]['p'],p,others,reserved=reserved_for(name),wide=wide)
+                             and free_space(view[name]['p'],p,blocked=blocked))
         fast=[(tr,t) for tr,(l,t,_) in zip(tracks,levels) if l=='danger' and tr.speed>=CFG.fast_speed]
         # A fast object's impact area, centred where it comes down: disperse from it.
         hazard=(impact_point(min(fast,key=lambda x:x[1])[0],now,sp),2*CFG.protect_radius) if fast else None
@@ -164,7 +168,7 @@ class GuardianStation(Station):
         nav={ns:self.fix[ns] for ns in self.navigating if ns in self.fix}
         mode={g['ns']:'station' if g['ns'] in self.navigating else 'gnss' for g in GUARDIANS}
         message=String()
-        message.data=json.dumps({'clearance':self.clear,'orders':self.orders,'posture':self.posture.state,'nav':nav,
+        message.data=json.dumps({'clearance':self.active_clearance(now),'orders':self.orders,'posture':self.posture.state,'nav':nav,
                                  'nav_mode':mode,'t':now})
         self.uplink.publish(message)
 

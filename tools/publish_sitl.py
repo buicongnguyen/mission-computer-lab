@@ -14,9 +14,10 @@ from world import OBSTACLES
 ROOT=Path(__file__).resolve().parents[1]
 FILES=('result.json','parameters.log','perception.jsonl','mission.jsonl','gps-injection.log','px4.log','flight.mp4')
 FLEET='fleet_carrier'
+FLEET_NAMES=('px4_0','px4_1','px4_2')
 FLEET_FILES=('result.json','parameters.log','station.jsonl','flight.mp4','deck.mp4')
 FLEET_VEHICLE_CHECKS=('offboard_entered','takeoff_observed','goal_reached','returned_to_carrier','landed_on_pad',
-                      'carrier_moving_at_touchdown','disarmed_at_end','no_failsafe','obstacle_clearance')
+                      'carrier_moving_at_touchdown','disarmed_at_end','no_failsafe','obstacle_clearance','landed_confirmed')
 FLEET_CHECKS=('fleet_min_separation','landings_sequenced','carrier_moved','rosbag_recorded','no_runner_error')
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'integration'))
 import guardian_layout as GL
@@ -26,15 +27,15 @@ GUARDIAN_FILES=('result.json','parameters.log','station.jsonl','world.jsonl','ce
 def required_checks(result):
     """Named checks a multi-vehicle result must carry: the fleet's fixed list, or what each guardian scenario expects."""
     if result['scenario']==FLEET:
-        return {f'{v["ns"]}_{c}' for v in result['vehicles'] for c in FLEET_VEHICLE_CHECKS}|set(FLEET_CHECKS)
+        return {f'{ns}_{c}' for ns in FLEET_NAMES for c in FLEET_VEHICLE_CHECKS}|set(FLEET_CHECKS)
     return set(GL.expected_checks(result['scenario']))
 
 def source_logs(result):
     return ('station.jsonl',) if result['scenario']==FLEET else ('station.jsonl','world.jsonl','center.jsonl')
 
 def validate_fleet(result,folder):
-    names=[v['ns'] for v in result['vehicles']]
-    if len(names)<2 or not required_checks(result)<=result['checks'].keys():raise ValueError('Missing required checks: '+result['scenario'])
+    names=validate_vehicle_ids(result)
+    if not required_checks(result)<=result['checks'].keys():raise ValueError('Missing required checks: '+result['scenario'])
     for name in ('parameters.log',*source_logs(result),*[f'mission_{ns}.jsonl' for ns in names]):
         if not (folder/name).is_file() or not (folder/name).stat().st_size:
             raise ValueError('Missing source evidence: '+str(folder/name))
@@ -44,9 +45,19 @@ def validate_fleet(result,folder):
         raise ValueError('Invalid fleet separation')
     result['replay_start_wall_time']=min(v['trace'][0]['wall_time'] for v in result['vehicles'])
 
+def validate_vehicle_ids(result):
+    expected=set(FLEET_NAMES if result['scenario']==FLEET else (g['ns'] for g in GL.GUARDIANS))
+    names=[v['ns'] for v in result['vehicles']]
+    if len(names)!=len(expected) or set(names)!=expected:
+        raise ValueError('Expected exactly one of every configured vehicle: '+result['scenario'])
+    return names
+
 def validate_guardian(result):
     """A guardian flight must carry Gazebo truth for every vehicle and every scripted threat, starting with the
     scenario: without it a flight in which nothing flew could pass every check it names."""
+    validate_vehicle_ids(result)
+    if set(result['threats'])!=set(GL.SCENARIOS[result['scenario']]['threats']):
+        raise ValueError('Threat identities differ from scenario: '+result['scenario'])
     if any(not v.get('truth') for v in result['vehicles']):raise ValueError('Missing guardian truth: '+result['scenario'])
     start=(result.get('scenario_start') or {}).get('t')
     if start is None:raise ValueError('Scenario never started: '+result['scenario'])
@@ -74,11 +85,30 @@ def nearest_rank(values,p):
     values=sorted(values)
     return values[max(0,math.ceil(p/100*len(values))-1)] if values else None
 
+def recover_sample(sample):
+    """Recover a process interruption between retirement and promotion before touching new evidence."""
+    retired=sample.with_name('.sitl-sample-retired')
+    if retired.exists() and not sample.exists():retired.rename(sample)
+
+def replace_sample(staging,sample):
+    """Promote a complete directory, rolling back if promotion raises; retain backups on cleanup errors."""
+    recover_sample(sample)
+    retired=sample.with_name('.sitl-sample-retired')
+    if retired.exists():shutil.rmtree(retired)  # A current sample exists after recovery.
+    if sample.exists():sample.rename(retired)
+    try:
+        staging.rename(sample)
+    except BaseException:
+        recover_sample(sample)
+        raise
+    if retired.exists():shutil.rmtree(retired)
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--input',type=Path,required=True)
     parser.add_argument('--workspace',type=Path,help='Legacy option; environment is read from run-time provenance')
     args=parser.parse_args();source=args.input.resolve()
+    recover_sample(ROOT/'artifacts/sitl-sample')
     results=strict_loads((source/'results.json').read_text())
     expected={'nominal','camera_dropout','companion_crash','gps_loss',FLEET,*GUARDIANS}
     require_matrix(results,expected)
@@ -128,8 +158,7 @@ def main():
     serialized=json.dumps(report,indent=2,allow_nan=False)
     # The single-drone and fleet pages load report-data.js; only the guardian page needs the eight flights.
     page={k:v for k,v in report.items() if k!='guardians'}
-    # Build the new sample beside the old one and swap it in, so a failure never leaves a mixture
-    # and files from an earlier run (such as an old gps-injection.log) cannot survive.
+    # Stage a complete sample, then promote with rollback. No earlier run's files survive the replacement.
     sample=ROOT/'artifacts/sitl-sample'
     staging=Path(tempfile.mkdtemp(prefix='.sitl-sample-',dir=sample.parent))
     try:
@@ -144,11 +173,7 @@ def main():
         (staging/'report-data.js').write_text('window.SITL_REPORT='+json.dumps(page,separators=(',',':'),allow_nan=False)+';\n',encoding='utf-8')
         (staging/'guardian-data.js').write_text('window.SITL_GUARDIANS='+json.dumps(report['guardians'],separators=(',',':'),allow_nan=False)+';\n',
                                                encoding='utf-8')
-        retired=sample.with_name('.sitl-sample-retired')
-        if retired.exists():shutil.rmtree(retired)
-        if sample.exists():sample.rename(retired)
-        staging.rename(sample)
-        if retired.exists():shutil.rmtree(retired)
+        replace_sample(staging,sample)
     finally:
         if staging.exists():shutil.rmtree(staging)
     lines=['# PX4 / ROS 2 / Gazebo execution evidence','',report['boundary'],'',

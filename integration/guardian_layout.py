@@ -73,7 +73,7 @@ CENTER={'latency':0.5,'decision_time':3.}
 GRID=(-2,12)  # Planning grid bounds (cells), as in tools/world.py.
 
 VEHICLE_CHECKS=('offboard_entered','takeoff_observed','on_watch','returned_to_carrier','landed_on_pad','disarmed_at_end',
-                'no_failsafe','obstacle_clearance')
+                'no_failsafe','obstacle_clearance','landed_confirmed')
 
 def expected_checks(name):
     """Every named check a guardian scenario must produce, derived from what it expects to show."""
@@ -121,8 +121,13 @@ def free_space(start,p,others=(),blocked=None,reserved=(),wide=()):
     outside the (position, radius) circles in `wide` (guardians last heard some time ago)."""
     from world import OBSTACLES
     if not (GRID[0]+0.3<=p[0]<=GRID[1]-0.3 and GRID[0]+0.3<=p[1]<=GRID[1]-0.3) or math.hypot(p[0],p[1])>18.:return False
-    if p[2]>CFG.max_altitude or any(math.dist(p[:2],o[:2])<2. for o in others):return False
-    if any(math.dist(p[:2],o[:2])<r for o,r in wide):return False
+    if p[2]>CFG.max_altitude:return False
+    def segment_distance(point):
+        delta=[b-a for a,b in zip(start[:2],p[:2])];length2=sum(v*v for v in delta)
+        t=0. if length2==0. else max(0.,min(1.,sum((q-a)*v for q,a,v in zip(point,start,delta))/length2))
+        return math.hypot(*[a+t*v-q for a,v,q in zip(start,delta,point)])
+    if any(segment_distance(o)<2. for o in others):return False
+    if any(segment_distance(o)<r for o,r in wide):return False
     steps=max(1,int(math.dist(start[:2],p[:2])/0.25))
     for k in range(steps+1):
         q=[a+(b-a)*k/steps for a,b in zip(start[:2],p[:2])];cell=(round(q[0]),round(q[1]))

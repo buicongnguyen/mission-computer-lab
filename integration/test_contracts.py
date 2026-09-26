@@ -96,6 +96,14 @@ class MissionBoundaries(unittest.TestCase):
             self.assertTrue(any(c.args[0]=='decision' for c in a.log.write.call_args_list))
             self.assertEqual(self.tick(a,'ACTIVE'),0)
             a.control.publish.assert_not_called()
+    def test_phase_handoff_stops_the_current_tick_before_supervision_or_offboard_stream(self):
+        a=self.adapter()
+        def phase(now,position):
+            a.handed_off=True
+            return position,False
+        a.next_target=phase
+        self.assertEqual(self.tick(a,'ACTIVE'),0)
+        a.control.publish.assert_not_called();a.setpoint.publish.assert_not_called()
     def test_autopilot_failsafe_cannot_resume_mission_after_flag_clears(self):
         a=self.adapter();a.flight_seen=True;a.status.arming_state=2;a.status.failsafe=True
         self.assertEqual(self.tick(a,'ACTIVE'),0)
@@ -170,13 +178,19 @@ class FleetContracts(unittest.TestCase):
         s=SimpleNamespace(drones=list(self.DRONES),states={},carrier={'e':0.,'n':-1.5,'yaw':0.,'speed':0.},
             clear={d:{'launch':False,'land':False} for d in self.DRONES},flown=set(),landed=set(),last_launch=-1e9,
             moving=False,parked=False,min_separation=math.inf,last_log=0.,log=Mock(),drive=Mock(),clearance=Mock(),
-            args=SimpleNamespace(speed=0.3,max_east=14.),clock=0.)
+            args=SimpleNamespace(speed=0.3,max_east=14.),clock=0.,airborne_at={},airborne_px4={},land_reports={},
+            carrier_input=Mock(),state_inputs={d:Mock() for d in self.DRONES})
         s.now=lambda:s.clock
-        for method in ('grant','sequence_launches','grant_landings','carrier_speed','publish_clearance','record'):
+        for method in ('grant','sequence_launches','grant_landings','carrier_speed','publish_clearance','record','active_clearance','streams_fresh'):
             setattr(s,method,MethodType(getattr(Station,method),s))
         return s
     def report(self,s,drone,phase='preflight',z=0.6,armed=False):
-        state={'phase':phase,'position':[0.,0.,z],'armed':armed,'layer':3.+self.DRONES.index(drone),'pad_error':0.1}
+        state={'phase':phase,'position':[0.,0.,z],'armed':armed,'layer':3.+self.DRONES.index(drone),'pad_error':0.1,
+               't':s.clock,'telemetry_fresh':True,'px4_stamp':int((s.clock+1)*1e6)}
+        if not armed and drone in s.flown:
+            s.airborne_at[drone]=s.clock-1.
+            s.airborne_px4[drone]=int((s.clock+1)*1e6)-1
+            s.land_reports[drone]={'timestamp':int((s.clock+1)*1e6),'received':s.clock,'landed':True,'ground_contact':True}
         Station.on_state(s,drone,SimpleNamespace(data=json.dumps(state)))
     @staticmethod
     def logged(s,kind):return [c.kwargs for c in s.log.write.call_args_list if c.args[0]==kind]
@@ -214,8 +228,9 @@ class FleetContracts(unittest.TestCase):
         self.assertEqual(self.grants(s,'land'),['px4_1','px4_0'])
     def vehicle(self,phase,carrier):
         m=SimpleNamespace(pad=0.,carrier=carrier,phase=phase,phase_since=0.,log=Mock(),altitude=4.,clearance={},
+                          carrier_input=Mock(),clearance_input=Mock(),fleet_hold=None,fleet_now=lambda:5.,
                           status=SimpleNamespace(arming_state=VehicleStatus.ARMING_STATE_ARMED))
-        for method in ('pad_position','pad_target','set_phase'):setattr(m,method,MethodType(getattr(FleetMission,method),m))
+        for method in ('pad_position','pad_target','set_phase','fleet_inputs_fresh'):setattr(m,method,MethodType(getattr(FleetMission,method),m))
         return m
     def test_pad_target_leads_the_moving_carrier_along_its_heading(self):
         m=self.vehicle('rendezvous',(2.,-1.5,math.pi/2,0.,0.3));m.pad=1.1  # Heading north at 0.3 m/s.

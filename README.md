@@ -2,20 +2,20 @@
 
 A reproducible **PX4 + Gazebo + ROS 2 mission-computer simulation**, built around the split between a Qualcomm-class mission computer and an NXP-class PX4 flight controller. A C++17 supervisor gates mission intent on sensor freshness; ROS 2 carries typed payload and control messages over XRCE-DDS; real PX4 firmware flies a Gazebo x500 through takeoff, an A*-planned inspection route and landing. Faults are injected on purpose, and every outcome is checked from independently recorded telemetry. A fleet scenario flies three drones from a moving carrier vehicle: a ground station sequences launches and landings, each drone flies its own altitude layer, and all three land back on their pads while the carrier drives. **Guardian drones** extend the station's sensors, warn early, keep clear of intruders and survive jamming and GNSS spoofing, under an explicit split of authority between each drone, the station and a command center; they are non-kinetic by design.
 
-**Live replay: [buicongnguyen.github.io/mission-computer-lab](https://buicongnguyen.github.io/mission-computer-lab/)**: recorded PX4 flights, fault injections, the fleet on its moving carrier, the guardian evaluation, Gazebo video of each flight and an interactive 3D replay, viewable in the browser without installing anything.
+**Reference replay (earlier passing revision; [latest validation](docs/validation.md)): [buicongnguyen.github.io/mission-computer-lab](https://buicongnguyen.github.io/mission-computer-lab/)**: recorded PX4 flights, fault injections, the fleet on its moving carrier, the guardian evaluation, Gazebo videos of selected demonstrations and an interactive 3D replay, viewable in the browser without installing anything.
 
 Everything runs on an x86-64 Ubuntu 22.04 host (WSL2). Qualcomm hardware, NPU execution and hardware secure boot are outside what was executed; [Honest boundaries](#honest-boundaries) lists exactly what was and was not run.
 
 ## At a glance
 
-- **13/13 real PX4 SITL scenarios pass**: nominal mission, camera dropout and recovery, companion-computer crash (PX4 failsafe takes over), GPS fix loss (HOLD, then LAND), the three-drone fleet, and eight guardian flights, one per threat. Each requires an observed, ordered climb → land → disarm cycle, not just accepted commands.
-- **Fleet from a moving carrier**: three PX4 instances launch in turn from the carrier's pads, inspect separate goals at 3, 4 and 5 m, and land back on their own pads one at a time while the carrier drives at 0.27 m/s. Worst touchdown error 3.7 cm; closest approach between airborne drones 1.71 m; 32/32 fleet checks.
-- **Guardian drones, evaluated**: four designs against eight threats (low intruder, fast inbound object, swarm, birds and clutter, jamming, GNSS drag-off, no center link, all combined) over 40 seeds each. The proposed hybrid design warns 77 s before a low intruder arrives where the station's own sensor gives about 1 s, keeps every guardian clear in every run of five of the six threat scenarios, raises no false alarm from circling birds, catches a GNSS drag-off in 38 s (65 m of drift, against 609 m unnoticed without its cross-check), and never flags a healthy guardian as spoofed. On real PX4, eight flights, one per threat, pass all 300 of their checks: RED 12–13 simulated seconds before a low intruder arrives, a jammed guardian keeping clear on its own, a spoofed fleet held within 1.2 m of its posts by the station's fixes, and recovery under delegation when the center is unreachable. Three independent reviews of the logic, the PX4 integration and the published pages raised 35 findings, and flying the scenarios found seven more; each was reproduced, then fixed with a test or a check, or recorded as a limit ([pass 8](docs/review-report.md#pass-8)).
-- **See it fly**: every published flight has Gazebo video recorded in simulation time and an interactive three.js 3D replay; `--gui` opens the live Gazebo window for demonstrations.
+- **Latest PX4 validation: 12/13 scenarios pass** on the fixed source. Unresolved: guardian_fast: dispersed_before_impact. [Current results and runtime hashes](docs/validation.md) distinguish this retest from earlier reference recordings.
+- **Fleet from a moving carrier**: three PX4 instances launch in turn, inspect at 3, 4 and 5 m, and land back one at a time. The latest run passed 35/35 checks, including independent PX4 landed/contact confirmation. Worst touchdown error 6.6 cm; closest airborne approach 2.11 m.
+- **Guardian drones, evaluated**: four designs × eight scenarios × 40 seeds. The latest PX4 guardian retest passed 7/8 scenarios and 323/324 checks. The review fixed eight control/publication defects and addressed flight-discovered descent, logging and map-sharing issues. The fast-inbound timing limitation remains documented in [validation](docs/validation.md); [fixes and reproduction](docs/review-fixes.md) and [seeded evaluation](docs/guardian-results.md) explain the evidence.
+- **See it fly**: every published reference flight has an interactive three.js 3D replay; Gazebo video is included for the four single-drone flights, fleet and configured guardian demonstration; `--gui` opens the live Gazebo window for demonstrations.
 - **8/8 fast policy scenarios** in an accelerated harness, including IMU loss, link loss, inference overrun and low battery.
 - **Signed model boot gate**: the model is signed at release; at boot the stored file is verified (Ed25519, version floor, device binding) and only the verified bytes are loaded. Tampered or unsigned models stop the perception node.
-- **Layered tests**: C++ contract suite, 70 Python tests (including multi-seed closed-loop runs and the guardian decision logic), 46 ROS boundary tests (including the fleet station, deck landing and the guardian station, vehicle, environment and center nodes), four replay state tests, Mermaid/HTML checks, and CI that also runs the suite under `python -O`.
-- **Eight recorded review passes**: each defect is paired with its fix and regression test in [the review record](docs/review-report.md).
+- **Layered tests**: C++ contract suite, 78 Python tests (including multi-seed closed-loop runs and the guardian decision logic), 59 ROS boundary tests (including the fleet station, deck landing and the guardian station, vehicle, environment and center nodes), four replay state tests, Mermaid/HTML checks, and CI that also runs the suite under `python -O`.
+- **Nine recorded review passes**: each defect is paired with its fix and regression test in [the review record](docs/review-report.md).
 
 ## Ten-minute tour
 
@@ -79,7 +79,7 @@ bash scripts/run_sitl.sh --all --video --output ~/work/mission-computer-lab/rete
 ~/work/mission-computer-lab/venv/bin/python tools/publish_sitl.py --input ~/work/mission-computer-lab/retests/my-run
 ```
 
-`--all` runs the four single-drone scenarios, then the fleet, then the guardians. `--video` records each flight from the world's cameras; `--gui` also opens the live Gazebo window (WSLg). For one scenario use `--scenario guardian_jamming` (or `nominal`, `camera_dropout`, `companion_crash`, `gps_loss`, `fleet_carrier`, or another of the eight `guardian_*` scenarios listed in [the SITL guide](docs/sitl-guide.md)).
+`--all` runs the four single-drone scenarios, then the fleet, then the guardians. `--video` records the four single-drone flights, fleet and guardian scenarios configured with `video: True`; `--gui` also opens the live Gazebo window (WSLg). For one scenario use `--scenario guardian_jamming` (or `nominal`, `camera_dropout`, `companion_crash`, `gps_loss`, `fleet_carrier`, or another of the eight `guardian_*` scenarios listed in [the SITL guide](docs/sitl-guide.md)).
 
 **Guardian evaluation** (standard library only, about half a minute on eight cores):
 
@@ -93,13 +93,13 @@ Run one instance at a time, with no flight hardware attached. [The complete repr
 
 | Layer | Result | Where |
 |---|---|---|
-| PX4 / Gazebo / ROS 2 flights | 13/13 scenarios (four single-drone, the three-drone fleet, eight guardian flights), all named checks pass, inputs unchanged during the run | [SITL report](docs/sitl-execution.md), [raw evidence](artifacts/sitl-sample/report.json) |
+| PX4 / Gazebo / ROS 2 flights | Latest retest 12/13; every failed check retained; runtime inputs unchanged | [Current validation](docs/validation.md), [reference replay report](docs/sitl-execution.md) |
 | Fast policy scenarios | 8/8 | [Execution report](docs/execution.md) |
 | Guardian designs | 4 designs × 8 threat scenarios × 40 seeds; every run keeps both invariants (no keep-clear move closes on a tracked threat, no action outside its authority) | [Guardian results](docs/guardian-results.md), [design and evaluation](docs/guardian.md) |
 | Signed-artifact policy cases | 6/6 behave as specified | Same report |
 | C++ supervisor contracts | 1 CTest program, including degraded-link escalation | [`tests/test_supervisor.cpp`](tests/test_supervisor.cpp) |
-| Python unit and process tests | 56 | [`tests/`](tests/) |
-| ROS boundary and runner tests | 32 | [`integration/test_*.py`](integration/) |
+| Python unit and process tests | 78 | [`tests/`](tests/) |
+| ROS boundary and runner tests | 59 | [`integration/test_*.py`](integration/) |
 
 | Fast scenario | Intended evidence |
 |---|---|

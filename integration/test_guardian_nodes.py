@@ -14,6 +14,9 @@ from guardian import Track,Tracker,authorised,opens_range
 from guardian_layout import (CFG,EAST_HIGH,GUARDIANS,RELOCATE,SCENARIOS,NORTH,FAST,expected_checks,free_space,impact_time,
                              reserved_for,threat_position,world_sdf)
 from guardian_mission_node import GuardianMission
+from fleet_mission_node import FleetMission
+from fleet_contracts import FreshInput
+from mission_node import Mission
 from guardian_station_node import GuardianStation
 from guardian_world_node import World
 
@@ -123,6 +126,14 @@ class GuardianNodes(unittest.TestCase):
         self.assertTrue(free_space(record['own'],record['target'],reserved=reserved_for('px4_0')))
         post=next(g['post'] for g in GUARDIANS if g['ns']=='px4_0')  # Away from where it comes down, never toward it.
         self.assertGreater(math.dist(order['target'][:2],FAST['aim'][:2]),math.dist(post,FAST['aim'][:2]))
+        # A conservative cell reported by the vehicle can block a route clear in the station's geometry.
+        own=s.states['px4_0']['position'];old_target=order['target']
+        cell=tuple(round((a+b)/2) for a,b in zip(own[:2],old_target[:2]))
+        self.assertFalse(free_space(own,old_target,blocked={cell}))
+        s.states['px4_0']['blocked_cells']=[list(cell)];s.protect(t)
+        updated=s.orders['px4_0']['target']
+        self.assertNotEqual(updated,old_target)
+        self.assertTrue(free_space(own,updated,blocked={cell}))
     def test_navigation_cross_check_flags_a_dragged_guardian_and_sends_it_fixes(self):
         s=self.station('guardian_spoofing');ns='px4_1'
         for k in range(10):  # The reported (GNSS) position drifts east of the station's own fix.
@@ -179,9 +190,12 @@ class GuardianNodes(unittest.TestCase):
                           carrier=(0.,-1.5,0.,0.,0.),blocked=set(reserved_for('px4_0')),reflex=None,action='watch',layer='station',
                           hold_at=None,guard_target=None,log=Mock(),start_return=Mock(return_value=[1.,-1.,4.]),nav_offset=None,
                           nav_fix=None,nav_fix_at=None,rally=[0.,-1.5,4.],rally_route=None,send_command=Mock(),handed_off=False,
-                          land_requested=False,clearance={},posture=None,track=[],now=lambda:now)
+                          land_requested=False,clearance={},posture=None,track=[],now=lambda:now,
+                          fleet_now=lambda:now,clearance_input=FreshInput())
         for name in ('guard','log_decision','navigation','station_fix','on_clearance'):
             setattr(g,name,MethodType(getattr(GuardianMission,name),g))
+        g.handoff_land=MethodType(Mission.handoff_land,g)
+        g.accept_clearance=MethodType(FleetMission.accept_clearance,g)
         return g
     def feed_track(self,g,now):
         for k in range(12):  # An intruder closing on the post from the north at 1.2 m/s.
@@ -217,7 +231,7 @@ class GuardianNodes(unittest.TestCase):
         self.assertAlmostEqual(g.navigation(9.,[1.9,2.,4.])[0],1.,places=6)
         self.assertEqual(g.log.write.call_args.kwargs['action'],'navigate_by_station')
         self.assertTrue(authorised('navigate_by_station','station'))
-        g.on_clearance(message({'clearance':{},'orders':{},'nav_mode':{'px4_0':'gnss'}}))  # The cross-check cleared.
+        g.on_clearance(message({'t':100.,'clearance':{},'orders':{},'nav_mode':{'px4_0':'gnss'}}))  # The cross-check cleared.
         self.assertIsNone(g.nav_offset);self.assertEqual(g.navigation(9.,[1.9,2.,4.]),[1.9,2.,4.])
     def test_a_guardian_on_station_fixes_lands_in_place_when_they_stop(self):
         g=self.guardian({'action':'watch','target':[1.,2.,4.]},link_age=0.1)

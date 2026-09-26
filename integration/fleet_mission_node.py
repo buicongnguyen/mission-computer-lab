@@ -16,6 +16,8 @@ from std_msgs.msg import String
 from px4_msgs.msg import VehicleStatus
 from mission_node import Mission
 from world import astar
+from common import ros_seconds,stamp_seconds
+from fleet_contracts import FreshInput
 
 DECK=0.6      # Carrier deck height (m, world).
 LEAD=1.0      # s. The supervisor commands (target - position) at gain 1/s, so aiming one second ahead
@@ -31,18 +33,32 @@ class FleetMission(Mission):
         super().__init__(args)
         self.pad=args.pad;self.phase='preflight';self.phase_since=0.;self.inspect_until=None
         self.carrier=None;self.clearance={}
+        self.carrier_input=FreshInput();self.clearance_input=FreshInput();self.fleet_hold=None
         self.create_subscription(Odometry,'/model/carrier/odometry',self.on_carrier,10)
         self.create_subscription(String,self.CLEARANCE_TOPIC.format(ns=self.ns),self.on_clearance,10)
         self.state=self.create_publisher(String,self.STATE_TOPIC.format(ns=self.ns),10)
         self.create_timer(0.2,self.report)  # Keeps reporting after handoff, so the station sees touchdown.
     def on_carrier(self,msg):
+        if not self.carrier_input.accept(stamp_seconds(msg.header.stamp),self.fleet_now()):return
         q=msg.pose.pose.orientation;yaw=math.atan2(2*(q.w*q.z+q.x*q.y),1-2*(q.y*q.y+q.z*q.z))
         v=msg.twist.twist.linear  # Body frame; rotate into world ENU.
         self.carrier=(msg.pose.pose.position.x,msg.pose.pose.position.y,yaw,
                       v.x*math.cos(yaw)-v.y*math.sin(yaw),v.x*math.sin(yaw)+v.y*math.cos(yaw))
     def on_clearance(self,msg):
-        try:self.clearance=json.loads(msg.data).get(self.ns,{})
-        except ValueError:pass
+        try:data=json.loads(msg.data)
+        except ValueError:return
+        self.accept_clearance(data)
+    def fleet_now(self):return ros_seconds(self)
+    def accept_clearance(self,data):
+        if not isinstance(data,dict) or not isinstance(data.get('clearance'),dict):return False
+        clearance=data['clearance'].get(self.ns,{})
+        if not isinstance(clearance,dict):return False
+        if not self.clearance_input.accept(data.get('t'),self.fleet_now()):return False
+        self.clearance=clearance
+        return True
+    def fleet_inputs_fresh(self):
+        now=self.fleet_now()
+        return self.carrier_input.fresh(now) and self.clearance_input.fresh(now)
     def pad_position(self):
         e,n,yaw,_,_=self.carrier
         return e+self.pad*math.cos(yaw),n+self.pad*math.sin(yaw)
@@ -51,12 +67,19 @@ class FleetMission(Mission):
         return [pe+ve*LEAD,pn+vn*LEAD,altitude]
     def set_phase(self,phase,now,**fields):
         self.phase=phase;self.phase_since=now;self.log.write('phase',phase=phase,uptime=now,**fields)
-    def may_request_flight(self):return bool(self.clearance.get('launch'))
+    def may_request_flight(self):return self.fleet_inputs_fresh() and self.clearance.get('launch') is True
     def world_position(self):
         if self.origin is None or self.pose is None:return None
         return [self.pose.y-self.origin[0]+self.spawn[0],self.pose.x-self.origin[1]+self.spawn[1],self.origin[2]-self.pose.z+self.spawn[2]]
     def next_target(self,now,position):
         armed=self.status.arming_state==VehicleStatus.ARMING_STATE_ARMED
+        landing_revoked=self.phase=='descend' and self.clearance.get('land') is not True
+        if self.phase in ('rendezvous','descend') and (not self.fleet_inputs_fresh() or landing_revoked):
+            # Stop tracking an obsolete moving pad. Hold horizontally and return to this vehicle's layer.
+            if self.fleet_hold is None:self.fleet_hold=[position[0],position[1],self.altitude]
+            if self.phase=='descend':self.set_phase('rendezvous',now,reason='landing_revoked' if landing_revoked else 'fleet_input_stale')
+            return self.fleet_hold,False
+        self.fleet_hold=None
         if self.phase=='preflight':
             if armed:self.set_phase('outbound',now,position=position)
             return self.targets[0],False
@@ -76,18 +99,23 @@ class FleetMission(Mission):
         error=math.dist(position[:2],self.pad_position())
         if self.phase=='rendezvous':
             # Hold at this vehicle's altitude layer above its pad until the station clears it to land.
-            if self.clearance.get('land') and error<0.3 and now-self.phase_since>2:
+            if self.clearance.get('land') is True and error<0.3 and now-self.phase_since>2:
                 self.set_phase('descend',now,position=position,pad_error=error)
             return self.pad_target(self.altitude),False
         if error>GO_AROUND and position[2]>DECK+0.5:
             self.set_phase('rendezvous',now,position=position,pad_error=error,reason='go_around')
             return self.pad_target(self.altitude),False
         # Descend at a limited rate and press gently onto the deck; PX4 detects touchdown and disarms.
-        return self.pad_target(max(DECK-0.3,position[2]-DESCENT)),False
+        # Keep pressing down when the estimate drifts below deck height; a 0.3 m target can hover forever.
+        # A nonnegative target respects the supervisor's target floor, while PX4 owns contact/disarm.
+        return self.pad_target(max(0.,position[2]-DESCENT)),False
     def start_return(self,now,position):
         """Head south to the road corridor, which no obstacle reaches; the carrier drives along it."""
         entry=(min(12,max(-2,round(position[0]))),ROAD_ROW)
-        path=astar((round(position[0]),round(position[1])),entry,self.blocked) or [entry]
+        path=astar((round(position[0]),round(position[1])),entry,self.blocked)
+        if not path:
+            self.handoff_land('no_safe_return_route')
+            return list(position)
         self.goal=entry;self.targets=[[float(x),float(y),self.altitude] for x,y in path];self.waypoint=0
         self.set_phase('return',now,path=path)
         return self.targets[0]
@@ -96,7 +124,10 @@ class FleetMission(Mission):
         if position is None or self.status is None:return
         pad_error=math.dist(position[:2],self.pad_position()) if self.carrier else None
         state={'phase':self.phase,'position':position,'armed':self.status.arming_state==VehicleStatus.ARMING_STATE_ARMED,
-               'handed_off':self.handed_off,'layer':self.altitude,'pad_error':pad_error,'wall_time':time.time(),**self.extra_state()}
+               'handed_off':self.handed_off,'layer':self.altitude,'pad_error':pad_error,'wall_time':time.time(),
+               't':self.fleet_now(),'telemetry_fresh':self.now()-self.last['pose']<=0.5 and self.now()-self.last['status']<=1.5,
+               'px4_stamp':int(self.pose.timestamp),
+               **self.extra_state()}
         message=String();message.data=json.dumps(state);self.state.publish(message)
     def extra_state(self):return {}  # The guardian vehicle adds its protective action.
 

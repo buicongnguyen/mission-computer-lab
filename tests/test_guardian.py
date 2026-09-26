@@ -6,6 +6,7 @@ from pathlib import Path
 import random
 import sys
 import unittest
+from unittest.mock import Mock
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'tools'))
 import guardian as G
 import guardian_sim as S
@@ -17,6 +18,22 @@ def detections_along(p0,v,times,sigma,rng,source='s'):
     return [(t,[a+b*t+rng.gauss(0,sigma) for a,b in zip(p0,v)],source) for t in times]
 
 class Geometry(unittest.TestCase):
+    def test_retained_move_is_replanned_when_its_path_becomes_blocked(self):
+        previous={'action':'keep_clear','target':[300.,0.,80.],'until':200.}
+        free=Mock(return_value=False)
+        order=G.keep_clear_step([0.,0.,80.],previous,[],100.,CFG,CFG.order_horizon,free)
+        self.assertTrue(free.called);self.assertIsNot(order,previous)
+        self.assertEqual(order['target'],[0.,0.,80.])
+        self.assertNotIn('miss',order)
+        json.dumps(order,allow_nan=False)  # A blocked route with no tracks must remain safe to log/send.
+        good=G.keep_clear_step([0.,0.,80.],previous,[],100.,CFG,CFG.order_horizon,lambda p:True)
+        self.assertIs(good,previous)
+    def test_vehicle_revalidates_station_move_against_current_free_space(self):
+        order={'action':'keep_clear','target':[300.,0.,80.],'until':200.}
+        action,target,layer,detail=G.onboard_decide(100.,[0.,0.,80.],[],0.,order,CFG,free=lambda p:False)
+        self.assertEqual((action,target,layer),('keep_clear',[0.,0.,80.],'onboard'))
+        self.assertNotIn('miss',detail)
+        json.dumps(detail,allow_nan=False)
     def test_closest_approach(self):
         t,d=G.closest_approach([100.,50.,0.],[-10.,0.,0.])
         self.assertAlmostEqual(t,10.);self.assertAlmostEqual(d,50.)

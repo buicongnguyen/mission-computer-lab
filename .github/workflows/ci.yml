@@ -17,7 +17,7 @@ jobs:
       - name: Evidence gates must not depend on assert statements
         run: python -O -m unittest discover -s tests -p 'test_*.py'
       - name: SITL runner process-cleanup tests (no ROS needed)
-        run: python -m unittest discover -s integration -p 'test_runner.py'
+        run: python -m unittest discover -s integration -p 'test_*runner.py'
       - uses: actions/setup-node@v4
         with:
           node-version: '20'

@@ -1,5 +1,7 @@
 # PX4 / ROS 2 / Gazebo execution evidence
 
+**Historical passing reference:** this replay predates the latest safety fixes. The current retest passes 12/13 scenarios; see [current validation and remaining failures](validation.md). The publisher refused to replace this sample with a failed matrix.
+
 Actual PX4/Gazebo/ROS; procedural camera/lidar; CPU synthetic ONNX; no Qualcomm hardware.
 
 Generated UTC: 2026-09-26T10:01:59.246224+00:00

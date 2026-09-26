@@ -16,7 +16,7 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from world import OBSTACLES
-from evidence_contracts import read_records,flight_cycle_checks,bag_has_topics
+from evidence_contracts import read_records,flight_cycle_checks,bag_has_topics,fleet_landing_confirmed
 from perception import create_model
 from provenance import capture
 from security import provision,public_key_hex
@@ -383,6 +383,7 @@ def run_fleet(workspace,base_output,timeout,video=False,gui=False,name='fleet_ca
             checks[f'{ns}_landed_on_pad']=checks[f'{ns}_landed_on_pad'] and touchdown['true_pad_error']<0.4
         if not guardian:checks[f'{ns}_carrier_moving_at_touchdown']=bool(touchdown and touchdown['carrier'] and touchdown['carrier']['speed']>0.15)
         checks[f'{ns}_disarmed_at_end']=bool(statuses and statuses[-1]['arming_state']==1)
+        checks[f'{ns}_landed_confirmed']=fleet_landing_confirmed(records,touchdown)
         checks[f'{ns}_no_failsafe']=not any(s['failsafe'] for s in statuses)
         checks[f'{ns}_obstacle_clearance']=clearance>0.5
         vehicles.append({**v,'goal':list(v['goal']),'spawn':spawn,'trace':trace,'statuses':statuses,'phases':phases,
@@ -558,8 +559,9 @@ def main():
     for sig in (signal.SIGTERM,signal.SIGHUP):signal.signal(sig,lambda number,frame:sys.exit(128+number))
     p=argparse.ArgumentParser();p.add_argument('--workspace',type=Path,required=True)
     p.add_argument('--scenario',choices=SCENARIOS,default='nominal');p.add_argument('--all',action='store_true')
+    p.add_argument('--keep-going',action='store_true',help='Run remaining scenarios after a failed case; failures still exit nonzero')
     p.add_argument('--output',type=Path,default=ROOT/'artifacts/sitl-latest');p.add_argument('--timeout',type=float,default=150.)
-    p.add_argument('--video',action='store_true',help='Record each flight from the world overview camera to flight.mp4')
+    p.add_argument('--video',action='store_true',help='Record single-drone, fleet and configured guardian demonstration cameras')
     p.add_argument('--gui',action='store_true',help='Open the live Gazebo 3D window (WSLg) while flying')
     args=p.parse_args();workspace=args.workspace.resolve();out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
     if not math.isfinite(args.timeout) or args.timeout<=0:p.error('--timeout must be finite and positive')
@@ -572,7 +574,7 @@ def main():
     for name in (SCENARIOS if args.all else (args.scenario,)):
         if name in MULTI:results.append(run_fleet(workspace,out,max(timeout,900.),video=args.video,gui=args.gui,name=name))
         else:results.append(run_scenario(name,workspace,out,timeout,video=args.video,gui=args.gui))
-        if not results[-1]['passed']:break
+        if not results[-1]['passed'] and not args.keep_going:break
     (out/'results.json').write_text(json.dumps(results,indent=2,allow_nan=False))
     provenance['inputs_unchanged']=provenance['environment']==capture(workspace)
     (out/'provenance.json').write_text(json.dumps(provenance,indent=2))

@@ -151,6 +151,7 @@ class Mission(Node):
         position=self.navigation(now,position)
         if self.stream_since is None:self.stream_since=now
         target,complete=self.next_target(now,position)
+        if self.handed_off:return  # A phase-specific emergency must stop this tick's offboard stream too.
         camera_stamp=self.payload_times['camera'];lidar_stamp=self.payload_times['lidar']
         vision_stamp=min(camera_stamp,lidar_stamp)
         # VehicleStatus is published at about 2 Hz, so a 0.5 s threshold on it
@@ -201,6 +202,9 @@ class Mission(Node):
             self.waypoint+=1;target=self.targets[min(self.waypoint,len(self.targets)-1)]
         return target,self.waypoint>=len(self.targets)
     def navigation(self,now,position):return position  # A guardian switches to station fixes when spoofed.
+    def handoff_land(self,reason):
+        if not self.land_requested:self.send_command(VehicleCommand.VEHICLE_CMD_NAV_LAND)
+        self.land_requested=True;self.handed_off=True;self.log.write('handoff',reason=reason)
     def reserved_cells(self):return ()  # Cells the plan must avoid besides obstacles (a guardian: other posts).
     def may_request_flight(self):return True  # A fleet vehicle waits for its launch slot.
     def after_decision(self,now,position,mode,target):pass  # A fleet vehicle reports its state.

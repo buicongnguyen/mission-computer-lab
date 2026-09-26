@@ -1,6 +1,6 @@
 # Logic and code review record
 
-Review dates: 23 September 2026 (passes 1–3), 24 September 2026 (passes 4 and 5), 25 September 2026 (pass 6) and 26 September 2026 (passes 7 and 8). Scope: the WSL mission-computer lab, including C++ policy contracts, Python adapters and transport, flight orchestration, evidence publication, replays and guides. Eight sequential passes were performed over the same implementation; later passes also reviewed earlier fixes. This is a local engineering review, not a flight qualification or a claim that all possible defects have been eliminated.
+Review dates: 23 September 2026 (passes 1–3), 24 September 2026 (passes 4 and 5), 25 September 2026 (pass 6) and 26 September 2026 (passes 7–8) and 26–27 September 2026 (pass 9). Scope: the WSL mission-computer lab, including C++ policy contracts, Python adapters and transport, flight orchestration, evidence publication, replays and guides. Nine sequential passes were performed over the implementation; later passes also reviewed earlier fixes. This is an engineering review, not a flight qualification or a claim that all possible defects have been eliminated.
 
 The current source contains the fixes below. The measured reference artifacts identify runtime inputs by SHA-256, including source changes that were uncommitted when tested.
 
@@ -239,6 +239,33 @@ Review date: 26 September 2026. The request was to implement the guardian scenar
 | Smoke flights before the matrix | Found the separation, starvation, supervisor, bird and cornering faults listed above; each scenario was re-flown after its fix |
 | Web checks | Seven Mermaid diagrams parse; the four replay state suites (the guardian suite now drives all eight flights) and the theme test pass; the published guardian data is 1.8 MB, and the shared report data shrank from 1.4 MB to 0.7 MB |
 
+<a id="pass-9"></a>
+
+## Pass 9 — Phase boundaries, full-path clearance and trustworthy publication
+
+Eight defects were reproduced against published commit `dac9f1b` even though its existing tests passed. The fixes and runnable reproduction steps are in [the review-fixes guide](review-fixes.md). Review proceeded through control-flow inspection, focused failure regressions and recorded simulation execution; these were sequential checks in this task, not claims of independent reviewers.
+
+| Finding | Fix | Regression evidence |
+|---|---|---|
+| R1: expired station fixes and lost uplink were checked only on watch | Emergency decisions precede every armed phase; handoff stops the current tick before further offboard publication | Every airborne phase, transit/approach link loss, return-phase reflex and immediate-handoff tests |
+| R2: a safe endpoint could have an unsafe path through another guardian | Whole-segment distance against friendly positions and uncertainty circles | Crossing/tangent/clear paths and stale-position regions |
+| R3: no A* route became a direct corridor command | Failed return plan requests LAND and hands off | A complete obstacle barrier produces no direct transit target |
+| R4: carrier pose and clearances never expired | One-second capture-time contracts; reject replay/future data; mask clearances for stale reports; stop descent on expiry or revocation | Separate stream failures, replay rejection and fresh clearance revocation |
+| R5: disarm could count as landing | Fresh independent PX4 landed/contact evidence after airborne state, with source time consistent with current pose; independent runner checks | Missing/stale/replayed/delayed/preflight contact, disarm-only and valid landing cases |
+| R6: incomplete entities could survive publication | Exact unique vehicle set and exact configured threat set | Full publisher rejection preserves the previous sample; identity/trace cases |
+| R7: promotion failure removed the reference path | Restore old directory; recover interrupted promotion; retain installed sample on cleanup failure | Fault-injected promotion, retry, interruption and cleanup tests |
+| R8: cached moves bypassed current free space | Revalidate retained and received avoidance moves | Newly invalid cached path and station target, plus still-valid cached path |
+
+The first fleet smoke run exposed another touchdown weakness: at an estimated altitude of about 0.38 m, clamping the descent target to 0.3 m produced too little downward command and left one vehicle armed on the deck. The run was interrupted through its owned runner after recording the stall; cleanup completed and its logs were preserved under `retests/fixes-20260926-smoke`. The target now continues downward to the supervisor's nonnegative target floor. A regression covers that estimate, and the second smoke run passed all 35 fleet checks. Landing revocation and delayed landed-packet capture were also checked during implementation.
+
+The first full matrix then passed all four single-drone flights and the fleet, but failed `guardian_intruder` when rejecting a blocked station target with no local tracks produced an infinite clearance metric. Strict JSON logging rejected the order and the mission process exited. `keep_clear_order` now omits that unavailable metric; both cached-target and station-target regressions require strict JSON serialization with no tracks. The failed matrix remains in `retests/fixes-20260926-final`; no evidence from it is published as a complete passing run.
+
+The next matrix, preserved in `retests/fixes-20260926-final2`, passed the repaired intruder flight but failed the fast scenario's dispersal check despite safe recovery and landing. The station's continuous geometry admitted a route that the drone's conservative occupancy grid rejected. Guardians now report their blocked cells, and station orders must satisfy both the station geometry and that grid. A regression inserts a reported blocked cell into the previous route and requires a clear replacement. The onboard acceptance gate remains active.
+
+A tested `--keep-going` runner option now records all scenarios while preserving failed checks and a nonzero exit. The remaining fast-inbound timing limitation is recorded in validation; sharing obstacle maps did not eliminate it.
+
+The portable suite has 78 tests and the ROS/runner suite has 59. The 40-seed guardian evaluation was regenerated with matching decision-source hashes; eight fast policy scenarios and six security cases passed. Current flight results and failed checks are recorded in [validation](validation.md); [SITL execution](sitl-execution.md) describes the earlier passing reference replay.
+
 ## Diagrams and how to read them
 
 | Document | Diagram | What it explains |
@@ -250,6 +277,7 @@ Review date: 26 September 2026. The request was to implement the guardian scenar
 | [SITL runbook](sitl-guide.md) | Mermaid sequence diagram | Process startup, typed data, supervision, terminal handoff, crash fallback and independent flight observations |
 | [Complete reproduction guide](complete-reproduction-guide.md#pipeline) | Dependency graph | WSL, compiler, Python, ROS, PX4, Gazebo, interfaces, tests and generated documentation |
 | [Complete reproduction guide](complete-reproduction-guide.md#pipeline) | Flight-integration data-flow chart | Actual PX4 flight sensing/control versus procedural payload sensors and recorded evidence |
+| [Review fixes](review-fixes.md) | Sequence diagram, emergency flowchart and validation graph | Stream freshness and landing sequencing, priority of emergency decisions, and the path from regression tests to Pages deployment |
 
 Markdown viewers with Mermaid support render the fenced source. Included HTML uses `docs/assets/mermaid-11.17.2.min.js` and `diagrams.js` locally, so viewing the cloned guides needs no CDN or npm installation. Expanding “Mermaid source” reveals the exact definition. Only regenerating HTML and running syntax checks requires `npm ci`.
 
@@ -266,7 +294,7 @@ bash scripts/test_integration.sh
 .venv/bin/python -O -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-Expected: one CTest executable passes; 70 lightweight Python tests pass; eight fast scenarios pass; six security experiments behave as specified; 46 integration tests pass. Running the Python cases with `-O` also verifies evidence gates do not rely on removable `assert` statements. These commands do not start a physical aircraft.
+Expected: one CTest executable passes; 78 lightweight Python tests pass; eight fast scenarios pass; six security experiments behave as specified; 59 integration tests pass. Running the Python cases with `-O` also verifies evidence gates do not rely on removable `assert` statements. These commands do not start a physical aircraft.
 
 For the actual flight matrix, use a fresh Linux output directory and retain it for later inspection:
 
@@ -328,4 +356,4 @@ The final local results and measured flight values are linked in [the validation
 
 The review does not turn the procedural camera into a trained detector or the WSL host into a Qualcomm board. The executed boundary remains CPU ONNX, procedural payload sensors, A* with scan-driven replanning of static obstacles, simulated dynamics and actual PX4 firmware. Battery input in the flight adapter is still fixed, timing synchronization is single-host, and no VIO, NPU benchmark, secure boot fuse operation, dynamic replanning or flight certification is claimed.
 
-Land commands are one-shot; the adapter stops offboard proof-of-life after handoff and relies on the configured PX4 fallback if needed. The suite does not currently inject a dropped land-command packet. Browser layout inspection was not completed because the embedded browser's local-file security policy blocked access. Diagram parsing, static packaging/links and replay state tests are verified separately; they are not pixel-level visual verification. GitHub-hosted CI has not run because this work remains local.
+Land commands are one-shot; the adapter stops offboard proof-of-life after handoff and relies on the configured PX4 fallback if needed. The suite does not currently inject a dropped land-command packet. Passes 1–3 did not complete browser layout inspection because the embedded browser's local-file policy blocked access. Pass 9 verifies diagram parsing, static packaging/links and replay state separately; it makes no new pixel-level verification claim. Hosted CI and Pages now run on GitHub; full ROS/PX4 verification remains local in WSL.

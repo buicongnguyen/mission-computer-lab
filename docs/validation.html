@@ -34,6 +34,101 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 /* Paper is always light, whatever theme is on screen. */
 @media print{:root,:root:not([data-theme="light"]),:root[data-theme="dark"]{color-scheme:light;--bg:#fff;--surface:#fff;--surface-2:#e7f1f3;--code-bg:#eef3f5;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--quote-bg:#eef8f7;--quote-ink:#31505b;--pre-bg:#102c3b;--pre-ink:#e3f3f5}}
 </style><script src="../web/theme.js"></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet ops</a><a href="../web/guardian.html">Guardians</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>Validation record</h1>
+<h2>Ninth review pass retest — 27 September 2026</h2>
+<p><strong>Current result: 12/13 PX4/Gazebo scenarios passed on the fixed runtime inputs.</strong> All thirteen ran with <code>--all --keep-going --video</code>; failed checks remain failures and cause a nonzero exit. The fleet passed 35/35 checks; guardians passed 323/324. Every fleet/guardian vehicle now needs independent PX4 landed/contact evidence as well as disarm and pad proximity.</p>
+<p>The publisher correctly refuses this matrix. The replay sample remains the earlier passing recording from the previous revision; notices on each flight page identify that distinction. It is not proof that the current source passes all flight checks.</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Result</th>
+<th>Passed checks</th>
+<th>Failed checks</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>nominal</code></td>
+<td>PASS</td>
+<td>22/22</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>camera_dropout</code></td>
+<td>PASS</td>
+<td>25/25</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>companion_crash</code></td>
+<td>PASS</td>
+<td>20/20</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>gps_loss</code></td>
+<td>PASS</td>
+<td>21/21</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>fleet_carrier</code></td>
+<td>PASS</td>
+<td>35/35</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>guardian_intruder</code></td>
+<td>PASS</td>
+<td>41/41</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>guardian_fast</code></td>
+<td>FAIL</td>
+<td>39/40</td>
+<td><code>dispersed_before_impact</code></td>
+</tr>
+<tr>
+<td><code>guardian_swarm</code></td>
+<td>PASS</td>
+<td>41/41</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>guardian_birds</code></td>
+<td>PASS</td>
+<td>38/38</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>guardian_jamming</code></td>
+<td>PASS</td>
+<td>42/42</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>guardian_spoofing</code></td>
+<td>PASS</td>
+<td>40/40</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>guardian_center_loss</code></td>
+<td>PASS</td>
+<td>40/40</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>guardian_combined</code></td>
+<td>PASS</td>
+<td>42/42</td>
+<td>—</td>
+</tr>
+</tbody></table>
+<p>All 50 runtime input hashes match the current source/binary; <code>inputs_unchanged</code> is true. The recorded <code>source_commit</code> is the base commit before these tested changes were committed; per-file hashes identify the tested implementation. <a href="review-validation.json">Compact results and hashes</a> preserve each check, including failures. Raw records remain at <code>/home/n/work/mission-computer-lab/retests/fixes-20260927-complete</code>.</p>
+<p>The 78 portable Python tests passed normally and under <code>python -O</code>; all 59 ROS/runner tests passed; CTest passed 1/1; the accelerated matrix passed 8/8 scenarios and 6/6 security cases. The 40-seed guardian evaluation was regenerated with matching decision-source hashes. Browser state, Mermaid and local-link checks are performed before committing the rendered pages; no new pixel-level browser verification is claimed.</p>
+<p>Earlier failed runs are preserved: <code>retests/fixes-20260926-smoke</code> exposed insufficient deck descent; <code>smoke2</code> passed all 35 fleet checks after that fix. <code>fixes-20260926-final</code> exposed a nonfinite logging metric; <code>fixes-20260926-final2</code> and <code>fixes-20260926-fast-smoke</code> exposed the effect of stricter obstacle validation on fast-inbound timing. The latter completed safe recovery/landing but increased distance from the impact point by only 0.38 m before arrival, below the 0.50 m requirement. Sharing the vehicle map fixes planning disagreement, but does not establish reliable timing performance for this tightly constrained scenario. No acceptance threshold was lowered.</p>
+<p>See <a href="review-fixes.html">the fix-by-fix guide</a> and <a href="review-report.html#pass-9">review pass 9</a>. The dated sections below record earlier revisions and samples.</p>
 <h2>Eighth review pass retest — 26 September 2026</h2>
 <p><strong>Result: all thirteen scenarios passed on the final code while recording video, and every recorded input hash matches the published source.</strong> The matrix flies the four single-drone scenarios, the fleet, and eight guardian flights, one per threat the fast simulator evaluates; the published samples and videos come from this run, which took about 33 minutes. Guardian flights: 300/300 checks, judged on Gazebo truth; RED 12.2–12.6 simulated seconds before a slow intruder reached the carrier&#39;s parking spot and 1.8 s before a fast object&#39;s impact; the closest guardian stayed 2.63 m from a threat (combined scenario; safe radius 1.5 m); the jammed guardian kept clear on its own; the station caught a GNSS drag-off on all three receivers in 11 s and held them within 1.19 m of their posts; with no center link, recovery ran under delegation. The guardian evaluation was regenerated on Linux (Python 3.10): both invariants held in all 1280 runs and no healthy guardian was flagged as spoofed. Current checks: one CTest executable, 70 lightweight Python tests (also under <code>python -O</code>), 46 ROS/runner regression tests, eight fast scenarios and six signed-artifact cases, plus four replay state tests, theme, diagram and link checks. Three independent reviews (decision logic and simulator, PX4 integration, published pages) and the flights themselves produced the findings in <a href="review-report.html#pass-8">pass 8 of the review record</a>.</p>
 <h2>Seventh review pass retest — 26 September 2026</h2>
