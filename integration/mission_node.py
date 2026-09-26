@@ -35,6 +35,7 @@ class Mission(Node):
         self.last={'pose':0.,'imu':0.,'gps':0.,'status':0.};self.last_px4_stamp={}
         self.targets=None;self.waypoint=0;self.stream_since=None;self.last_request=-1e9
         self.land_requested=False;self.last_mode=None;self.flight_seen=False;self.offboard_seen=False;self.handed_off=False
+        self.last_tick=-math.inf
         self.payload_stamps={};self.payload_times={}
         self.blocked=set();self.mapped_scan=None;self.track=deque(maxlen=40);self.model_sha256=args.model_sha256
         self.core=subprocess.Popen([str(ROOT/'build/mission_supervisor')],stdin=subprocess.PIPE,
@@ -109,6 +110,11 @@ class Mission(Node):
         self.command.publish(m);self.log.write('command',command=int(command),param1=p1,param2=p2)
     def tick(self):
         now=self.now()
+        # The supervisor rejects a sample that does not advance in time (and exits); under simulated time a
+        # timer can fire twice on one clock value, so such a tick is skipped rather than sent.
+        if self.sim_time:
+            if now<=self.last_tick:return
+            self.last_tick=now
         if self.handed_off:return
         if not(self.pose and self.status and self.scan and self.perception):return
         offboard=self.status.nav_state==VehicleStatus.NAVIGATION_STATE_OFFBOARD
@@ -126,7 +132,7 @@ class Mission(Node):
             return  # Stop offboard proof-of-life; its 2 s pre-stream restarts if the estimate recovers.
         if self.origin is None:
             self.origin=[self.pose.y,self.pose.x,self.pose.z]
-            self.blocked=occupancy(self.scan_points(self.spawn[:2]));self.mapped_scan=self.scan
+            self.blocked=occupancy(self.scan_points(self.spawn[:2]),blocked=set(self.reserved_cells()));self.mapped_scan=self.scan
             path=astar((round(self.spawn[0]),round(self.spawn[1])),self.goal,self.blocked)
             if not path:raise RuntimeError('no planned path')
             self.targets=[[self.spawn[0],self.spawn[1],self.altitude]]+[[float(x),float(y),self.altitude] for x,y in path[1:]]
@@ -140,6 +146,9 @@ class Mission(Node):
             self.send_command(VehicleCommand.VEHICLE_CMD_NAV_LAND);self.land_requested=True
             self.handed_off=True;self.log.write('handoff',reason='no_safe_route')
             return  # Scans closed every route to the goal; land where the vehicle is.
+        # Mapping stays in the estimate's frame (the payload scans come from the same estimate); control and
+        # supervision use the navigation position, which a guardian corrects with station fixes when spoofed.
+        position=self.navigation(now,position)
         if self.stream_since is None:self.stream_since=now
         target,complete=self.next_target(now,position)
         camera_stamp=self.payload_times['camera'];lidar_stamp=self.payload_times['lidar']
@@ -151,7 +160,10 @@ class Mission(Node):
         fields=[self.sequence,now,self.last['imu'],self.last['gps'],vision_stamp,
                 link_stamp,0.95,*position,*target,
                 float(self.perception.inference_ms),int(complete)]
-        mode,reason,velocity=exchange(self.core,fields,0.5)
+        try:mode,reason,velocity=exchange(self.core,fields,0.5)
+        except RuntimeError as error:  # Keep the supervisor's own reason: it names the rejected input.
+            reason=self.core.stderr.read().strip()[:500] if self.core.poll() is not None else ''
+            self.log.write('supervisor_error',error=str(error),stderr=reason,fields=fields);raise
         d=Decision();d.header.stamp=self.get_clock().now().to_msg();d.header.frame_id='local_enu'
         d.sequence=self.sequence;d.mode=mode;d.reason=reason;d.position_enu=position;d.target_enu=target
         d.velocity_enu=velocity;d.camera_age=max(0.,now-camera_stamp);d.lidar_age=max(0.,now-lidar_stamp)
@@ -188,6 +200,8 @@ class Mission(Node):
         if self.waypoint<len(self.targets) and self.status.arming_state==VehicleStatus.ARMING_STATE_ARMED and math.dist(position,target)<0.35:
             self.waypoint+=1;target=self.targets[min(self.waypoint,len(self.targets)-1)]
         return target,self.waypoint>=len(self.targets)
+    def navigation(self,now,position):return position  # A guardian switches to station fixes when spoofed.
+    def reserved_cells(self):return ()  # Cells the plan must avoid besides obstacles (a guardian: other posts).
     def may_request_flight(self):return True  # A fleet vehicle waits for its launch slot.
     def after_decision(self,now,position,mode,target):pass  # A fleet vehicle reports its state.
     def close(self):

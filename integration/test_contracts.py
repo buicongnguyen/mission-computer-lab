@@ -59,7 +59,7 @@ class MissionBoundaries(unittest.TestCase):
             decisions=Mock(),control=Mock(),setpoint=Mock(),get_clock=Mock(),blocked=set(),track=deque(maxlen=40),
             model_sha256=None,ns='',spawn=[0.,0.,0.],goal=(9,9),altitude=3.,sim_time=False,system_id=1)
         a.mapped_scan=a.scan  # No new scan unless a test supplies one.
-        for method in ('payload_time','scan_points','position_at','map_scan','next_target','may_request_flight','after_decision','now'):
+        for method in ('payload_time','scan_points','position_at','map_scan','next_target','may_request_flight','after_decision','now','navigation'):
             setattr(a,method,MethodType(getattr(Mission,method),a))
         a.get_clock.return_value.now.return_value.to_msg.return_value=Time(sec=105)
         a.get_clock.return_value.now.return_value.nanoseconds=105000000000

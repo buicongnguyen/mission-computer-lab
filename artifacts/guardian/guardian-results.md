@@ -8,14 +8,14 @@ Share of runs in which every airborne guardian stayed outside the 75 m safe radi
 
 | Scenario | Station only | Onboard only | Networked | Hybrid |
 |---|---:|---:|---:|---:|
-| intruder | 82% | 100% | 100% | 100% |
-| fast_inbound | 0% | 0% | 15% | 2% |
-| swarm | 52% | 100% | 100% | 100% |
+| intruder | 88% | 100% | 100% | 100% |
+| fast_inbound | 0% | 0% | 10% | 10% |
+| swarm | 55% | 100% | 100% | 100% |
 | birds | — | — | — | — |
-| jamming | 68% | 100% | 68% | 100% |
+| jamming | 65% | 100% | 68% | 100% |
 | spoofing | — | — | — | — |
-| center_loss | 88% | 100% | 100% | 100% |
-| combined | 70% | 98% | 65% | 98% |
+| center_loss | 90% | 100% | 100% | 100% |
+| combined | 65% | 98% | 88% | 100% |
 
 ## Warning before arrival
 
@@ -23,34 +23,38 @@ Median seconds from the station's RED alert to the threat entering the 100 m pro
 
 | Scenario | Station only | Onboard only | Networked | Hybrid |
 |---|---:|---:|---:|---:|
-| intruder | 0 (0–5) | 0 (0–4) | 79 (60–92) | 79 (60–92) |
-| fast_inbound | 0 (0–0) | 0 (0–0) | 3 (2–3) | 3 (2–3) |
-| swarm | 0 (0–3) | 0 (0–2) | 64 (58–82) | 65 (58–82) |
+| intruder | 1 (0–6) | 0 (0–5) | 77 (56–96) | 77 (56–96) |
+| fast_inbound | 0 (0–0) | 0 (0–0) | 3 (2–4) | 3 (2–4) |
+| swarm | 1 (0–3) | 0 (0–2) | 73 (54–86) | 73 (54–85) |
 | birds | — | — | — | — |
-| jamming | 1 (0–7) | 0 (0–4) | 28 (20–33) | 31 (26–42) |
+| jamming | 1 (0–5) | 0 (0–3) | 28 (23–32) | 33 (29–59) |
 | spoofing | — | — | — | — |
-| center_loss | 1 (0–7) | 0 (0–4) | 77 (59–94) | 77 (59–94) |
-| combined | 0 (0–0) | 0 (0–0) | 60 (35–78) | 58 (36–78) |
+| center_loss | 1 (0–5) | 0 (0–4) | 74 (61–90) | 74 (61–90) |
+| combined | 0 (0–1) | 0 (0–1) | 59 (32–86) | 54 (38–85) |
 
 ## Other measures
 
 | Measure | Station only | Onboard only | Networked | Hybrid |
 |---|---:|---:|---:|---:|
 | False RED alerts, birds scenario (total) | 0 | 0 | 0 | 0 |
+| False RED alerts, spoofing scenario (total) | 1 | 2 | 2 | 0 |
 | Jammed picket acts alone (median s) | — | — | — | 2.8 |
-| GNSS drag-off detected (median s) | — | — | — | 39 |
-| Spoofed picket drift (median m) | 604 | 609 | 604 | 68 |
+| GNSS drag-off detected (median s) | — | — | — | 38 |
+| Spoofed picket drift (median m) | 609 | 609 | 609 | 65 |
 | Center could decide in time, low intruder | 0% | 0% | 100% | 100% |
+| Healthy guardian flagged as spoofed, all scenarios (total) | 0 | 0 | 0 | 0 |
+| Worst navigation error of a healthy guardian, all scenarios (m) | 0 | 0 | 0 | 0 |
+| Runs where a move brought a guardian nearer a real threat, judged on truth | 2 | 18 | 25 | 21 |
 
-Across all 1280 runs, 100% pass both invariants: no keep-clear decision closed on a threat, and no layer acted outside its authority.
+Both invariants held in 1280 of 1280 runs (100.0%). First: every keep-clear or dispersal decision, new or kept, opened the range along its whole path to every relevant track it was based on (not a bird, predicted to pass within twice the clear radius inside twice the planning horizon). Second: no layer took an action outside its authority. Both are properties of the decisions, checked in every run. The row above measures the same thing on truth instead: a run counts if some move brought a guardian more than 25 m nearer a real threat that a track was on and that truly passed within the clear radius inside the planning horizon. These come from straight-line predictions of weaving threats at long range; whether any guardian lost its safe radius is what the first table shows.
 
 ## Layout experiment (hybrid design)
 
 | Layout | Low intruder warning (s) | Fast inbound kept clear | Fast inbound warning (s) | Swarm warning (s) |
 |---|---:|---:|---:|---:|
-| baseline: Pickets 900 m out; overwatch hovering over the station. | 79 | 2% | 2.6 | 65 |
-| offset overwatch: Overwatch moved 250 m off the station it watches. | 77 | 90% | 2.9 | 65 |
-| wide pickets: Pickets 1500 m out instead of 900 m. | 90 | 20% | 2.9 | 98 |
+| baseline: Pickets 900 m out; overwatch hovering over the station. | 77 | 10% | 2.9 | 73 |
+| offset overwatch: Overwatch moved 250 m off the station it watches. | 77 | 90% | 2.9 | 73 |
+| wide pickets: Pickets 1500 m out instead of 900 m. | 103 | 15% | 3.4 | 100 |
 
 ## Reproduce
 

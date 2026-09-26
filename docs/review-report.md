@@ -1,6 +1,6 @@
 # Logic and code review record
 
-Review dates: 23 September 2026 (passes 1–3), 24 September 2026 (passes 4 and 5), 25 September 2026 (pass 6) and 26 September 2026 (pass 7). Scope: the WSL mission-computer lab, including C++ policy contracts, Python adapters and transport, flight orchestration, evidence publication, replays and guides. Seven sequential passes were performed over the same implementation; later passes also reviewed earlier fixes. This is a local engineering review, not a flight qualification or a claim that all possible defects have been eliminated.
+Review dates: 23 September 2026 (passes 1–3), 24 September 2026 (passes 4 and 5), 25 September 2026 (pass 6) and 26 September 2026 (passes 7 and 8). Scope: the WSL mission-computer lab, including C++ policy contracts, Python adapters and transport, flight orchestration, evidence publication, replays and guides. Eight sequential passes were performed over the same implementation; later passes also reviewed earlier fixes. This is a local engineering review, not a flight qualification or a claim that all possible defects have been eliminated.
 
 The current source contains the fixes below. The measured reference artifacts identify runtime inputs by SHA-256, including source changes that were uncommitted when tested.
 
@@ -175,6 +175,70 @@ Recorded, not changed: in the combined scenario one hybrid run in 40 came within
 | Recorded video | Eight recordings (four single-drone, fleet overview and deck, guardian overview and close-up); frames extracted and inspected |
 | Web checks | Seven Mermaid diagrams parse; four replay state suites, the theme test and link checks pass on the repository and on the assembled Pages layout; the guardian page, its 3D view and the design document were inspected in headless Edge |
 
+<a id="pass-8"></a>
+
+## Pass 8 — Eight guardian flights, and three independent reviews
+
+Review date: 26 September 2026. The request was to implement the guardian scenarios on PX4 and to review the logic and the code. The single PX4 guardian flight of pass 7 became eight: one per threat the fast simulator evaluates. `integration/guardian_layout.py` holds the scenario table; the runner writes each flight's Gazebo world from a template and judges it on Gazebo truth. Three reviewers then read the work independently: the decision module and fast simulator, the PX4 integration, and the published pages and publisher. They replayed their doubts in the simulator before reporting them, 35 findings in all. Every finding below was reproduced, then fixed with a test or a check, or recorded as a limit. Flying the scenarios found seven more; they are listed separately. [The guardian design](guardian.md#review) summarises what changed in the design.
+
+| Decision module and fast simulator | Why it mattered | Fix and regression evidence |
+|---|---|---|
+| High: the integrity check compared stale or masked reports with any return near them, and an alarm never cleared | 30 of 280 non-spoofing hybrid runs switched a healthy guardian to station fixes of a bird or another guardian; navigation errors reached 2 km | The station keeps its own track of each guardian by continuity, gated by sensor accuracy, reported velocity, barometric height and sensor coverage; old reports are not compared; alarms clear after six consistent observations; fixes correct only horizontal position. `test_the_station_never_mistakes_a_bird_for_its_own_guardian`, `test_integrity_ignores_old_reports_and_clears_after_consistent_observations`; the report now counts false alarms and a healthy guardian's worst navigation error: 0 and 0 m in 1280 runs |
+| Medium: the switch to station fixes was sent once | One lost message left a flagged guardian on GNSS, dragged 603 m | Every fix carries the switch; every order names the navigation source |
+| Medium: `predicted_miss` sampled 24 points in 60 s | A 250 m/s object "missed" by 250 m a guardian it would hit | Exact closest approach per leg. `test_predicted_miss_is_exact_for_a_fast_object` |
+| Medium: assessment extrapolated a relocating station's velocity forever | RED dropped about 2.5 s after relocation began, with the threat still inbound | Threats are judged against the station's stop point. `test_a_relocating_station_is_judged_where_it_will_stop` |
+| Medium: the report no longer matched the decision code | The published numbers came from older code | Regenerated; the hash test guards it |
+| Low–Medium: the invariants passed by construction; kept orders and paths were never checked; "X% pass" was the worst cell | The claim could not fail, and was worded as more than it measured | Moves must open the range along the whole straight path; kept orders are re-checked each cycle; the results page states the exact share and also measures the property on truth. `test_never_closes_on_any_threat_anywhere_along_the_move`, `test_a_kept_move_is_replanned_once_the_rest_of_it_would_close_on_a_track` |
+| Low–Medium: late measurements were compared with the current state | A 0.4 s-late detection moved a fast track by 32 m | Compared with where the track was. `test_a_late_measurement_is_compared_with_where_the_track_was_then` |
+| Low: class ties went to "bird" | A drone labelled 2:2 could never raise RED | Ties go to the more protective class. `test_a_tied_class_vote_goes_to_the_class_that_needs_more_protection` |
+| Low: the lost-link rally point was the station's live position; delegation read the simulator's own flag | Knowledge the guardian and station could not have | The rally is the station's last-heard position; delegation follows the center's silence. Hybrid safety in the combined scenario, measured with the honest rally, is still 40/40 |
+| Low: false REDs were forced to 0 whenever a real threat existed; the page credited camera labels for zero false REDs from birds | Spoofing and combined false alarms were hidden; the claim was wrong | Counted in every scenario (spoofing: 1–2 per design without the cross-check, 0 for hybrid; combined: 1 in 40 hybrid runs); the claim is corrected |
+| Low: the station pruned tracks only when a detection arrived | Tracks up to 13 s old fed orders | Pruned every step |
+| Low: dispersal edge cases | A guardian at the hazard centre was sent to the centre; the hazard followed the moving station | Dispersal points are checked like any move and centred on the predicted impact point. `test_dispersal_is_guarded_like_any_other_move` |
+| Low: all sensors and links drew from one random stream; a test never reached its retry branch | Differences between designs were partly noise | One stream per sensor and per link message; `test_center_retries_a_decision_until_the_link_returns` |
+
+| PX4 integration | Why it mattered | Fix and regression evidence |
+|---|---|---|
+| High: birds held the posture at AMBER; one bird flew faster than the slow-speed gate and circled where the carrier relocates | The quiet watch could never end; an unlabelled bird raised RED | Bird tracks do not hold AMBER; the PX4 birds were laid out and scaled like the fast simulator's. `test_birds_a_camera_has_labelled_leave_the_posture_green`, `test_posture_ignores_birds` |
+| Medium–High: dispersal skipped every guard | The fast-object dispersal target was nearer the object and beside a cylinder | Guarded and centred on the impact point; `dispersed_before_impact` now also requires the guardian to be truly further from the impact point at impact. `test_a_fast_object_disperses_the_guardian_near_its_impact_point_safely` |
+| Medium: a stale answer from the center was accepted | A recovery decided before a new event would recall guardians after it | Numbered requests; only the open one's answer counts, at GREEN. `test_a_decision_to_an_earlier_clear_is_ignored_after_a_new_event` |
+| Medium: the station planned from stale guardian state | Orders computed for a jammed guardian's old position | Orders only to guardians heard within a second, a silent one told to hold, wider separation around it; guardians re-check station moves against their own tracks. `test_a_guardian_the_station_has_not_heard_from_is_told_to_hold_and_given_room`, `test_a_guardian_does_not_fly_a_station_move_that_closes_on_what_it_sees` |
+| Medium: the spoofer's comment had the drag direction reversed, the drag headed for a cylinder, and it launched a process every 0.5 s | See the first flight finding below | Correct comment; south-west drag; an in-process client called only when the offset changes, with failures logged |
+| Medium: a guardian flew on a frozen correction if fixes stopped | Silent drift after the alarm had latched | Lands in place after a 3 s fix timeout. `test_a_guardian_on_station_fixes_lands_in_place_when_they_stop` |
+| Medium–Low: no reflex outside the watch; the lost-link return flew a straight line and never landed; the return fell back to a straight line from a blocked cell | Could cross a cylinder or another post | A planned route to the rally, holding there for clearance (`test_a_lost_link_return_follows_a_planned_route_to_the_last_known_carrier`); station moves respect the reserved cells. Recorded, not changed: the reflex runs only on watch, because launch and recovery happen at GREEN |
+| Low–Medium: relocation always drove to the same stop | In the swarm the carrier drove toward the second intruder (predicted miss 3.1–3.7 m against 3 m) | The stop is chosen from the tracked threats. `test_relocation_moves_further_when_a_threat_comes_from_the_east` |
+| Low: several checks were weaker than their names | `threat_confirmed` passed on clutter; one track could match two threats; `dispersed_before_impact` checked only an order; warning was measured to a fleeing carrier | Matched to truth, one-to-one, truth distance at impact, arrival at the threat's aim point, and `never_closed_on_threat` covers dispersal and the whole path. Recorded, not changed: `fleet_min_separation` counts airborne pairs only |
+
+| Published pages and publisher | Why it mattered | Fix and regression evidence |
+|---|---|---|
+| Medium: eight flights in the shared report data | Several megabytes on the flight and fleet pages, which never use them | The guardian flights go to their own `guardian-data.js`, slimmed to what the page reads: 1.9 MB for eight flights. The full `result.json` stays with each flight |
+| Medium: a flight in which nothing flew could pass | Birds' odometry missing would leave every check green | The publisher requires truth for every vehicle and threat from its start; a new `threats_flew` check |
+| Medium: misleading event text | "threats start" with no threats; recovery listed twice; a second relocation read like the first; unknown events read "undefined link restored" | Text built from what each flight has; the station's acceptance shown as such; explicit cases with a safe fallback |
+| Medium: deploy order | Web changes without the new artifacts would show no flights | Committed together |
+| Low: video buttons, tiles, colours, 3D display, stale wording, empty state | Wrong notes or a stale video; a carrier-miss tile that looks like a failure on the fast flight; birds drawn as hostile and the jamming zone in the intruders' red; threats frozen outside their flight | Per-camera buttons; a dispersal tile; birds not hostile and a violet zone; threats shown only while they fly, facing their motion; wording updated; controls disabled with no data. Recorded, not changed: the event log runs on wall time while the tiles use simulated time |
+| Low: the page test could pass vacuously | It tolerated empty threat traces and never reset its replay stub | Stronger assertions: every threat drawn, only birds non-hostile, per-camera buttons, no FAIL, no "undefined", no jamming text without a jammer, both recovery paths |
+
+| Found while flying | What it did | Fix and regression evidence |
+|---|---|---|
+| The spoofer ran `gz service` twice a second | The load starved the simulation; the supervisors saw stale IMU data and landed two guardians | In-process gz-transport client (above) |
+| A supervisor exited on an invalid sample with no reason logged | One guardian's adapter stopped mid-flight | The adapter logs the supervisor's own reason and never sends a sample that does not advance in time |
+| A route passed a metre under another guardian holding its post | 0.99 m between guardians in the fast-object flight | Routes and moves keep out of the cells around the other posts. `test_each_guardian_routes_around_the_other_posts_but_can_reach_its_own` |
+| Keep-clear from unlabelled birds | Guardians left their posts, out of camera range, so the birds stayed unlabelled and held AMBER until noise raised RED | A slow track no camera has classed as a drone or fast object gets only a collision margin, within the reflex horizon; a keep-clear, like RED, waits for support beyond confirmation. `guardians_held_their_posts` replaces a check that no keep-clear ever happens |
+| The path rule made distant birds veto every move | An overwatch at its ceiling could not move while an intruder passed beneath | Only relevant tracks count. `test_relevant_tracks_leave_out_birds_and_tracks_that_stay_far_away` |
+| A guardian cornered at the arena edge under its ceiling | 1.41 m from an intruder crossing above (safe radius 1.5 m) | Keep-clear may also descend, above a floor. `test_a_guardian_at_its_ceiling_descends_away_from_a_threat_crossing_above` |
+| The station's friendly track slid onto a bird below or beside a guardian | A healthy guardian was flagged | The height and coverage gates above |
+
+| Pass 8 verification | Observed result |
+|---|---|
+| C++ Release build and CTest | 1/1 passed |
+| Lightweight Python tests | 70/70 passed, including 35 for the guardian logic and its simulator; also under `python -O`; on Windows Python 3.14 and Linux Python 3.10 |
+| ROS boundary and runner tests | 46/46 passed, including 21 that build the real guardian station, center, environment and vehicle logic |
+| Guardian evaluation | 4 designs × 8 scenarios × 40 seeds plus 240 layout runs on Linux (Python 3.10) in about a minute. Both invariants held in 1280 of 1280 runs; no healthy guardian was flagged as spoofed; hybrid kept every guardian clear in every run of five of the six threat scenarios (fast inbound: 10%, 90% with the offset overwatch); the report's hashes match the code |
+| PX4/Gazebo/ROS matrix with video on the final code | 13/13 passed in about 33 minutes; `inputs_unchanged: true` |
+| Guardian flights | 300/300 checks over eight flights; RED 12.2–12.6 simulated seconds before arrival for slow intruders and 1.8 s before a fast object's impact; closest guardian to a threat 2.63 m (combined) against a 1.5 m safe radius; spoofing flagged in 11 s with at most 1.19 m of drift; delegated recovery with no center link |
+| Smoke flights before the matrix | Found the separation, starvation, supervisor, bird and cornering faults listed above; each scenario was re-flown after its fix |
+| Web checks | Seven Mermaid diagrams parse; the four replay state suites (the guardian suite now drives all eight flights) and the theme test pass; the published guardian data is 1.8 MB, and the shared report data shrank from 1.4 MB to 0.7 MB |
+
 ## Diagrams and how to read them
 
 | Document | Diagram | What it explains |
@@ -202,7 +266,7 @@ bash scripts/test_integration.sh
 .venv/bin/python -O -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-Expected: one CTest executable passes; 56 lightweight Python tests pass; eight fast scenarios pass; six security experiments behave as specified; 32 integration tests pass. Running the Python cases with `-O` also verifies evidence gates do not rely on removable `assert` statements. These commands do not start a physical aircraft.
+Expected: one CTest executable passes; 70 lightweight Python tests pass; eight fast scenarios pass; six security experiments behave as specified; 46 integration tests pass. Running the Python cases with `-O` also verifies evidence gates do not rely on removable `assert` statements. These commands do not start a physical aircraft.
 
 For the actual flight matrix, use a fresh Linux output directory and retain it for later inspection:
 
@@ -213,7 +277,7 @@ bash scripts/run_sitl.sh --all --video --output "$REVIEW_RUN"
 echo "Flight runner exit code: $?"
 ```
 
-Expect six PASS lines (four single-drone scenarios, the fleet, then the guardians) and exit code zero. Do not publish if the runner failed. `results.json` contains detailed named checks; `provenance.json` must have `inputs_unchanged: true`. If a run fails, inspect its scenario `result.json`, `runner-error.log` if present, application logs and independent `observer.jsonl` before making a new attempt. Process cleanup still runs on a caught failure. Keep failed runs for comparison.
+Expect thirteen PASS lines (four single-drone scenarios, the fleet, then the eight guardian flights) and exit code zero. Do not publish if the runner failed. `results.json` contains detailed named checks; `provenance.json` must have `inputs_unchanged: true`. If a run fails, inspect its scenario `result.json`, `runner-error.log` if present, application logs and independent `observer.jsonl` before making a new attempt. Process cleanup still runs on a caught failure. Keep failed runs for comparison.
 
 After a successful full matrix:
 

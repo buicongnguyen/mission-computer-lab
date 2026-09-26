@@ -1,0 +1,96 @@
+Symbols: x = used, + = saved, * = unsaved
+x + COM_RC_IN_MODE [297,521] : 4
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x + COM_RCL_EXCEPT [295,519] : 4
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   NAV_DLL_ACT [650,1131] : 2
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   COM_OF_LOSS_T [285,509] : 0.5000
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x + COM_OBL_RC_ACT [284,508] : 4
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   COM_FAIL_ACT_T [261,477] : 0.0000
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   COM_DISARM_LAND [256,472] : 1.0000
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   SYS_FAILURE_EN [984,1577] : 1
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x + COM_RC_IN_MODE [297,521] : 4
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x + COM_RCL_EXCEPT [295,519] : 4
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   NAV_DLL_ACT [650,1131] : 2
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   COM_OF_LOSS_T [285,509] : 0.5000
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x + COM_OBL_RC_ACT [284,508] : 4
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   COM_FAIL_ACT_T [261,477] : 0.0000
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   COM_DISARM_LAND [256,472] : 1.0000
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   SYS_FAILURE_EN [984,1577] : 1
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x + COM_RC_IN_MODE [297,521] : 4
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x + COM_RCL_EXCEPT [295,519] : 4
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   NAV_DLL_ACT [650,1131] : 2
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   COM_OF_LOSS_T [285,509] : 0.5000
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x + COM_OBL_RC_ACT [284,508] : 4
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   COM_FAIL_ACT_T [261,477] : 0.0000
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   COM_DISARM_LAND [256,472] : 1.0000
+
+ 1012/1925 parameters used.
+Symbols: x = used, + = saved, * = unsaved
+x   SYS_FAILURE_EN [984,1577] : 1
+
+ 1012/1925 parameters used.

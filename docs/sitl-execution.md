@@ -2,14 +2,14 @@
 
 Actual PX4/Gazebo/ROS; procedural camera/lidar; CPU synthetic ONNX; no Qualcomm hardware.
 
-Generated UTC: 2026-09-26T07:14:07.675160+00:00
+Generated UTC: 2026-09-26T10:01:59.246224+00:00
 
 | Scenario | Result | Wall duration (s) | Max estimated altitude (m) | Min estimated obstacle clearance (m) |
 |---|---|---:|---:|---:|
-| nominal | PASS | 80.96 | 2.995 | 1.186 |
-| camera_dropout | PASS | 85.38 | 2.925 | 1.173 |
-| companion_crash | PASS | 48.39 | 2.809 | 3.932 |
-| gps_loss | PASS | 52.81 | 2.831 | 3.684 |
+| nominal | PASS | 82.94 | 3.051 | 1.204 |
+| camera_dropout | PASS | 84.20 | 2.983 | 1.186 |
+| companion_crash | PASS | 49.80 | 2.731 | 3.538 |
+| gps_loss | PASS | 54.21 | 2.683 | 3.619 |
 
 All four scenarios require actual armed offboard state, observed climb, land mode, landed state and final disarm. Normal and camera-recovery runs also require a reached goal, COMPLETE and accepted land command. GPS loss requires a post-injection stale-GNSS landing decision. Companion crash requires a subsequent PX4 failsafe.
 
@@ -21,22 +21,26 @@ Three PX4 instances launch in sequence from pads on a carrier vehicle, fly separ
 
 | Vehicle | Goal | Altitude layer (m) | Touchdown pad error (m) | Carrier speed at touchdown (m/s) | Min obstacle clearance (m) |
 |---|---|---:|---:|---:|---:|
-| px4_0 | (9, 9) | 3 | 0.070 | 0.27 | 1.23 |
-| px4_1 | (10, 3) | 4 | 0.007 | 0.27 | 1.36 |
-| px4_2 | (-1, 10) | 5 | 0.024 | 0.27 | 2.16 |
+| px4_0 | (9, 9) | 3 | 0.052 | 0.27 | 1.19 |
+| px4_1 | (10, 3) | 4 | 0.044 | 0.27 | 1.02 |
+| px4_2 | (-1, 10) | 5 | 0.048 | 0.27 | 2.19 |
 
-Minimum separation between airborne vehicles: 1.71 m. Carrier travel: 12.7 m. Recording two cameras slows this simulation below real time; the adapters judge freshness on simulation time, as PX4 does.
+Minimum separation between airborne vehicles: 2.00 m. Carrier travel: 12.0 m. Recording two cameras slows this simulation below real time; the adapters judge freshness on simulation time, as PX4 does.
 
-## Guardians against an intruder
+## Guardians against threats
 
-Three PX4 instances hold watch posts around the carrier. A simulated intruder flies to where the carrier is parked; the first guardian reports it, the second is jammed as it arrives and keeps clear on its own, the station raises RED and drives the carrier out of the path, and the center authorises recovery. See [the guardian design](guardian.md).
+Three PX4 instances hold watch posts around the carrier while each scenario adds its own threats, a jammer, a GNSS spoofer or a dead link to the center; the station and each guardian run the same decision code as the fast simulator. Separations, drift and landings are measured on Gazebo truth. See [the guardian design](guardian.md).
 
-| Measure | Value |
-|---|---:|
-| Named checks passed | 38 / 38 |
-| Warning, RED to the intruder's arrival (simulated s) | 15.9 |
-| Closest guardian to the intruder (m) | 4.54 |
-| Carrier's closest approach to the intruder after relocating (m) | 8.0 |
+| Scenario | What happens | Checks | Warning (simulated s) | Closest guardian to a threat (m) | Recovery decided by |
+|---|---|---:|---:|---:|---|
+| `guardian_intruder` | One intruder, links intact | 38 / 38 | 12.3 | 5.96 | center |
+| `guardian_fast` | A fast object diving on the carrier | 37 / 37 | 1.8 | 5.01 | center |
+| `guardian_swarm` | Three intruders from two sectors | 38 / 38 | 12.6 | 4.98 | center |
+| `guardian_birds` | Circling birds and sensor clutter | 35 / 35 | — | — | center |
+| `guardian_jamming` | An intruder while one guardian is jammed | 39 / 39 | 12.6 | 4.17 | center |
+| `guardian_spoofing` | A GNSS drag-off on every receiver | 37 / 37 | — | — | center |
+| `guardian_center_loss` | An intruder with no link to the center | 37 / 37 | 12.6 | 5.93 | station (delegated) |
+| `guardian_combined` | Two intruders, a jammed guardian, birds and no center | 39 / 39 | 12.2 | 2.63 | station (delegated) |
 
 ## Exact upstream revisions
 

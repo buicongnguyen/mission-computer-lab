@@ -17,14 +17,19 @@ import random
 import statistics
 import sys
 from guardian import (AMBER,GREEN,RED,Center,Config,NavIntegrity,Posture,Tracker,assess,authorised,
-                      closest_approach,onboard_decide,station_orders,sub)
+                      closest_approach,impact_point,onboard_decide,opens_range,relevant,segment_miss,station_orders,sub)
 
 ROOT=Path(__file__).resolve().parents[1]
 DT=0.1
 CFG=Config(gate=40.,gate_speed=320.,accel_noise=8.,sigma=10.,confirm_hits=4,confirm_window=5.,drop_tentative=3.,drop_confirmed=8.,
            protect_radius=100.,warn_horizon=150.,slow_persist=8.,slow_speed=12.,inner_radius=400.,clear_radius=150.,safe_radius=75.,order_horizon=60.,
            reflex_horizon=20.,keep_clear_step=250.,climb_step=40.,max_altitude=120.,guardian_speed=12.,fast_speed=60.,clear_time=20.,
-           lost_link=3.,lost_link_return=60.,center_timeout=90.,integrity_threshold=60.,integrity_persistence=3)
+           lost_link=3.,lost_link_return=60.,center_timeout=90.,integrity_threshold=60.,integrity_persistence=3,
+           integrity_clear=6,integrity_max_age=2.,fix_timeout=10.)
+# A move judged on truth may come this much nearer a real threat than it started (about 2.5 sigma of the
+# guardian's own sensor at close range) before it counts as closing: decisions are made on tracks, not truth.
+TRUTH_TOLERANCE=25.
+ORDER_AGE=1.5  # s: the station plans orders only for guardians it has heard from this recently
 # Illustrative sensors. The ground sensor loses low flyers early (terrain and clutter); drones look down.
 STATION_SENSOR={'range':1200.,'low_altitude':50.,'low_range':400.,'pd':0.9,'sigma':6.,'period':1.,'clutter':0.2}
 # Guardians also carry a camera that labels what they detect inside classify_range, right 90% of the time.
@@ -130,11 +135,20 @@ class Guardian:
         self.name=name;self.post=list(post);self.p=list(post);self.v=[0.,0.,0.];self.offset=[0.,0.,0.]
         self.action='watch';self.target=list(post);self.layer='station';self.hold_at=None
         self.order={'action':'watch','target':list(post)};self.last_uplink=0.;self.tracker=Tracker(CFG)
-        self.nav_by_station=False;self.fix=None;self.landed=False;self.next_scan=0.;self.next_report=0.;self.reflex=None
-        self.last_checked=None
+        self.nav_by_station=False;self.fix=None;self.nav_since=None;self.landed=False;self.next_scan=0.;self.next_report=0.
+        self.reflex=None;self.last_checked=None
+        self.rally=[0.,0.,0.]  # Pre-briefed: the station's position as last heard over the uplink.
+    def gnss(self):return [a+b for a,b in zip(self.p,self.offset)]
     def nav(self,now):
-        if self.nav_by_station and self.fix:t,p=self.fix;return [a+b*(now-t) for a,b in zip(p,self.v)]
-        return [a+b for a,b in zip(self.p,self.offset)]
+        """Navigation position: GNSS, or the station's last fix carried forward by the vehicle's own velocity.
+        A fix corrects only the horizontal position; height stays barometric, which a drag-off does not move."""
+        if self.nav_by_station and self.fix:
+            t,p=self.fix;return [p[0]+self.v[0]*(now-t),p[1]+self.v[1]*(now-t),self.p[2]]
+        return self.gnss()
+    def use_station_fixes(self,now,on):
+        if on and not self.nav_by_station:self.nav_since=now
+        if not on:self.fix=None
+        self.nav_by_station=on
     def fly(self,now,dt):
         if self.landed:self.v=[0.,0.,0.];return
         nav=self.nav(now);goal=self.target or nav
@@ -168,9 +182,9 @@ def detect(rng,sensor,origin,objects,now,clutter_scale,low_mask=False,kinds=None
         out.append(([origin[0]+r*math.cos(a),origin[1]+r*math.sin(a),rng.uniform(0,200)],'clutter',label('clutter',r),sensor['sigma']))
     return out
 
-def closes_on(target,origin,tracks,now):
-    """True if moving origin -> target reduces the range to any track's predicted position."""
-    return any(math.dist(target,tr.predict(now))<math.dist(origin,tr.predict(now))-1e-6 for tr in tracks)
+def closing(own,target,positions):
+    """How much nearer than at the start a straight move own -> target comes to any of these positions."""
+    return max((math.dist(own,q)-segment_miss(sub(own,q),sub(target,own),1.) for q in positions),default=0.)
 
 def segment_min(p0,v_rel,dt):
     """Minimum distance over one step for linear relative motion."""
@@ -178,20 +192,24 @@ def segment_min(p0,v_rel,dt):
     return d if t<=dt else math.dist([a+b*dt for a,b in zip(p0,v_rel)],[0,0,0])
 
 def run(scenario_name,architecture,seed,trace=False,layout='baseline'):
-    posts=LAYOUTS[layout]
-    rng=random.Random(f'{scenario_name}/{seed}');flags=ARCHITECTURES[architecture];s=scenario(scenario_name,rng,posts)
-    sensor_rng=random.Random(f'{scenario_name}/{seed}/sensors')  # Same threats for every architecture.
+    posts=LAYOUTS[layout];key=f'{scenario_name}/{seed}'
+    rng=random.Random(key);flags=ARCHITECTURES[architecture];s=scenario(scenario_name,rng,posts)
+    # Common random numbers: every sensor and every link draws from its own stream, so the four designs
+    # see the same threats, the same station returns and the same lost packets.
+    station_rng=random.Random(key+'/station');drone_rng={n:random.Random(f'{key}/{n}') for n in posts}
     decision_time=rng.uniform(8,20);center_down=s['center_down']
     guardians={n:Guardian(n,p) for n,p in posts.items()};threats=s['threats']
-    real=[t for t in threats if t.kind!='bird']
+    real=[t for t in threats if t.kind!='bird'];victim=s['spoof'] and s['spoof']['victim']
     station={'p':[0.,0.,0.],'v':[0.,0.,0.],'goal':None,'tracker':Tracker(CFG),'posture':Posture(CFG),'next_scan':0.,
-             'next_orders':0.,'reports':{},'integrity':{n:NavIntegrity(CFG) for n in guardians},'heard':{},
-             'recovery':None,'recovery_by':None,'clear_since':None,'orders':{},'pending_since':-1e9,'held':False}
+             'next_orders':0.,'reports':{},'gnss':{},'velocity':{},'integrity':{n:NavIntegrity(CFG) for n in guardians},'heard':{},
+             'friendly':{},'rally':{},'recovery':None,'recovery_by':None,'clear_since':None,'orders':{},'pending_since':-1e9,
+             'held':False,'request':None,'requests':0}
     center=Center(CENTER_LATENCY,decision_time,reachable=lambda now:not center_down)
     uplink=[];downlink=[];center_replies=[];events=[];samples=[]
     metrics={'min_separation':math.inf,'red':[],'arrival':{},'first_confirm':None,'first_confirm_range':None,
-             'keep_clear':0,'closing':0,'authority_violations':0,'false_red':0,'station_cpa':math.inf,
-             'jam_lost':None,'jam_action':None,'cpa':{},'spoof_detect':None,'spoof_drift':0.,'delegated':False}
+             'keep_clear':0,'closing':0,'decision_closing':0,'authority_violations':0,'false_red':0,'station_cpa':math.inf,
+             'jam_lost':None,'jam_action':None,'cpa':{},'spoof_detect':None,'spoof_drift':0.,'delegated':False,
+             'false_integrity':0,'nav_error':0.,'landed_in_place':0}
     def log(now,layer,action,who,**detail):
         if not authorised(action,layer):metrics['authority_violations']+=1
         if trace or action in ('crew_alert','recover','resume','posture'):events.append({'t':round(now,1),'layer':layer,'action':action,'who':who,**detail})
@@ -199,13 +217,70 @@ def run(scenario_name,architecture,seed,trace=False,layout='baseline'):
         """Last report, or where the pre-briefed lost-link procedure has taken a guardian that went silent."""
         last=station['reports'].get(name,guardians[name].post);age=now-station['heard'].get(name,0.)
         if not flags['lost_link'] or age<=CFG.lost_link_return:return last
-        d=sub(station['p'],last)[:2];n=math.hypot(*d);step=min(n,GUARDIAN_SPEED*(age-CFG.lost_link_return))
+        rally=station['rally'].get(name,[0.,0.,0.]);d=sub(rally,last)[:2];n=math.hypot(*d)
+        step=min(n,GUARDIAN_SPEED*(age-CFG.lost_link_return))
         return last if n<1e-6 else [last[0]+d[0]/n*step,last[1]+d[1]/n*step,last[2]]
-    def link_ok(now,g):
+    def link_ok(now,g,kind):
         if not flags['network']:return False
         j=s['jammer']
         if j and j['on']<=now<j['off'] and math.dist(g.p[:2],j['p'])<j['r']:return False
-        return sensor_rng.random()>LINK_LOSS
+        return random.Random(f'{key}/{g.name}/{kind}/{now:.1f}').random()>LINK_LOSS
+    def check_move(now,g,target,tracks,own=None):
+        """A move being executed. The invariant: it opens the range along its whole path to every relevant track
+        it was decided on. Measured, not claimed: on truth, whether it brought the guardian more than tracking
+        error nearer a real threat that a track was on and that truly passes within the clear radius inside the
+        planning horizon. Predictions are straight lines and weaving threats defeat them, so this can happen;
+        a threat nobody has tracked yet is a detection gap and is not counted."""
+        own=own or g.nav(now);predicted=[tr.predict(now) for tr in tracks]
+        if not opens_range(own,target,relevant(own,tracks,now,CFG)):metrics['decision_closing']+=1
+        horizon=max(CFG.order_horizon,CFG.reflex_horizon)
+        known=[t.p for t in real if t.active(now) and any(math.dist(q,t.p)<200. for q in predicted)
+               and (lambda tc,d:tc<horizon and d<CFG.clear_radius)(*closest_approach(sub(t.p,g.p),t.v))]
+        if closing(g.p,target,known)>TRUTH_TOLERANCE:metrics['closing']+=1  # Truth measure, reported as a rate.
+    def associate_friendlies(now,seen):
+        """The station's own track of each airborne guardian from its sensor returns, kept by continuity rather
+        than by the guardian's report, which may be spoofed or stale. Returns the claimed returns and the
+        positions fit for the integrity cross-check.
+
+        Continuity first: a track is carried forward by the guardian's reported velocity and takes the
+        nearest return within three sigma of the sensor at that range plus what acceleration and a drag-off
+        can add since its last update, so a missed return cannot hand the track to a bird. Then every other airborne guardian claims its nearest return near its report, so no
+        guardian is ever tracked as a threat; that return starts a new track only if it agrees with a fresh
+        report to within three sigma (a guardian on station fixes reports a position the fixes corrected).
+        Every association also checks height against the reported (barometric) altitude, which a GNSS
+        drag-off does not move: a bird circling below a guardian is never taken for it."""
+        tight=[];claimed=set();observed={};done=set()
+        sigma=lambda p:STATION_SENSOR['sigma']+0.005*math.dist(p,station['p'])
+        covered=lambda p:math.dist(p,station['p'])<=(STATION_SENSOR['low_range'] if p[2]<STATION_SENSOR['low_altitude'] else STATION_SENSOR['range'])
+        def level(name,p,dt):
+            z=station['reports'].get(name,guardians[name].post)[2]
+            return abs(p[2]-z)<3*sigma(p)+GUARDIAN_CLIMB*(dt+now-station['heard'].get(name,0.))
+        for name,g in guardians.items():
+            f=station['friendly'].get(name)
+            if g.landed or (f and now-f['t']>3.):station['friendly'].pop(name,None);continue
+            if f:
+                # Carried forward by the guardian's reported velocity (a drag-off biases it by a few m/s at most).
+                v=station['velocity'].get(name,[0.,0.,0.]);dt=now-f['t'];centre=[a+b*dt for a,b in zip(f['p'],v)]
+                if not covered(centre):continue  # Out of the sensor's view: no return there can be this guardian.
+                gate=3*sigma(centre)+GUARDIAN_ACCEL*dt*dt/2+5.*dt
+                tight+=[(math.dist(centre,p),name,i) for i,(p,*_) in enumerate(seen)
+                        if math.dist(centre,p)<gate and level(name,p,now-f['t'])]
+        for _,name,i in sorted(tight):  # Nearest pairs first, one return per guardian and per return.
+            if name in done or i in claimed:continue
+            done.add(name);claimed.add(i);f=station['friendly'][name];f['p']=seen[i][0];f['t']=now;f['hits']+=1
+            if f['hits']>=3:observed[name]=f['p']
+        wide=[]
+        for name,g in guardians.items():
+            if g.landed or name in done:continue
+            e=expected_position(name,now);gate=250. if now-station['heard'].get(name,0.)<CFG.lost_link else 400.
+            wide+=[(math.dist(e,p),name,i) for i,(p,*_) in enumerate(seen) if math.dist(e,p)<gate]
+        for d,name,i in sorted(wide):
+            if name in done or i in claimed:continue
+            done.add(name);claimed.add(i)
+            if (name not in station['friendly'] and d<3*sigma(seen[i][0]) and level(name,seen[i][0],0.)
+                    and now-station['heard'].get(name,-math.inf)<=CFG.integrity_max_age):
+                station['friendly'][name]={'p':seen[i][0],'t':now,'hits':1}
+        return claimed,observed
     now=0.;steps=int(s['duration']/DT)
     for k in range(steps+1):
         now=round(k*DT,6)
@@ -213,11 +288,12 @@ def run(scenario_name,architecture,seed,trace=False,layout='baseline'):
         for t in threats:t.step(now,DT)
         for g in guardians.values():
             spoof=s['spoof']
-            if spoof and g.name==spoof['victim'] and now>=spoof['onset']:
+            if spoof and g.name==victim and now>=spoof['onset']:
                 rate=spoof['rate']*min(1.,(now-spoof['onset'])/spoof['ramp'])
                 g.offset[0]+=rate*math.cos(spoof['heading'])*DT;g.offset[1]+=rate*math.sin(spoof['heading'])*DT
                 metrics['spoof_drift']=max(metrics['spoof_drift'],math.dist(g.p[:2],g.post[:2]))
             g.fly(now,DT)
+            if not g.landed and g.name!=victim:metrics['nav_error']=max(metrics['nav_error'],math.dist(g.nav(now)[:2],g.p[:2]))
         if station['goal']:
             d=sub(station['goal'],station['p']);n=math.hypot(*d[:2])
             station['v']=[0.,0.,0.] if n<1. else [d[0]/n*STATION_SPEED,d[1]/n*STATION_SPEED,0.]
@@ -235,41 +311,45 @@ def run(scenario_name,architecture,seed,trace=False,layout='baseline'):
         for g in guardians.values():
             if flags['drone_sensing'] and now>=g.next_scan and not g.landed:
                 g.next_scan=now+DRONE_SENSOR['period']
-                seen=detect(sensor_rng,DRONE_SENSOR,g.p,objects,now,s['clutter_scale'],kinds=kinds)
+                seen=detect(drone_rng[g.name],DRONE_SENSOR,g.p,objects,now,s['clutter_scale'],kinds=kinds)
                 if flags['reflex']:g.tracker.update(now,[(p,g.name,lab,sg) for p,_,lab,sg in seen])
-                if seen and link_ok(now,g):downlink.append((now+LINK_LATENCY,'detections',g.name,now,seen))
+                if seen and link_ok(now,g,'detections'):downlink.append((now+LINK_LATENCY,'detections',g.name,now,seen))
             if flags['network'] and now>=g.next_report:
                 g.next_report=now+0.5
-                if link_ok(now,g):downlink.append((now+LINK_LATENCY,'state',g.name,now,g.nav(now)))
+                if link_ok(now,g,'state'):downlink.append((now+LINK_LATENCY,'state',g.name,now,(g.nav(now),g.gnss(),list(g.v))))
         for item in [m for m in uplink if m[0]<=now]:
             uplink.remove(item);_,kind,name,payload=item;g=guardians[name];g.last_uplink=now
-            if kind=='order':g.order=payload
-            elif kind=='fix':g.fix=payload
-            elif kind=='navigate_by_station':g.nav_by_station=True
+            if kind=='order':
+                g.order=payload;g.rally=payload['station']
+                if flags['integrity']:g.use_station_fixes(now,payload['nav']=='station')
+            elif kind=='fix':g.use_station_fixes(now,True);g.fix=payload  # Every fix carries the switch with it.
         if k%2==0:
             for g in guardians.values():
                 if g.landed:continue
                 link_age=now-g.last_uplink if flags['lost_link'] else 0.
                 order=g.order if flags['network'] else {'action':'watch','target':g.post}
                 if flags['reflex']:
-                    rally=[station['p'][0],station['p'][1],g.post[2]]  # Home at cruise altitude, never low.
+                    fix_age=None if not g.nav_by_station else now-(g.fix[0] if g.fix else g.nav_since)
+                    rally=[g.rally[0],g.rally[1],g.post[2]]  # Home at cruise altitude, never low.
                     action,target,layer,detail=onboard_decide(now,g.nav(now),g.tracker.confirmed(),link_age,order,CFG,
-                                                             free=lambda p:math.hypot(p[0],p[1])<5000.,rally=rally,previous=g.reflex)
+                                                             free=lambda p:math.hypot(p[0],p[1])<5000.,rally=rally,
+                                                             previous=g.reflex,fix_age=fix_age)
                     g.reflex=detail if (action,layer)==('keep_clear','onboard') else None
                 else:action,target,layer,detail=order.get('action','watch'),order.get('target'),'station',{}
                 if layer=='station' and order.get('authority'):layer=order['authority']
                 if action in ('hold','lost_link_hold'):
                     if g.action!=action or g.hold_at is None:g.hold_at=g.nav(now)
                     target=g.hold_at
-                elif action=='recover':target=list(station['p'][:2])+[20.]
-                if action=='keep_clear' and layer=='onboard' and detail.get('until',0)>now and detail is not g.last_checked:
-                    metrics['keep_clear']+=1;g.last_checked=detail  # Check each new decision once, when it is made.
-                    if closes_on(target,g.nav(now),g.tracker.confirmed(),now):metrics['closing']+=1
+                elif action=='recover':target=list(g.rally[:2])+[20.]
+                if action=='keep_clear' and layer=='onboard':
+                    if detail is not g.last_checked:metrics['keep_clear']+=1;g.last_checked=detail
+                    check_move(now,g,target,g.tracker.confirmed())  # New or kept, every time it is re-decided.
                 if (action,layer)!=(g.action,g.layer):
                     log(now,layer,action,g.name,**({'miss':round(detail['miss'])} if 'miss' in detail else {}))
                     if (s['jammer'] and g.name==s['jammer']['victim'] and layer=='onboard' and metrics['jam_action'] is None
                             and metrics['jam_lost'] is not None):metrics['jam_action']=now
                 g.action,g.target,g.layer=action,target,layer
+                if action=='land_in_place':g.landed=True;metrics['landed_in_place']+=1
                 if action in ('recover','lost_link_return') and target and math.dist(g.p[:2],target[:2])<30.:g.landed=True
             j=s['jammer']
             if j and metrics['jam_lost'] is None and now>=j['on'] and flags['network'] and math.dist(guardians[j['victim']].p[:2],j['p'])<j['r']:
@@ -278,44 +358,40 @@ def run(scenario_name,architecture,seed,trace=False,layout='baseline'):
         batch=[]
         for item in sorted([m for m in downlink if m[0]<=now],key=lambda m:m[3]):
             downlink.remove(item);_,kind,name,t_meas,payload=item
-            if kind=='state':station['reports'][name]=payload;station['heard'][name]=now
+            if kind=='state':station['reports'][name],station['gnss'][name],station['velocity'][name]=payload;station['heard'][name]=t_meas
             else:batch+=[(t_meas,p,lab,sg) for p,_,lab,sg in payload]
         if now>=station['next_scan']:
             station['next_scan']=now+STATION_SENSOR['period']
-            seen=detect(sensor_rng,STATION_SENSOR,station['p'],objects+[(g.name,g.p) for g in guardians.values() if not g.landed],
+            seen=detect(station_rng,STATION_SENSOR,station['p'],objects+[(g.name,g.p) for g in guardians.values() if not g.landed],
                         now,s['clutter_scale'],low_mask=True)
-            # Each friendly claims only its nearest return; every other return goes to the threat tracker,
-            # so a threat passing close to a guardian is never absorbed as that guardian.
-            observed={};expected={n:expected_position(n,now) for n in guardians if not guardians[n].landed};claimed=set()
-            for name,e in expected.items():
-                gate=250. if now-station['heard'].get(name,0.)<CFG.lost_link else 400.
-                near=[(math.dist(e,p),i) for i,(p,*_) in enumerate(seen) if i not in claimed and math.dist(e,p)<gate]
-                if near:i=min(near)[1];claimed.add(i);observed[name]=seen[i][0]
+            # Each friendly claims only its own return; every other return goes to the threat tracker, so a
+            # threat passing close to a guardian is never absorbed as that guardian.
+            claimed,observed=associate_friendlies(now,seen)
             batch+=[(now,p,lab,sg) for i,(p,_,lab,sg) in enumerate(seen) if i not in claimed]
             for name,p in observed.items():
-                if flags['integrity']:
-                    before=station['integrity'][name].state
-                    state=station['integrity'][name].update(now,station['reports'].get(name,guardians[name].post),p)
-                    if state=='spoofed' and before=='ok':
-                        log(now,'station','navigate_by_station',name,residual=round(station['integrity'][name].residual))
-                        if metrics['spoof_detect'] is None and s['spoof']:metrics['spoof_detect']=now-s['spoof']['onset']
-                        if link_ok(now,guardians[name]):uplink.append((now+LINK_LATENCY,'navigate_by_station',name,True))
-                    if station['integrity'][name].state=='spoofed' and link_ok(now,guardians[name]):
-                        uplink.append((now+LINK_LATENCY,'fix',name,(now,p)))
+                if not flags['integrity']:continue
+                monitor=station['integrity'][name];before=monitor.state
+                state=monitor.update(now,station['gnss'].get(name),p,age=now-station['heard'].get(name,-math.inf))
+                if state!=before:
+                    log(now,'station','navigate_by_station' if state=='spoofed' else 'navigate_by_gnss',name,residual=round(monitor.residual))
+                    if state=='spoofed' and name==victim and metrics['spoof_detect'] is None:metrics['spoof_detect']=now-s['spoof']['onset']
+                    if state=='spoofed' and name!=victim:metrics['false_integrity']+=1
+                if state=='spoofed' and link_ok(now,guardians[name],'fix'):uplink.append((now+LINK_LATENCY,'fix',name,(now,p)))
         for t_meas,p,lab,sg in sorted(batch,key=lambda b:b[0]):station['tracker'].update(max(t_meas,0.),[(p,'fused',lab,sg)])
-        tracks=station['tracker'].confirmed()
+        tracks=station['tracker'].update(now,[])  # Prune tracks that have gone quiet, every step.
         for tr in tracks:
             if metrics['first_confirm'] is None and any(math.dist(tr.p,t.p)<200. for t in real if t.active(now)):
                 metrics['first_confirm']=now;metrics['first_confirm_range']=math.dist(tr.p[:2],station['p'][:2])
-        levels=[assess(tr,now,station['p'],station['v'],CFG) for tr in tracks]
+        levels=[assess(tr,now,station['p'],station['v'],CFG,station['goal']) for tr in tracks]
+        danger=[(tr,t) for tr,(l,t,_) in zip(tracks,levels) if l=='danger']
         before=station['posture'].state
         if station['posture'].update(now,[l for l,_,_ in levels]):
             state=station['posture'].state;log(now,'station','posture','station',state=state)
             center.send(now,{'kind':'posture','state':state})
             if state==RED:
                 metrics['red'].append(now);log(now,'station','crew_alert','station')
-                if not any(t.kind!='bird' and t.active(now) for t in threats):metrics['false_red']+=1
-                danger=[(tr,t) for tr,(l,t,_) in zip(tracks,levels) if l=='danger']
+                # False unless some danger track is a real threat (birds, clutter, a friendly taken for a threat).
+                if not any(math.dist(tr.predict(now),t.p)<300. for tr,_ in danger for t in real if t.active(now)):metrics['false_red']+=1
                 if danger:
                     tr=min(danger,key=lambda x:x[1])[0];vx,vy=tr.v[0],tr.v[1];n=math.hypot(vx,vy) or 1.
                     side=1. if (station['p'][0]-tr.p[0])*(-vy)+(station['p'][1]-tr.p[1])*vx>=0 else -1.
@@ -323,28 +399,43 @@ def run(scenario_name,architecture,seed,trace=False,layout='baseline'):
                     log(now,'station','relocate','station')
             if before==RED:station['held']=True
             if state==GREEN and station['held']:station['clear_since']=now
+        # After a RED event, ask the center. Each clear gets its own request number, and only an answer to
+        # the current one counts: an answer to an earlier question must not recall guardians after a new
+        # event. With no answer by center_timeout, the station recovers on its delegated authority.
         if station['held'] and station['posture'].state==GREEN and station['recovery'] is None:
-            if now-station['pending_since']>=10.:center.send(now,{'kind':'clear_after_red'});station['pending_since']=now
-            if center_down and station['clear_since'] is not None and now-station['clear_since']>=CFG.center_timeout:
+            if station['request'] is None:station['requests']+=1;station['request']=station['requests'];station['pending_since']=-1e9
+            if now-station['pending_since']>=10.:
+                center.send(now,{'kind':'clear_after_red','request':station['request']});station['pending_since']=now
+            if now-station['clear_since']>=CFG.center_timeout:
                 station['recovery']='recover';station['recovery_by']='station (delegated)';metrics['delegated']=True
                 log(now,'station (delegated)','recover','station')
-        for arrival,decision in center.step(now):center_replies.append((arrival,decision))
+        elif station['posture'].state!=GREEN:station['request']=None
+        for arrival,decision,request in center.step(now):center_replies.append((arrival,decision,request))
         for item in [c for c in center_replies if c[0]<=now]:
-            center_replies.remove(item);decision=item[1]
+            center_replies.remove(item);_,decision,request=item
             log(now,'center',decision,'center')
-            if decision in ('recover','resume') and station['recovery'] is None:station['recovery']=decision;station['recovery_by']='center'
+            if (decision in ('recover','resume') and station['recovery'] is None and request is not None
+                    and request==station['request'] and station['posture'].state==GREEN):
+                station['recovery']=decision;station['recovery_by']='center'
         if flags['network'] and now>=station['next_orders']:
             station['next_orders']=now+0.5
-            view={n:{'p':station['reports'].get(n,g.post),'post':g.post} for n,g in guardians.items() if not g.landed}
-            hazard=(station['p'],2*CFG.protect_radius) if any(l=='danger' for l,_,_ in levels) else None
-            orders=station_orders(now,station['posture'].state,tracks,view,CFG,recovery=station['recovery'],
-                                  hazard=hazard,held=station['held'] and station['recovery'] is None,previous=station['orders'])
+            # Orders go only to guardians heard from within three report periods, planned from each report
+            # carried forward by its velocity: a silent guardian acts on its own authority, and an order
+            # planned from an old report can send a guardian back toward a threat from where it really is.
+            view={n:{'p':[a+b*(now-station['heard'][n]) for a,b in zip(station['reports'][n],station['velocity'][n])],'post':g.post}
+                  for n,g in guardians.items() if not g.landed and n in station['reports'] and now-station['heard'][n]<=ORDER_AGE}
+            hazard=(impact_point(min(danger,key=lambda x:x[1])[0],now,station['p']),2*CFG.protect_radius) if danger else None
+            orders=station_orders(now,station['posture'].state,tracks,view,CFG,free_for=lambda name:(lambda p:math.hypot(p[0],p[1])<5000.),
+                                  recovery=station['recovery'],hazard=hazard,held=station['held'] and station['recovery'] is None,
+                                  previous=station['orders'])
             for name,order in orders.items():
-                if order['action']=='keep_clear' and order is not station['orders'].get(name):
-                    metrics['keep_clear']+=1
-                    if closes_on(order['target'],view[name]['p'],tracks,now):metrics['closing']+=1
+                if order['action'] in ('keep_clear','disperse'):
+                    if order['action']=='keep_clear' and order is not station['orders'].get(name):metrics['keep_clear']+=1
+                    check_move(now,guardians[name],order['target'],tracks,own=view[name]['p'])
                 if order['action'] in ('recover','resume'):order['authority']=station['recovery_by']
-                if link_ok(now,guardians[name]):uplink.append((now+LINK_LATENCY,'order',name,order))
+                station['rally'][name]=list(station['p'])
+                nav='station' if station['integrity'][name].state=='spoofed' else 'gnss'
+                if link_ok(now,guardians[name],'order'):uplink.append((now+LINK_LATENCY,'order',name,{**order,'station':list(station['p']),'nav':nav}))
             station['orders']=orders
         if trace and k%10==0:
             samples.append({'t':round(now),'posture':station['posture'].state,'station':[round(c) for c in station['p'][:2]],
@@ -370,11 +461,13 @@ def run(scenario_name,architecture,seed,trace=False,layout='baseline'):
         'min_separation_m':None if not real else round(metrics['min_separation'],1),
         'guardians_safe':None if not real else metrics['min_separation']>=CFG.safe_radius,
         'station_clear':None if not real else metrics['station_cpa']>=CFG.protect_radius,
-        'false_red':metrics['false_red'] if not real else 0,
+        'false_red':metrics['false_red'],'false_integrity':metrics['false_integrity'],
+        'healthy_nav_error_m':round(metrics['nav_error'],1),'landed_in_place':metrics['landed_in_place'],
         'jam_fallback_s':None if not jam or metrics['jam_lost'] is None or metrics['jam_action'] is None else round(metrics['jam_action']-metrics['jam_lost'],1),
         'spoof_detect_s':None if metrics['spoof_detect'] is None else round(metrics['spoof_detect'],1),
         'spoof_drift_m':None if not s['spoof'] else round(metrics['spoof_drift'],1),
-        'keep_clear_decisions':metrics['keep_clear'],'never_closed':metrics['closing']==0,
+        'keep_clear_decisions':metrics['keep_clear'],'never_closed':metrics['decision_closing']==0,
+        'closed_on_truth':metrics['closing']>0,
         'authority_ok':metrics['authority_violations']==0,'delegated_recovery':metrics['delegated'],
         'center_decision_s':round(decision_time,1)}
     if trace:result['trace']={'samples':samples,'events':events,'jammer':jam and {'p':[round(c) for c in jam['p']],'r':jam['r']},
@@ -388,15 +481,18 @@ def summarise(rows):
     def rate(values):
         values=[v for v in values if v is not None];return None if not values else round(sum(bool(v) for v in values)/len(values),3)
     out={'runs':len(rows)}
-    for key in ('warning_s','center_margin_s','min_separation_m','first_confirm_range_m','spoof_detect_s','spoof_drift_m','jam_fallback_s'):
+    for key in ('warning_s','center_margin_s','min_separation_m','first_confirm_range_m','spoof_detect_s','spoof_drift_m','jam_fallback_s',
+                'healthy_nav_error_m'):
         vals=[r[key] for r in rows]
         if any(v is not None for v in vals):out[key]={'p10':q(vals,10),'median':q(vals,50),'p90':q(vals,90)}
-    for key in ('detected','guardians_safe','station_clear','never_closed','authority_ok'):
+    for key in ('detected','guardians_safe','station_clear','never_closed','authority_ok','closed_on_truth'):
         r=rate([row[key] for row in rows])
         if r is not None:out[key+'_rate']=r
     margins=[r['center_margin_s'] for r in rows if r['center_margin_s'] is not None]
     if margins:out['center_in_time_rate']=round(sum(m>0 for m in margins)/len(margins),3)
-    out['false_red_total']=sum(r['false_red'] for r in rows)
+    out['invariants_rate']=round(sum(r['never_closed'] and r['authority_ok'] for r in rows)/len(rows),3)
+    out['healthy_nav_error_max_m']=max(r['healthy_nav_error_m'] for r in rows)
+    for key in ('false_red','false_integrity','landed_in_place'):out[key+'_total']=sum(r[key] for r in rows)
     return out
 
 LABELS_MD={'station_only':'Station only','onboard_only':'Onboard only','networked':'Networked','hybrid':'Hybrid'}
@@ -422,13 +518,26 @@ def markdown(report):
         lines.append(f'| {s} | '+' | '.join(cells)+' |')
     lines+=['','## Other measures','','| Measure | '+' | '.join(LABELS_MD[a] for a in archs)+' |\n|---|'+'---:|'*len(archs)]
     rows=[('False RED alerts, birds scenario (total)','birds',lambda r:str(r['false_red_total'])),
+          ('False RED alerts, spoofing scenario (total)','spoofing',lambda r:str(r['false_red_total'])),
           ('Jammed picket acts alone (median s)','jamming',lambda r:f(r.get('jam_fallback_s',{}).get('median'),1)),
           ('GNSS drag-off detected (median s)','spoofing',lambda r:f(r.get('spoof_detect_s',{}).get('median'))),
           ('Spoofed picket drift (median m)','spoofing',lambda r:f(r.get('spoof_drift_m',{}).get('median'))),
           ('Center could decide in time, low intruder','intruder',lambda r:'—' if r.get('center_in_time_rate') is None else f"{r['center_in_time_rate']*100:.0f}%")]
     for label,s,get in rows:lines.append(f'| {label} | '+' | '.join(get(table[s][a]) for a in archs)+' |')
-    worst=min(min(table[s][a]['never_closed_rate'],table[s][a]['authority_ok_rate']) for s in SCENARIOS for a in archs)
-    lines+=['',f"Across all {len(SCENARIOS)*len(archs)*report['seeds']} runs, {worst*100:.0f}% pass both invariants: no keep-clear decision closed on a threat, and no layer acted outside its authority.",
+    total=lambda k:sum(table[s][a][k] for s in SCENARIOS for a in archs)
+    nav=lambda a:max(table[s][a]['healthy_nav_error_max_m'] for s in SCENARIOS)
+    lines.append('| Healthy guardian flagged as spoofed, all scenarios (total) | '+' | '.join(str(sum(table[s][a]['false_integrity_total'] for s in SCENARIOS)) for a in archs)+' |')
+    lines.append('| Worst navigation error of a healthy guardian, all scenarios (m) | '+' | '.join(f(nav(a)) for a in archs)+' |')
+    runs=len(SCENARIOS)*len(archs)*report['seeds'];held=sum(table[s][a]['invariants_rate']*table[s][a]['runs'] for s in SCENARIOS for a in archs)
+    lines.append('| Runs where a move brought a guardian nearer a real threat, judged on truth | '+' | '.join(
+        f"{sum(table[s][a].get('closed_on_truth_rate',0)*table[s][a]['runs'] for s in SCENARIOS):.0f}" for a in archs)+' |')
+    lines+=['',f"Both invariants held in {held:.0f} of {runs} runs ({held/runs*100:.1f}%). First: every keep-clear or dispersal decision, "
+            "new or kept, opened the range along its whole path to every relevant track it was based on (not a bird, predicted to pass "
+            "within twice the clear radius inside twice the planning horizon). Second: no layer took an action outside its authority. "
+            "Both are properties of the decisions, checked in every run. The row above measures the same thing on truth instead: "
+            f"a run counts if some move brought a guardian more than {TRUTH_TOLERANCE:.0f} m nearer a real threat that a track was on "
+            "and that truly passed within the clear radius inside the planning horizon. These come from straight-line predictions "
+            "of weaving threats at long range; whether any guardian lost its safe radius is what the first table shows.",
             '','## Layout experiment (hybrid design)','',
             '| Layout | Low intruder warning (s) | Fast inbound kept clear | Fast inbound warning (s) | Swarm warning (s) |','|---|---:|---:|---:|---:|']
     for k,r in report['layouts']['summary'].items():

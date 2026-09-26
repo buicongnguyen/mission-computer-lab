@@ -4,7 +4,7 @@ Prepared on 22 September 2026 and reviewed in seven passes on 23–26 September 
 
 **If the flight stack is already built, start with section 3.** Otherwise follow section 4 first. You do not need Qualcomm hardware, a flight controller, a GPU, Docker, or a Gazebo window to run these tests.
 
-The current files include the fixes from seven review passes; see [the review record](review-report.md) for changes and retest evidence.
+The current files include the fixes from eight review passes; see [the review record](review-report.md) for changes and retest evidence.
 
 ## Contents
 
@@ -60,11 +60,11 @@ The completed system runs actual PX4 firmware in software-in-the-loop (SITL). Ga
 | Two dashboard state tests | Passed | Scenario selection, timeline/events and play/pause behavior |
 | Static documentation checks | Passed | Local links, HTML metadata and referenced DOM IDs |
 
-The current 88 Python tests are 56 lightweight tests plus 32 ROS/runner regression tests. The original implementation had 14 plus 5; the additional cases cover the review findings. The six security experiments are also exercised by the lightweight workflow; these counts are different layers of evidence, not a claimed coverage percentage.
+The current 116 Python tests are 70 lightweight tests plus 46 ROS/runner regression tests. The original implementation had 14 plus 5; the additional cases cover the review findings. The six security experiments are also exercised by the lightweight workflow; these counts are different layers of evidence, not a claimed coverage percentage.
 
 ### 1.5 Reviewed and packaged the evidence
 
-The [review record](review-report.md) documents seven review passes. They add transport deadlines, payload freshness validation, permanent landing handoff, stricter evidence gates, run-time provenance, process cleanup fixes, intermittent-fault escalation, verification of the stored signed model at boot, operator-takeover handoff, the Mermaid diagrams, in pass 6 simulation-time freshness, recorded Gazebo video, a 3D replay and the three-drone fleet on a moving carrier, and in pass 7 the guardian design, its evaluation and its PX4 flight. That record includes commands for independently rerunning the review checks.
+The [review record](review-report.md) documents eight review passes. They add transport deadlines, payload freshness validation, permanent landing handoff, stricter evidence gates, run-time provenance, process cleanup fixes, intermittent-fault escalation, verification of the stored signed model at boot, operator-takeover handoff, the Mermaid diagrams, in pass 6 simulation-time freshness, recorded Gazebo video, a 3D replay and the three-drone fleet on a moving carrier, in pass 7 the guardian design, its evaluation and its PX4 flight, and in pass 8 eight guardian flights, one per threat, with three independent reviews of the logic, the integration and the pages. That record includes commands for independently rerunning the review checks.
 
 The repository includes domain notes, an architecture guide, runbooks, recorded evidence and two offline replays. A GitHub Actions workflow covers the lightweight suite and documentation checks. Browser state and link checks passed; visual HTML layout review inside the embedded browser was blocked by its local-file URL policy and was not completed.
 
@@ -198,7 +198,7 @@ echo "Exit code: $?"
 
 The runner launches and cleans up all required processes itself. **Do not separately start another PX4, agent or Gazebo instance for this command.** Keep flight hardware disconnected from this lab. The configured DDS domain is 42; domain selection is not network authentication or isolation.
 
-Expect progress approximately every 15 seconds. The sequence is `nominal`, `camera_dropout`, `companion_crash`, `gps_loss`, then the three-drone `fleet_carrier` and the three-guardian `guardian_intruder`. Without `--video` the four single-drone flights took about 161 seconds in total; recording slows the simulation, and the pass 6 matrix with video took about 11 minutes including the fleet. Your scheduling, discovery and physics startup can differ. The timeout applies to each scenario after startup, is multiplied by 2.5 with `--video`, and is at least 900 s for the fleet. The complete matrix must print six PASS results and exit 0. It stops at the first failed case.
+Expect progress approximately every 15 seconds. The sequence is `nominal`, `camera_dropout`, `companion_crash`, `gps_loss`, then the three-drone `fleet_carrier` and the eight three-guardian scenarios (`guardian_intruder`, `guardian_fast`, `guardian_swarm`, `guardian_birds`, `guardian_jamming`, `guardian_spoofing`, `guardian_center_loss`, `guardian_combined`). Without `--video` the four single-drone flights took about 161 seconds in total and each guardian flight about three minutes; with `--video` only the single-drone flights, the fleet and `guardian_jamming` are filmed, and the pass 8 matrix with video took about 33 minutes. Your scheduling, discovery and physics startup can differ. The timeout applies to each scenario after startup, is multiplied by 2.5 with `--video`, and is at least 900 s for the fleet. The complete matrix must print thirteen PASS results and exit 0. It stops at the first failed case.
 
 No Gazebo GUI window is expected unless you add `--gui`: the test launches the simulator server without a window. After a successful scenario, the aircraft has landed and disarmed before cleanup. The HTML replay is a separate recorded visualization.
 
@@ -325,7 +325,7 @@ ros2 interface show mission_interfaces/msg/Decision
 bash scripts/test_integration.sh
 ```
 
-Compare the hashes with section 2. The interfaces should display their fields, and all 32 integration tests should pass. Continue with section 3's flight command, using the correct current repository and workspace variables.
+Compare the hashes with section 2. The interfaces should display their fields, and all 46 integration tests should pass. Continue with section 3's flight command, using the correct current repository and workspace variables.
 
 <a id="documents"></a>
 ## 5. Regenerate the documentation
@@ -1114,7 +1114,7 @@ The checked-in implementation and captured logs are the authority for what ran. 
 ### 16.4 Reproduction checklist
 
 - [ ] I ran the commands inside the correct Windows/Ubuntu shells and used the intended source/build paths.
-- [ ] CTest and the 56 lightweight Python tests pass.
+- [ ] CTest and the 70 lightweight Python tests pass.
 - [ ] All eight fast scenarios and all six security cases pass.
 - [ ] All nineteen integration regression tests pass.
 - [ ] A fresh `--all` flight run contains six passing scenarios with empty failed-check lists.

@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const $=id=>document.getElementById(id);
-  const R=window.GUARDIAN_REPORT,S=window.SITL_REPORT,G=S&&S.guardian;
+  const R=window.GUARDIAN_REPORT,S=window.SITL_REPORT;
   if(!R){$('error').textContent='Guardian evaluation missing. Run tools/guardian_sim.py --output artifacts/guardian.';return;}
   const ARCH=['station_only','onboard_only','networked','hybrid'];
   const ARCH_LABEL={station_only:'Station only',onboard_only:'Onboard only',networked:'Networked',hybrid:'Hybrid'};
@@ -129,68 +129,118 @@
   $('scenario').addEventListener('change',select);$('time').addEventListener('input',e=>{index=Number(e.target.value);draw();});
   $('play').addEventListener('click',()=>{if(index>=trace().n-1)index=0;playing=!playing;$('play').textContent=playing?'Pause':'Play';});
 
-  // PX4 flight of the same logic.
-  let sitlIndex=0,sitlPlaying=false,sitlFrames=1,replay=null,view='3d',sitlStart=0;
-  const COLORS={px4_0:'#55d5b4',px4_1:'#ffb95c',px4_2:'#a18bff'},color=ns=>COLORS[ns]||'#e2eef2';
-  if(!G){$('sitlKpis').textContent='The PX4 guardian flight has not been published yet.';}
-  else{
-    sitlStart=Math.min(...G.vehicles.map(v=>v.trace[0].wall_time));
-    const end=Math.max(...G.vehicles.map(v=>v.trace.at(-1).wall_time));sitlFrames=Math.max(1,Math.ceil((end-sitlStart)/0.2));
-    const checks=Object.entries(G.checks),since=t=>fmt(Math.max(0,t-sitlStart),1);
-    const sk=(label,value,note)=>{const c=el('div',null,'card');c.append(el('small',label),el('strong',value),el('small',note));$('sitlKpis').append(c);};
-    sk('CHECKS',`${checks.filter(([,ok])=>ok).length} / ${checks.length}`,'Independent observations');
-    sk('WARNING',fmt(G.warning_s,1)+' s','RED to arrival, simulated time');
-    sk('CLOSEST GUARDIAN',fmt(Math.min(...Object.values(G.guardian_separation_m)),2)+' m',`To the intruder; safe radius ${G.layout.safe_radius} m`);
-    sk('CARRIER MISS',fmt(G.station_miss_m,1)+' m',`After relocating; protected radius ${G.layout.protect_radius} m`);
-    checks.forEach(([name,ok])=>{const row=el('div',null,'check');const b=el('b',ok?'PASS':'FAIL');if(!ok)b.className='fail';row.append(el('span',name.replace(/_/g,' ')),b);$('checks').append(row);});
-    const ev=[];
-    G.posture.forEach(p=>ev.push({at:p.wall_time,layer:'station',text:`posture ${p.state}`}));
-    // Orders to the jammed guardian while the jammer is on never arrive; say so rather than imply they did.
-    const links=G.jamming.filter(j=>j.kind==='link');
+  // The same logic on real PX4: one recorded flight per guardian scenario.
+  let sitlIndex=0,sitlPlaying=false,sitlFrames=1,replay=null,view='3d',sitlStart=0,G=null;
+  const FLIGHTS=window.SITL_GUARDIANS||(S&&S.guardians)||{},COLORS={px4_0:'#55d5b4',px4_1:'#ffb95c',px4_2:'#a18bff'},color=ns=>COLORS[ns]||'#e2eef2';
+  const THREAT_COLOUR={drone:'#e34948',fast:'#9aa3ab',bird:'#b08a5a'},KIND_LABEL={drone:'intruder',fast:'fast object',bird:'bird'};
+  const ZONE_COLOUR=0x8f6bd8,ZONE_DOT='rgba(143,107,216,.65)';  // Violet: never confused with an intruder's red.
+  // ?flight=guardian_spoofing opens that flight; otherwise the jamming flight, the one filmed.
+  const wanted=typeof location!=='undefined'?new URLSearchParams(location.search).get('flight'):null;
+  const names=Object.keys(FLIGHTS),defaultFlight=names.includes(wanted)?wanted:names.includes('guardian_jamming')?'guardian_jamming':names[0];
+  names.forEach(n=>{const o=el('option',FLIGHTS[n].title);o.value=n;$('sitlScenario').append(o);});
+  const since=t=>fmt(Math.max(0,t-sitlStart),1);
+  function card(label,value,note){const c=el('div',null,'card');c.append(el('small',label),el('strong',value),el('small',note));$('sitlKpis').append(c);}
+  function showFlight(name){
+    G=FLIGHTS[name];sitlIndex=0;sitlPlaying=false;$('sitlPlay').textContent='Play';
+    ['sitlKpis','checks','sitlEvents','sitlLegend'].forEach(id=>$(id).replaceChildren());
+    const empty=!G;['sitlPlay','sitlTime','view3d','viewOverview','viewClose','sitlScenario'].forEach(id=>{$(id).disabled=empty;});
+    if(empty){$('sitlKpis').textContent='No PX4 guardian flight has been published yet.';return;}
+    const truthOf=v=>v.truth&&v.truth.length?v.truth:v.trace;
+    sitlStart=Math.min(...G.vehicles.map(v=>truthOf(v)[0].wall_time));
+    const end=Math.max(...G.vehicles.map(v=>truthOf(v).at(-1).wall_time));sitlFrames=Math.max(1,Math.ceil((end-sitlStart)/0.2));
+    $('sitlTime').max=sitlFrames;$('sitlNote').textContent=G.title+'.';
+    const checks=Object.entries(G.checks),seps=Object.values(G.guardian_separation_m||{}).filter(v=>v!=null);
+    card('CHECKS',`${checks.filter(([,ok])=>ok).length} / ${checks.length}`,'Independent observations');
+    card('WARNING',G.warning_s==null?'—':fmt(G.warning_s,1)+' s',G.warning_s==null?'No threat approached':'RED to arrival, simulated time');
+    card('CLOSEST GUARDIAN',seps.length?fmt(Math.min(...seps),2)+' m':'—',seps.length?`To a threat, on truth; safe radius ${G.layout.safe_radius} m`:'No hostile threat in this scenario');
+    const drift=G.drift_m?Object.values(G.drift_m).filter(v=>v!=null):[],dispersal=G.dispersal;
+    if(drift.length)card('WORST DRIFT',fmt(Math.max(...drift),2)+' m','True distance from post while spoofed');
+    else if(dispersal&&dispersal.impact_m!=null)card('DISPERSAL',fmt(dispersal.impact_m,1)+' m',
+      `${dispersal.ns} from the impact point at impact, on truth; its post is ${fmt(dispersal.post_m,1)} m away`);
+    else card('CARRIER MISS',G.station_miss_m==null?'—':fmt(G.station_miss_m,1)+' m',`Closest threat to the carrier; protected radius ${G.layout.protect_radius} m`);
+    checks.forEach(([n,ok])=>{const row=el('div',null,'check');const b=el('b',ok?'PASS':'FAIL');if(!ok)b.className='fail';row.append(el('span',n.replace(/_/g,' ')),b);$('checks').append(row);});
+    const ev=[],links=G.jamming.filter(j=>j.kind==='link');
+    // Orders to a jammed guardian never arrive; say so rather than imply they did.
     const undelivered=o=>{const last=links.filter(l=>l.ns===o.ns&&l.wall_time<=o.wall_time).at(-1);return Boolean(last&&last.jammed);};
+    G.posture.forEach(p=>ev.push({at:p.wall_time,layer:'station',text:`posture ${p.state}`}));
+    const AUTHORITY={center:" · on the center's authority",'station (delegated)':' · under delegation'};
     G.orders.filter(o=>o.action!=='watch').forEach(o=>ev.push({at:o.wall_time,layer:'station',text:`orders ${o.ns} to ${o.action.replace(/_/g,' ')}`+
-      `${o.miss!=null?' · predicted miss '+fmt(o.miss,1)+' m':''}${undelivered(o)?' · not delivered: link jammed':''}`}));
+      `${o.miss!=null?' · predicted miss '+fmt(o.miss,1)+' m':''}${AUTHORITY[o.authority]||''}${undelivered(o)?' · not delivered: link jammed':''}`}));
     G.vehicles.forEach(v=>v.guardian.filter(d=>d.layer!=='station'||d.action!=='watch').forEach(d=>ev.push({at:d.wall_time,layer:d.layer,
       text:`${v.ns} ${d.action.replace(/_/g,' ')}${d.link_age!=null&&d.link_age>1?' · no uplink for '+fmt(d.link_age,1)+' s':''}`})));
-    G.center.forEach(c=>ev.push({at:c.wall_time,layer:'center',text:`decides ${c.decision}`}));
-    G.relocation.forEach(r=>ev.push({at:r.wall_time,layer:'station',text:r.kind==='relocate'?'relocates the carrier':'carrier relocated'}));
-    G.jamming.forEach(j=>ev.push({at:j.wall_time,layer:'environment',text:j.kind==='intruder_start'?'intruder appears; jamming on':
-      j.kind==='jammer_off'?'jamming off':`${j.ns} link ${j.jammed?'jammed':'restored'}`}));
-    G.vehicles.filter(v=>v.touchdown).forEach(v=>ev.push({at:v.touchdown.wall_time,layer:'station',text:`${v.ns} touchdown · pad error ${fmt(v.touchdown.pad_error,2)} m`}));
+    G.center.forEach(c=>ev.push({at:c.wall_time,layer:'center',text:c.kind==='unreachable'?'unreachable for the whole flight':`decides ${c.decision}`}));
+    (G.integrity||[]).forEach(i=>ev.push({at:i.wall_time,layer:'station',text:i.kind==='integrity_clear'?`${i.ns} navigation passes the cross-check again`:
+      `${i.ns} navigation fails the cross-check · ${fmt(i.residual,1)} m off its fix`}));
+    G.relocation.forEach((r,k)=>ev.push({at:r.wall_time,layer:'station',text:r.kind==='relocated'?'carrier relocated':
+      `${k?'moves the carrier on':'relocates the carrier'} to x = ${fmt(r.target_x,0)} m`}));
+    // Say what this flight actually has: threats, birds, a jammer, a drag-off, or nothing at all.
+    const kindsIn=new Set(Object.values(G.threats||{}).map(t=>t.kind));
+    const opening=[kindsIn.has('drone')||kindsIn.has('fast')?'threats start':null,kindsIn.has('bird')?'birds circle':null,
+      G.layout.jammer?'jamming on':null].filter(Boolean).join('; ')||'scenario starts';
+    const envText=j=>{switch(j.kind){
+      case 'scenario_start':return opening;case 'jammer_off':return 'jamming off';case 'spoof_start':return 'GNSS drag-off starts';
+      case 'spoof_error':return `spoofer call failed (${j.failed} so far)`;
+      case 'impact':return `${KIND_LABEL[(G.threats[j.model]||{}).kind]||j.model} impacts`;
+      case 'threat_stop':return `${KIND_LABEL[(G.threats[j.model]||{}).kind]||j.model} gone`;
+      case 'link':return `${j.ns} link ${j.jammed?'jammed':'restored'}`;
+      default:return j.kind.replace(/_/g,' ');}};
+    G.jamming.forEach(j=>ev.push({at:j.wall_time,layer:'environment',text:envText(j)}));
+    // The center's decision is already listed; this is the station accepting it, or recovering under delegation.
+    if(G.recovery)ev.push({at:G.recovery.wall_time,layer:G.recovery.by==='center'?'station':G.recovery.by,
+      text:G.recovery.by==='center'?"accepts the center's recovery; recalls the guardians":'recovers the guardians: no answer from the center'});
+    G.vehicles.filter(v=>v.touchdown).forEach(v=>ev.push({at:v.touchdown.wall_time,layer:'station',
+      text:`${v.ns} touchdown · ${fmt(v.touchdown.true_pad_error??v.touchdown.pad_error,2)} m from its pad`}));
     ev.sort((a,b)=>a.at-b.at).forEach(e=>{const row=el('div',null,'event');row.append(el('span',since(e.at).padStart(6)+' s'),
       el('span',LAYER_LABEL[e.layer]||e.layer,'layer '+(e.layer==='onboard'?'onboard':e.layer==='center'?'center':'')),el('span',e.text));$('sitlEvents').append(row);});
     G.vehicles.forEach(v=>{const s=el('span',`${v.ns}: post (${v.goal[0]}, ${v.goal[1]}) at ${v.altitude} m`);s.style.setProperty('--dot',color(v.ns));$('sitlLegend').append(s);});
-    [['intruder','#e66767'],['jamming zone','rgba(227,73,72,.6)']].forEach(([t,c])=>{const s=el('span',t);s.style.setProperty('--dot',c);$('sitlLegend').append(s);});
-    $('provenance').textContent=`Fast simulator: ${R.seeds} seeds per cell. PX4 flight recorded ${S.generated_utc} · ${S.environment.platform}`;
+    [...kindsIn].forEach(k=>{const s=el('span',KIND_LABEL[k]);s.style.setProperty('--dot',THREAT_COLOUR[k]);$('sitlLegend').append(s);});
+    if(G.layout.jammer){const s=el('span','jamming zone');s.style.setProperty('--dot',ZONE_DOT);$('sitlLegend').append(s);}
+    // Each camera button follows its own recording; only one flight is filmed, the others replay in 3D.
+    [['viewOverview','overview'],['viewClose','close']].forEach(([id,cam])=>{const has=Boolean(G.videos&&G.videos[cam]);
+      $(id).disabled=!has;if(has)$(id).removeAttribute('title');else $(id).setAttribute('title','Not recorded for this flight; the 3D view replays it');});
+    if(replay)load3d();setView(view!=='3d'&&G.videos&&G.videos[view]?view:'3d');
   }
   const carrierAt=t=>{const c=G.carrier;let lo=0,hi=c.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(c[m].wall_time<=t)lo=m;else hi=m-1;}return c[lo];};
-  function build3d(){if(replay||!window.Replay3D||!G)return;
-    try{replay=new window.Replay3D($('scene3d'));}catch(error){$('scene3d').textContent='The 3D view needs WebGL: '+error.message;return;}
+  function load3d(){
+    const onPad=(v,p)=>{const c=carrierAt(p.wall_time);return{t:p.wall_time,e:c.e+v.pad*Math.cos(c.yaw||0),n:c.n+v.pad*Math.sin(c.yaw||0),u:G.deck_height_m,valid:true};};
     replay.load({obstacles:S.obstacles,view:{from:[-9,-12,14],to:[3,5,1]},
       markers:G.vehicles.map(v=>({e:v.goal[0],n:v.goal[1],color:color(v.ns)})),
-      zones:[{e:G.layout.jammer.p[0],n:G.layout.jammer.p[1],r:G.layout.jammer.r,color:0xe34948}],
+      zones:G.layout.jammer?[{e:G.layout.jammer.p[0],n:G.layout.jammer.p[1],r:G.layout.jammer.r,color:ZONE_COLOUR}]:[],
       carrier:{size:[3.2,1.6,G.deck_height_m],pads:G.vehicles.map(v=>[v.pad,0]),samples:G.carrier.map(c=>({t:c.wall_time,e:c.e,n:c.n,yaw:c.yaw}))},
-      vehicles:[...G.vehicles.map(v=>({name:v.ns,color:color(v.ns),ground:G.deck_height_m,samples:v.trace.map(p=>{
-          if(v.touchdown&&p.wall_time>=v.touchdown.wall_time){const c=carrierAt(p.wall_time);return{t:p.wall_time,e:c.e+v.pad*Math.cos(c.yaw||0),n:c.n+v.pad*Math.sin(c.yaw||0),u:G.deck_height_m,valid:true};}
-          return{t:p.wall_time,e:p.e,n:p.n,u:p.u,valid:p.valid};}),plans:[]})),
-        {name:'intruder',color:'#e34948',hostile:true,ground:-1,samples:G.intruder.map(q=>({t:q.wall_time,e:q.e,n:q.n,u:q.u,valid:true})),plans:[]}]});
+      // Gazebo truth: where each airframe really was (a spoofed estimate would mislead), resting on its pad once landed.
+      vehicles:[...G.vehicles.map(v=>({name:v.ns,color:color(v.ns),ground:G.deck_height_m,plans:[],
+          samples:(v.truth&&v.truth.length?v.truth:v.trace).map(p=>v.touchdown&&p.wall_time>=v.touchdown.wall_time?onPad(v,p):
+            {t:p.wall_time,e:p.e,n:p.n,u:p.u,valid:p.valid!==false})})),
+        // Threats appear only while they fly: not before their start, and not after a dive has gone below ground.
+        ...Object.entries(G.threats||{}).map(([name,t])=>[name,t,t.trace.filter(q=>q.u>=0)]).filter(([,,above])=>above.length)
+          .map(([name,t,above])=>({name,color:THREAT_COLOUR[t.kind],hostile:t.kind!=='bird',model:t.kind,ground:-100,plans:[],
+            window:[above[0].wall_time,above.at(-1).wall_time],samples:above.map(q=>({t:q.wall_time,e:q.e,n:q.n,u:q.u,valid:true}))}))]});
     replay.active=view==='3d';}
-  const videos={overview:G&&G.videos&&G.videos.overview,close:G&&G.videos&&G.videos.close};
-  const notes={overview:'Overview camera in the Gazebo world, recorded during this flight in simulation time.',close:'Low close-up of the intruder’s final approach, the jammed guardian keeping clear and the carrier driving away.'};
+  function build3d(){if(replay||!window.Replay3D||!G)return;
+    try{replay=new window.Replay3D($('scene3d'));}catch(error){$('scene3d').textContent='The 3D view needs WebGL: '+error.message;return;}
+    load3d();}
+  const notes={overview:'Overview camera in the Gazebo world, recorded during this flight in simulation time.',
+    close:'Low close-up camera beside the carrier, recorded during this flight in simulation time.'};
   const buttons={'3d':$('view3d'),overview:$('viewOverview'),close:$('viewClose')};
   function setView(next){view=next;Object.entries(buttons).forEach(([k,b])=>b.setAttribute('aria-pressed',String(k===next)));
     $('scene3d').hidden=next!=='3d';$('videoPanel').hidden=next==='3d';const video=$('flightVideo');video.pause?.();
-    if(next!=='3d'){if(videos[next]){video.src=`../artifacts/sitl-sample/guardian_intruder/${videos[next]}`;$('videoNote').textContent=notes[next];}
-      else{video.removeAttribute?.('src');$('videoNote').textContent='No video was recorded for this camera.';}}
+    const file=G&&G.videos&&G.videos[next];
+    if(next!=='3d'){if(file){video.src=`../artifacts/sitl-sample/${G.scenario}/${file}`;$('videoNote').textContent=notes[next];}
+      else{video.removeAttribute?.('src');$('videoNote').textContent='No video was recorded for this flight; the 3D view replays it.';}}
+    else if(!(G&&G.videos&&Object.keys(G.videos).length))video.removeAttribute?.('src');  // Nothing stale behind the 3D view.
     if(next==='3d')build3d();if(replay)replay.active=next==='3d';drawSitl();}
   Object.entries(buttons).forEach(([k,b])=>b.addEventListener('click',()=>setView(k)));
+  $('sitlScenario').addEventListener('change',e=>showFlight(e.target.value));
   function drawSitl(){const t=sitlStart+sitlIndex*0.2;$('sitlTime').value=sitlIndex;$('sitlClock').textContent=fmt(sitlIndex*0.2,1)+' s';if(replay)replay.setTime(t);}
-  $('sitlTime').max=sitlFrames;$('sitlTime').addEventListener('input',e=>{sitlIndex=Number(e.target.value);drawSitl();});
+  $('sitlTime').addEventListener('input',e=>{sitlIndex=Number(e.target.value);drawSitl();});
   $('sitlPlay').addEventListener('click',()=>{if(sitlIndex>=sitlFrames)sitlIndex=0;sitlPlaying=!sitlPlaying;$('sitlPlay').textContent=sitlPlaying?'Pause':'Play';});
   function tick(now){if(now-last>=100){last=now;
       if(playing){index=Math.min(index+1,trace().n-1);draw();if(index>=trace().n-1){playing=false;$('play').textContent='Play';}}
       if(sitlPlaying){sitlIndex=Math.min(sitlIndex+1,sitlFrames);drawSitl();if(sitlIndex>=sitlFrames){sitlPlaying=false;$('sitlPlay').textContent='Play';}}}
     requestAnimationFrame(tick);}
   window.addEventListener('resize',()=>{sizeCanvas();draw();drawSitl();});
-  sizeCanvas();$('scenario').value=scenario;select();if(G)setView('3d');requestAnimationFrame(tick);
+  if(S)$('provenance').textContent=`Fast simulator: ${R.seeds} seeds per cell. PX4 flights recorded ${S.generated_utc} · ${S.environment.platform}`;
+  sizeCanvas();$('scenario').value=scenario;select();
+  if(defaultFlight){$('sitlScenario').value=defaultFlight;showFlight(defaultFlight);}else showFlight(null);
+  requestAnimationFrame(tick);
 })();

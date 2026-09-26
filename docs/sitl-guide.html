@@ -178,45 +178,94 @@ bash scripts/build_sitl.sh
 </tbody></table>
 <p><strong>Observed limitation: PX4 treats a moving deck as GNSS drift.</strong> After each landing, PX4 logged <code>Preflight: GPS Horizontal Pos Drift too high</code> and the drone&#39;s position estimate stopped following the carrier. In PX4 v1.16, EKF2 runs its GNSS drift and speed checks only while the vehicle is on the ground and at rest (<code>src/modules/ekf2/EKF/aid_sources/gnss/gps_checks.cpp</code>). A drone riding a deck at a steady 0.27 m/s feels no acceleration, so it counts as at rest, while its GNSS position moves faster than <code>EKF2_REQ_HDRIFT</code> (default 0.1 m/s). EKF2 then skips those GNSS samples, the estimate stays where the drone landed, and the failing preflight check would block re-arming while the carrier moves (re-arming was not attempted in this run). The acceptance checks are not affected: each drone&#39;s estimate tracked its pad through touchdown (2–10 cm at first deck contact), pad error is recorded when PX4 declares the landing and disarms, and separation and clearance use only airborne samples. The fleet replay draws a landed drone on its pad, and the deck camera shows where the drones physically are. Launching again from a moving vehicle would need a deliberate design: a moving-base or relative position source, or deck-specific GNSS check settings validated for the aircraft.</p>
 <p>Pad error compares the vehicle&#39;s PX4 estimate, converted to world coordinates, with the carrier pose from Gazebo odometry; separation and clearance also use PX4 estimates. These are simulation checks, not certified collision guarantees. The station and the vehicles share one host and one DDS domain. Radio links and their latency or loss, relative positioning on the pad (RTK or vision), deck motion, wind and a real carrier&#39;s dynamics are not modelled, and the carrier&#39;s road is obstacle-free by design.</p>
-<h2>5. Guardians against an intruder</h2>
-<pre><code class="language-bash">bash scripts/run_sitl.sh --scenario guardian_intruder --video --output ~/work/mission-computer-lab/retests/guardian-001
+<h2>5. Guardians against threats</h2>
+<pre><code class="language-bash">bash scripts/run_sitl.sh --scenario guardian_jamming --video --output ~/work/mission-computer-lab/retests/guardian-001
 </code></pre>
-<p>The guardian scenario runs the decision logic of <a href="guardian.html">the guardian design</a> (<code>tools/guardian.py</code>) on three real PX4 instances. The <code>guardian</code> world is the fleet world plus a scripted, visual-only intruder (no collision, no gravity), post markers and a translucent jamming zone. Its cameras are an overview and a low close-up of the intruder&#39;s final approach.</p>
+<p>The eight guardian scenarios run the decision logic of <a href="guardian.html">the guardian design</a> (<code>tools/guardian.py</code>) on three real PX4 instances, one scenario per threat the fast simulator evaluates. <code>integration/guardian_layout.py</code> holds the scenario table. The runner writes each flight&#39;s world from <code>simulation/worlds/guardian.sdf</code>, adding post markers, the jamming zone when there is one, and visual-only threat models (no collision, no gravity) that a velocity controller flies along their scripts. The world&#39;s cameras are an overview and a low close-up; <code>guardian_jamming</code> records video, and every flight replays in 3D.</p>
 <table>
 <thead>
 <tr>
 <th>Guardian</th>
 <th>Watch post</th>
 <th>Altitude</th>
-<th>Role in the scenario</th>
+<th>Position</th>
 </tr>
 </thead>
 <tbody><tr>
 <td><code>px4_0</code></td>
 <td>(1, 2)</td>
 <td>4 m</td>
-<td>In the intruder&#39;s path and inside the jamming zone: it must keep clear on its own</td>
+<td>Closest to the carrier, across the northern approach, and inside the jamming zone when there is one</td>
 </tr>
 <tr>
 <td><code>px4_1</code></td>
 <td>(0, 12)</td>
 <td>5 m</td>
-<td>First contact: its detections reach the station over the network</td>
+<td>Forward: first contact from the north</td>
 </tr>
 <tr>
 <td><code>px4_2</code></td>
 <td>(12, 8)</td>
 <td>3 m</td>
-<td>Far from the path: it holds</td>
+<td>Eastern flank</td>
+</tr>
+</tbody></table>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Threats and conditions</th>
+<th>What it must show</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>guardian_intruder</code></td>
+<td>One low drone from the north at 1.2 m/s</td>
+<td>RED before arrival, the carrier relocated, keep-clear orders, recovery by the center</td>
+</tr>
+<tr>
+<td><code>guardian_fast</code></td>
+<td>A fast object (5.5 m/s) diving from 10 m onto the carrier</td>
+<td>RED before impact, and the guardian nearest the carrier dispersed before impact</td>
+</tr>
+<tr>
+<td><code>guardian_swarm</code></td>
+<td>Two drones from the north and one high from the east</td>
+<td>Three distinct tracks confirmed, and every guardian kept clear</td>
+</tr>
+<tr>
+<td><code>guardian_birds</code></td>
+<td>Three circling birds and sensor clutter, 40 s watch</td>
+<td>No RED and no keep-clear move; the quiet watch ends by asking the center</td>
+</tr>
+<tr>
+<td><code>guardian_jamming</code></td>
+<td>One drone; <code>px4_0</code> sits inside a jamming zone</td>
+<td>The jammed guardian keeps clear on its own authority; the others follow the station</td>
+</tr>
+<tr>
+<td><code>guardian_spoofing</code></td>
+<td>Every GNSS receiver dragged east (0.25 m/s, capped at 6 m), 45 s watch</td>
+<td>The station&#39;s position fixes flag the drag-off; every guardian navigates by them and holds its post</td>
+</tr>
+<tr>
+<td><code>guardian_center_loss</code></td>
+<td>One drone; the center is unreachable</td>
+<td>The station recovers the guardians under delegation, and only after the center timeout</td>
+</tr>
+<tr>
+<td><code>guardian_combined</code></td>
+<td>Two drones, two birds, clutter, the jammer and no center</td>
+<td>All of the above at once</td>
 </tr>
 </tbody></table>
 <ol>
-<li>The guardians launch one at a time and fly to their posts; the adapter&#39;s phase becomes <code>watch</code>.</li>
-<li>Five seconds after all three are on watch, the environment node starts the intruder at (−3.4, 23) flying at 1.2 m/s and 4 m to where the carrier is parked, and switches the jammer on.</li>
-<li>Each guardian&#39;s simulated sensor (8 m range, camera label inside 5 m) feeds its own onboard tracker directly; the same detections reach the station only over the link, which the environment drops while a guardian is inside the jamming zone. The station has its own 6 m sensor.</li>
-<li>The station fuses the tracks, raises AMBER and then RED, alerts the crew, drives the carrier east out of the path (a delegated action), and orders keep-clear moves. The order to <code>px4_1</code> arrives; the orders to <code>px4_0</code> do not.</li>
-<li><code>px4_0</code> notices its silent uplink and holds on its own authority; when its own sensor predicts a conflict inside its reflex horizon, it keeps clear on its own.</li>
-<li>After the intruder has gone and the posture is back to GREEN, the station asks the center; the center node answers after its link delay and operator decision time, and the station relays its <code>recover</code> decision. The guardians return and land on the carrier one at a time.</li>
+<li>The guardians launch one at a time and fly to their posts. Their routes keep clear of the other guardians&#39; posts. The adapter&#39;s phase becomes <code>watch</code>.</li>
+<li>Five seconds after all three are on watch, the environment node starts the scenario. Threats follow their scripts, the jammer switches on, or the spoofer starts moving the world&#39;s reference point (<code>/world/guardian/set_spherical_coordinates</code>), which shifts every NavSat reading.</li>
+<li>Each guardian&#39;s simulated sensor (8 m range, camera label inside 5 m) feeds its own onboard tracker directly. The same detections reach the station only over the link, which the environment drops while a guardian is inside the jamming zone. The station has its own sensor, which loses low flyers beyond 6 m. It also locates its guardians by their datalink.</li>
+<li>The station fuses the tracks, raises AMBER and then RED, and alerts the crew. It drives the carrier along the road to the nearest of three stops (x = 5, 8 or 11 m) that keeps every tracked threat&#39;s predicted path twice the protected radius away (a delegated action), and orders keep-clear or dispersal moves. It orders only guardians it has heard from in the last second; a silent one is told to hold. Orders to a jammed guardian do not arrive.</li>
+<li>A guardian whose uplink falls silent holds on its own authority. When its own sensor predicts a conflict inside its reflex horizon, it keeps clear on its own, and it does not fly a station move that would close on a track it can see. After 30 s without an uplink it flies a planned route to where it last heard the carrier was, and holds there. A guardian flying on station fixes lands where it is if the fixes stop for 3 s.</li>
+<li>When the posture is back to GREEN, or a quiet watch has run its course, the station asks the center. The center node answers after its link delay and operator decision time, and the station relays <code>recover</code>. With the center unreachable, the station recovers on its delegated authority after the center timeout. The guardians return and land on the carrier one at a time.</li>
 </ol>
 <table>
 <thead>
@@ -229,12 +278,12 @@ bash scripts/build_sitl.sh
 <tbody><tr>
 <td><code>/station/uplink</code> → environment → <code>/px4_N/guardian/uplink</code></td>
 <td>JSON in <code>std_msgs/String</code>, 10 Hz</td>
-<td>Launch and land clearances, each guardian&#39;s order, the posture; dropped while that guardian is jammed</td>
+<td>Launch and land clearances, each guardian&#39;s order, the posture, each guardian&#39;s navigation source and the station&#39;s position fixes; dropped while that guardian is jammed</td>
 </tr>
 <tr>
 <td><code>/px4_N/guardian/state</code> → environment → <code>/fleet/px4_N/state</code></td>
 <td>JSON, 5 Hz</td>
-<td>Phase, world position, protective action and the layer that decided it, uplink age; dropped while jammed</td>
+<td>Phase, world position, raw GNSS position, navigation source, protective action and the layer that decided it, uplink age; dropped while jammed</td>
 </tr>
 <tr>
 <td><code>/px4_N/guardian/detections</code></td>
@@ -247,16 +296,22 @@ bash scripts/build_sitl.sh
 <td>Guardian detections relayed over the link, plus the station&#39;s own sensor</td>
 </tr>
 <tr>
-<td><code>/center/report</code>, <code>/center/decision</code></td>
-<td>JSON</td>
-<td>Posture changes and recovery requests; acknowledgements and decisions after the center&#39;s delays</td>
+<td><code>/station/fixes</code></td>
+<td>JSON, 2 Hz</td>
+<td>Each guardian&#39;s position from the datalink locator; none while jammed or beyond 25 m</td>
 </tr>
 <tr>
-<td><code>/model/intruder/odometry</code>, <code>/model/intruder/cmd_vel</code></td>
+<td><code>/center/report</code>, <code>/center/decision</code></td>
+<td>JSON</td>
+<td>Posture changes, integrity alarms and numbered recovery requests; decisions after the center&#39;s delays, each naming the request it answers, and none when it is unreachable</td>
+</tr>
+<tr>
+<td><code>/model/&lt;threat&gt;/odometry</code>, <code>/model/&lt;threat&gt;/cmd_vel</code>, <code>/model/x500_N/odometry</code></td>
 <td><code>nav_msgs/Odometry</code>, <code>geometry_msgs/Twist</code></td>
-<td>Intruder truth for the sensors and the checks; its scripted motion</td>
+<td>Truth for the sensors and the checks; each threat&#39;s scripted motion</td>
 </tr>
 </tbody></table>
+<p>The checks read Gazebo truth, which the environment logs at 5 Hz, so a spoofed or mistaken estimate cannot pass them. Each scenario derives its list of checks from what it must show, and a missing check fails.</p>
 <table>
 <thead>
 <tr>
@@ -266,50 +321,66 @@ bash scripts/build_sitl.sh
 </thead>
 <tbody><tr>
 <td>Per vehicle</td>
-<td>Armed OFFBOARD; climb; on watch within 0.6 m of its post; returned, landed on its pad, disarmed; no failsafe; obstacle clearance</td>
+<td>Armed OFFBOARD; climb; on watch within 0.6 m of its post; returned, landed on its pad (true position), disarmed; no failsafe; obstacle clearance</td>
 </tr>
 <tr>
-<td><code>intruder_flew</code>, <code>threat_confirmed</code></td>
-<td>The intruder crossed the carrier&#39;s parking spot; the station confirmed a track</td>
+<td><code>scenario_started</code>, <code>threat_confirmed</code></td>
+<td>The scenario started after every guardian was on watch; the station confirmed a track within 2 m of a hostile threat&#39;s true position</td>
 </tr>
 <tr>
 <td><code>red_before_arrival</code></td>
-<td>RED came before the intruder reached the carrier&#39;s protected radius (3 m) or, if it never did, its closest approach; the warning is reported in simulated seconds</td>
+<td>RED came before a hostile threat came within the protected radius (3 m) of its aim point, where the carrier was parked, or before its closest approach to it; the warning is reported in simulated seconds</td>
+</tr>
+<tr>
+<td><code>no_red_alert</code>, <code>guardians_held_their_posts</code></td>
+<td>Birds, clutter and spoofing never raise RED, and on truth no guardian strays more than one keep-clear step (plus 0.5 m) from its post during the watch</td>
 </tr>
 <tr>
 <td><code>carrier_relocated_clear</code></td>
-<td>The station relocated the carrier, and the intruder never came within 3 m of it</td>
+<td>The station relocated the carrier, and no hostile threat came within 3 m of it</td>
 </tr>
 <tr>
 <td><code>guardians_kept_clear</code></td>
-<td>Every guardian stayed at least 1.5 m from the intruder, from the observers&#39; traces and the intruder&#39;s odometry</td>
-</tr>
-<tr>
-<td><code>jammed_guardian_acted_alone</code></td>
-<td><code>px4_0</code> kept clear on the onboard layer with its uplink silent, and the environment recorded dropped messages</td>
+<td>Every airborne guardian stayed at least 1.5 m from every hostile threat</td>
 </tr>
 <tr>
 <td><code>station_ordered_keep_clear</code></td>
 <td>A guardian that was not jammed executed a keep-clear order from the station</td>
 </tr>
 <tr>
+<td><code>jammed_guardian_acted_alone</code></td>
+<td>The jammed guardian kept clear on the onboard layer with its uplink silent, and the environment recorded dropped messages</td>
+</tr>
+<tr>
+<td><code>distinct_tracks_confirmed</code></td>
+<td>Confirmed tracks matched the required number of distinct hostile threats, one track per threat, within 2 m of truth</td>
+</tr>
+<tr>
+<td><code>dispersed_before_impact</code></td>
+<td>The station ordered the named guardian away before the fast object&#39;s impact time, and at impact it was truly further from the impact point than its post is</td>
+</tr>
+<tr>
+<td><code>spoofing_detected</code>, <code>navigated_by_station_fixes</code>, <code>drift_bounded</code></td>
+<td>The integrity alarm came within 20 s of the drag-off; every guardian switched to station fixes; none drifted 3 m from its post</td>
+</tr>
+<tr>
 <td><code>never_closed_on_threat</code></td>
-<td>Every keep-clear decision, by station or vehicle, moved away from every threat position it knew</td>
+<td>Every keep-clear or dispersal decision, by station or vehicle, opened the range along its whole straight path to every relevant track it logged (not a bird, predicted to come within twice the clear radius)</td>
 </tr>
 <tr>
 <td><code>authority_respected</code></td>
 <td>Every logged action was taken by a layer allowed to take it; relayed recovery carries the center&#39;s authority</td>
 </tr>
 <tr>
-<td><code>recovery_by_center</code></td>
-<td>Recovery followed the center&#39;s decision</td>
+<td><code>recovery_by_center</code>, <code>recovery_under_delegation</code></td>
+<td>Recovery followed the center&#39;s decision or, with the center unreachable, the station&#39;s delegation after the timeout</td>
 </tr>
 <tr>
 <td>Fleet</td>
 <td>Separation between airborne guardians above 1 m; landings one at a time; ROS bag recorded</td>
 </tr>
 </tbody></table>
-<p>The intruder, the sensors and the jamming are simulated stand-ins; the guardians&#39; adapters, supervisors and PX4 are the real flight stack. Nothing in the scenario responds to the intruder.</p>
+<p>The threats, sensors, jamming and spoofing are simulated stand-ins with illustrative parameters; the guardians&#39; adapters, supervisors and PX4 are the real flight stack. Nothing in any scenario responds to a threat.</p>
 <h2>6. Exercise failures</h2>
 <p>The sequence separates mission intent from PX4&#39;s ownership of the actual vehicle. Logs and ROS bags observe both sides.</p>
 <figure class="diagram"><pre class="mermaid">sequenceDiagram
@@ -384,7 +455,7 @@ bash scripts/build_sitl.sh
     P--&gt;&gt;O: Land mode, touchdown and disarm
     R-&gt;&gt;O: Stop recording and validate ordered evidence</code></pre></details></figure><pre><code class="language-bash">bash scripts/run_sitl.sh --all --video --output ~/work/mission-computer-lab/retests/matrix-001
 </code></pre>
-<p><code>--all</code> runs the four single-drone scenarios below, then the fleet scenario from section 4 and the guardian scenario from section 5. The matrix stops at the first failed scenario so its logs can be investigated. Alternatively select <code>camera_dropout</code>, <code>companion_crash</code>, <code>gps_loss</code>, <code>fleet_carrier</code> or <code>guardian_intruder</code> with <code>--scenario</code>.</p>
+<p><code>--all</code> runs the four single-drone scenarios below, then the fleet scenario from section 4 and the eight guardian scenarios from section 5. The matrix stops at the first failed scenario so its logs can be investigated. Alternatively select <code>camera_dropout</code>, <code>companion_crash</code>, <code>gps_loss</code>, <code>fleet_carrier</code> or any <code>guardian_*</code> scenario with <code>--scenario</code>.</p>
 <table>
 <thead>
 <tr>
@@ -505,7 +576,7 @@ bash scripts/build_sitl.sh
 <li>Per-process <code>.log</code> files, plus <code>gps-injection.log</code> in the GPS-loss case.</li>
 <li><code>flight.mp4</code> when recorded with <code>--video</code>.</li>
 </ul>
-<p>The <code>fleet_carrier</code> folder holds one <code>result.json</code> for the whole fleet, <code>station.jsonl</code> (clearances, carrier samples, touchdowns), per-vehicle <code>mission_px4_N.jsonl</code>, <code>observer_px4_N.jsonl</code>, <code>perception_px4_N.jsonl</code> and <code>px4_N.log</code>, and <code>flight.mp4</code> plus <code>deck.mp4</code> when recorded. The <code>guardian_intruder</code> folder has the same per-vehicle files plus <code>world.jsonl</code> (intruder truth, jamming and link events, dropped messages), <code>center.jsonl</code>, and <code>flight.mp4</code> plus <code>close.mp4</code>.</p>
+<p>The <code>fleet_carrier</code> folder holds one <code>result.json</code> for the whole fleet, <code>station.jsonl</code> (clearances, carrier samples, touchdowns), per-vehicle <code>mission_px4_N.jsonl</code>, <code>observer_px4_N.jsonl</code>, <code>perception_px4_N.jsonl</code> and <code>px4_N.log</code>, and <code>flight.mp4</code> plus <code>deck.mp4</code> when recorded. Each <code>guardian_*</code> folder has the same per-vehicle files plus <code>world.sdf</code> (the generated world), <code>world.jsonl</code> (threat and guardian truth, scenario, jamming, link and spoofing events, dropped messages), <code>center.jsonl</code>, and <code>flight.mp4</code> plus <code>close.mp4</code> when recorded.</p>
 <p>Acceptance requires an ordered armed-offboard → airborne → armed-land-mode → touchdown → disarm sequence, a valid final vertical estimate near the ground, and recorded messages on all three selected bag topics. GPS-loss may invalidate horizontal localization after the recorded injection; pre-injection validity and final vertical validity remain required. Clearance is computed only while the position estimate is valid. Arm and land ACKs alone cannot establish those outcomes.</p>
 <p>PX4 ULog files remain under the corresponding <code>~/work/mission-computer-lab/runs/</code> directory. Large bags, ULogs and upstream builds are not committed. The published sample contains compact evidence and a replay. A replay is a recorded run, not a live flight console.</p>
 <p>To inspect a bag in a new WSL terminal:</p>

@@ -1,0 +1,10 @@
+{"wall_time": 1790416198.2232587, "kind": "report", "t": 61.3, "report": "posture", "state": "AMBER", "request": null}
+{"wall_time": 1790416203.6360185, "kind": "report", "t": 63.2, "report": "posture", "state": "RED", "request": null}
+{"wall_time": 1790416208.1569924, "kind": "decision", "t": 64.8, "decision": "acknowledge", "request": null, "delivered_at": 65.3}
+{"wall_time": 1790416213.5646784, "kind": "decision", "t": 66.7, "decision": "acknowledge", "request": null, "delivered_at": 67.2}
+{"wall_time": 1790416231.083607, "kind": "report", "t": 73.8, "report": "posture", "state": "AMBER", "request": null}
+{"wall_time": 1790416241.0836623, "kind": "decision", "t": 77.3, "decision": "acknowledge", "request": null, "delivered_at": 77.8}
+{"wall_time": 1790416276.2570431, "kind": "report", "t": 90.2, "report": "posture", "state": "GREEN", "request": null}
+{"wall_time": 1790416276.2572308, "kind": "report", "t": 90.2, "report": "clear_after_red", "state": null, "request": 1}
+{"wall_time": 1790416286.7562478, "kind": "decision", "t": 93.7, "decision": "acknowledge", "request": null, "delivered_at": 94.2}
+{"wall_time": 1790416286.756344, "kind": "decision", "t": 93.7, "decision": "recover", "request": 1, "delivered_at": 94.2}

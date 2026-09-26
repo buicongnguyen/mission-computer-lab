@@ -30,6 +30,20 @@
     return group;
   }
 
+  function birdModel(color) {  // A simulated bird: body and wings, drawn larger than life like the drones.
+    const group = new T.Group(), m = new T.MeshStandardMaterial({ color, roughness: 0.9 });
+    group.add(new T.Mesh(new T.SphereGeometry(0.12, 12, 8), m));
+    const wings = new T.Mesh(new T.BoxGeometry(0.7, 0.02, 0.12), m); group.add(wings);  // Across the flight direction (+z).
+    group.scale.setScalar(DRONE_SCALE); group.userData.rotors = []; return group;
+  }
+  function fastModel(color) {  // A simulated fast object: a slender body with a red tail fin.
+    const group = new T.Group();
+    const body = new T.Mesh(new T.CylinderGeometry(0.1, 0.1, 1.1, 16), new T.MeshStandardMaterial({ color, roughness: 0.4, metalness: 0.5 }));
+    body.rotation.x = Math.PI / 2; group.add(body);  // Its long axis is local +z, so lookAt points it along its flight.
+    const fin = new T.Mesh(new T.BoxGeometry(0.5, 0.04, 0.12), new T.MeshStandardMaterial({ color: 0xb3261e })); fin.position.z = -0.5; group.add(fin);
+    group.scale.setScalar(DRONE_SCALE); group.userData.rotors = []; return group;
+  }
+
   function indexAt(samples, t) {  // Last sample at or before t (binary search).
     let lo = 0, hi = samples.length - 1;
     if (t <= samples[0].t) return 0;
@@ -74,7 +88,8 @@
       this.world.traverse(o => { o.geometry?.dispose?.(); if (o.material && !o.material.shared) o.material.dispose?.(); });
       this.world.clear(); this.vehicles = []; this.carrier = null;
     }
-    /** data: {obstacles, markers, zones, vehicles:[{name,color,hostile,ground,samples:[{t,e,n,u,valid}],plans:[{t,points}]}], carrier, view} */
+    /** data: {obstacles, markers, zones, vehicles:[{name,color,hostile,model,ground,window,samples:[{t,e,n,u,valid}],plans:[{t,points}]}], carrier, view}
+        window: optional [from, to] times outside which the vehicle is hidden (a threat before its start or after impact). */
     load(data) {
       this.clear();
       const rock = new T.MeshStandardMaterial({ color: 0xa4533f, roughness: 0.8 });
@@ -110,8 +125,14 @@
           new T.LineDashedMaterial({ color: 0x7ca1b3, dashSize: 0.35, gapSize: 0.25 }));
         line.computeLineDistances(); line.visible = false; this.world.add(line); return { t: plan.t, line };
       });
-      const model = droneModel(v.color, v.hostile); this.world.add(model);
-      return { ...v, trail, routes, model };
+      const kind = v.model || 'drone';
+      const model = kind === 'bird' ? birdModel(v.color) : kind === 'fast' ? fastModel(v.color) : droneModel(v.color, v.hostile);
+      if (kind !== 'drone') {  // Face along the first moving segment, not a default heading, before playback starts.
+        const s = v.samples, k = s.findIndex((p, i) => i > 0 && Math.hypot(p.e - s[i - 1].e, p.n - s[i - 1].n, p.u - s[i - 1].u) > 0.02);
+        if (k > 0) { model.position.copy(at(s[k - 1].e, s[k - 1].n, s[k - 1].u)); model.lookAt(at(s[k].e, s[k].n, s[k].u)); }
+      }
+      this.world.add(model);
+      return { ...v, kind, trail, routes, model };
     }
     addCarrier(c) {
       const group = new T.Group();
@@ -133,8 +154,11 @@
         v.model.position.copy(at(a.e + (b.e - a.e) * f, a.n + (b.n - a.n) * f, a.u + (b.u - a.u) * f));
         // Lean into the direction of travel, as a multirotor does.
         const dt = Math.max(b.t - a.t, 1e-3), ve = (b.e - a.e) / dt, vn = (b.n - a.n) / dt, lean = 0.09;
-        v.model.rotation.set(Math.max(-0.35, Math.min(0.35, -vn * lean)), 0, Math.max(-0.35, Math.min(0.35, -ve * lean)));
+        if (v.kind === 'drone') v.model.rotation.set(Math.max(-0.35, Math.min(0.35, -vn * lean)), 0, Math.max(-0.35, Math.min(0.35, -ve * lean)));
+        else if (Math.hypot(ve, vn, (b.u - a.u) / dt) > 0.05)  // A bird or fast object faces where it is going.
+          v.model.lookAt(v.model.position.clone().add(at(ve, vn, (b.u - a.u) / dt)));
         v.airborne = a.u > (v.ground || 0) + 0.15;  // Rotors spin only above the vehicle's own ground (deck or field).
+        v.model.visible = !v.window || (t >= v.window[0] && t <= v.window[1]);
         v.trail.geometry.setDrawRange(0, i + 1);
         let shown = null;
         for (const r of v.routes) if (r.t <= t) shown = r;

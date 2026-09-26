@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Publish compact, measured SITL evidence; leave bags and upstream builds local."""
 import argparse
+import sys
 from datetime import datetime,timezone
 import json
 import math
@@ -17,22 +18,24 @@ FLEET_FILES=('result.json','parameters.log','station.jsonl','flight.mp4','deck.m
 FLEET_VEHICLE_CHECKS=('offboard_entered','takeoff_observed','goal_reached','returned_to_carrier','landed_on_pad',
                       'carrier_moving_at_touchdown','disarmed_at_end','no_failsafe','obstacle_clearance')
 FLEET_CHECKS=('fleet_min_separation','landings_sequenced','carrier_moved','rosbag_recorded','no_runner_error')
-GUARDIAN='guardian_intruder'
-GUARDIAN_FILES=('result.json','parameters.log','station.jsonl','world.jsonl','center.jsonl','flight.mp4','close.mp4')
-GUARDIAN_VEHICLE_CHECKS=('offboard_entered','takeoff_observed','on_watch','returned_to_carrier','landed_on_pad',
-                         'disarmed_at_end','no_failsafe','obstacle_clearance')
-GUARDIAN_CHECKS=('fleet_min_separation','landings_sequenced','rosbag_recorded','no_runner_error','intruder_flew',
-                 'threat_confirmed','red_before_arrival','carrier_relocated_clear','guardians_kept_clear',
-                 'jammed_guardian_acted_alone','station_ordered_keep_clear','never_closed_on_threat',
-                 'authority_respected','recovery_by_center')
-MULTI={FLEET:(FLEET_VEHICLE_CHECKS,FLEET_CHECKS,('station.jsonl',)),
-       GUARDIAN:(GUARDIAN_VEHICLE_CHECKS,GUARDIAN_CHECKS,('station.jsonl','world.jsonl','center.jsonl'))}
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'integration'))
+import guardian_layout as GL
+GUARDIANS=tuple(GL.SCENARIOS)
+GUARDIAN_FILES=('result.json','parameters.log','station.jsonl','world.jsonl','center.jsonl','world.sdf','flight.mp4','close.mp4')
+
+def required_checks(result):
+    """Named checks a multi-vehicle result must carry: the fleet's fixed list, or what each guardian scenario expects."""
+    if result['scenario']==FLEET:
+        return {f'{v["ns"]}_{c}' for v in result['vehicles'] for c in FLEET_VEHICLE_CHECKS}|set(FLEET_CHECKS)
+    return set(GL.expected_checks(result['scenario']))
+
+def source_logs(result):
+    return ('station.jsonl',) if result['scenario']==FLEET else ('station.jsonl','world.jsonl','center.jsonl')
 
 def validate_fleet(result,folder):
-    vehicle_checks,checks,logs=MULTI[result['scenario']];names=[v['ns'] for v in result['vehicles']]
-    required={f'{ns}_{c}' for ns in names for c in vehicle_checks}|set(checks)
-    if len(names)<2 or not required<=result['checks'].keys():raise ValueError('Missing required checks: '+result['scenario'])
-    for name in ('parameters.log',*logs,*[f'mission_{ns}.jsonl' for ns in names]):
+    names=[v['ns'] for v in result['vehicles']]
+    if len(names)<2 or not required_checks(result)<=result['checks'].keys():raise ValueError('Missing required checks: '+result['scenario'])
+    for name in ('parameters.log',*source_logs(result),*[f'mission_{ns}.jsonl' for ns in names]):
         if not (folder/name).is_file() or not (folder/name).stat().st_size:
             raise ValueError('Missing source evidence: '+str(folder/name))
         if name.endswith('.jsonl'):read_records(folder/name)
@@ -40,6 +43,32 @@ def validate_fleet(result,folder):
     if not isinstance(result['min_separation_m'],(int,float)) or not math.isfinite(result['min_separation_m']):
         raise ValueError('Invalid fleet separation')
     result['replay_start_wall_time']=min(v['trace'][0]['wall_time'] for v in result['vehicles'])
+
+def validate_guardian(result):
+    """A guardian flight must carry Gazebo truth for every vehicle and every scripted threat, starting with the
+    scenario: without it a flight in which nothing flew could pass every check it names."""
+    if any(not v.get('truth') for v in result['vehicles']):raise ValueError('Missing guardian truth: '+result['scenario'])
+    start=(result.get('scenario_start') or {}).get('t')
+    if start is None:raise ValueError('Scenario never started: '+result['scenario'])
+    for model,threat in result['threats'].items():
+        delay=GL.SCENARIOS[result['scenario']]['threats'][model].get('delay',0.)
+        if not threat['trace'] or threat['trace'][0]['t']-(start+delay)>2.:
+            raise ValueError(f"Threat {model} has no truth from its start: "+result['scenario'])
+
+# The guardian page reads only these vehicle fields; the full result stays in each flight's result.json.
+GUARDIAN_VEHICLE_FIELDS=('ns','pad','goal','altitude','truth','touchdown','guardian','min_clearance_m')
+
+def slim(value,digits=3):
+    """Round floats (positions to a millimetre) so eight flights stay a reasonable page payload."""
+    if isinstance(value,float):return round(value,digits)
+    if isinstance(value,list):return [slim(v,digits) for v in value]
+    if isinstance(value,dict):return {k:(v if k=='wall_time' else slim(v,digits)) for k,v in value.items()}
+    return value
+
+def slim_guardian(result):
+    out={k:v for k,v in result.items() if k!='vehicles'}
+    out['vehicles']=[{k:v[k] for k in GUARDIAN_VEHICLE_FIELDS if k in v} for v in result['vehicles']]
+    return slim(out)
 
 def nearest_rank(values,p):
     values=sorted(values)
@@ -51,18 +80,20 @@ def main():
     parser.add_argument('--workspace',type=Path,help='Legacy option; environment is read from run-time provenance')
     args=parser.parse_args();source=args.input.resolve()
     results=strict_loads((source/'results.json').read_text())
-    expected={'nominal','camera_dropout','companion_crash','gps_loss',FLEET,GUARDIAN}
+    expected={'nominal','camera_dropout','companion_crash','gps_loss',FLEET,*GUARDIANS}
     require_matrix(results,expected)
     provenance=strict_loads((source/'provenance.json').read_text())
     if provenance.get('inputs_unchanged') is not True:
         raise ValueError('Runtime inputs changed during the experiment; rerun the matrix')
     # Validate and derive everything before the reference sample is touched.
     for result in results:
-        if result['scenario'] in MULTI:
+        if result['scenario'] in (FLEET,*GUARDIANS):
             folder=source/result['scenario']
             if strict_loads((folder/'result.json').read_text())!=result:
                 raise ValueError('Summary differs from per-scenario evidence: '+result['scenario'])
-            validate_fleet(result,folder);continue
+            validate_fleet(result,folder)
+            if result['scenario'] in GUARDIANS:validate_guardian(result)
+            continue
         required={'telemetry_received','offboard_entered','takeoff_observed','disarmed_at_end',
             'landed_at_end','estimated_obstacle_clearance','altitude_bounded','land_mode_observed',
             'image_messages','perception_messages','lidar_messages','arming_ack_accepted',
@@ -91,9 +122,12 @@ def main():
     environment=provenance['environment'];revisions=environment['upstream_revisions']
     report={'generated_utc':datetime.now(timezone.utc).isoformat(),'environment':environment,'provenance':provenance,
             'boundary':'Actual PX4/Gazebo/ROS; procedural camera/lidar; CPU synthetic ONNX; no Qualcomm hardware.',
-            'obstacles':[list(o) for o in OBSTACLES],'results':[r for r in results if r['scenario'] not in MULTI],
-            'fleet':next(r for r in results if r['scenario']==FLEET),'guardian':next(r for r in results if r['scenario']==GUARDIAN)}
+            'obstacles':[list(o) for o in OBSTACLES],'results':[r for r in results if r['scenario'] not in (FLEET,*GUARDIANS)],
+            'fleet':next(r for r in results if r['scenario']==FLEET),
+            'guardians':{name:slim_guardian(next(r for r in results if r['scenario']==name)) for name in GUARDIANS}}
     serialized=json.dumps(report,indent=2,allow_nan=False)
+    # The single-drone and fleet pages load report-data.js; only the guardian page needs the eight flights.
+    page={k:v for k,v in report.items() if k!='guardians'}
     # Build the new sample beside the old one and swap it in, so a failure never leaves a mixture
     # and files from an earlier run (such as an old gps-injection.log) cannot survive.
     sample=ROOT/'artifacts/sitl-sample'
@@ -102,12 +136,14 @@ def main():
         shutil.copy2(source/'provenance.json',staging/'provenance.json')
         for result in results:
             destination=staging/result['scenario'];destination.mkdir()
-            base={FLEET:FLEET_FILES,GUARDIAN:GUARDIAN_FILES}.get(result['scenario'])
+            base=FLEET_FILES if result['scenario']==FLEET else GUARDIAN_FILES if result['scenario'] in GUARDIANS else None
             files=(*base,*[f'mission_{v["ns"]}.jsonl' for v in result['vehicles']]) if base else FILES
             for file in files:
                 if (source/result['scenario']/file).exists():shutil.copy2(source/result['scenario']/file,destination/file)
         (staging/'report.json').write_text(serialized,encoding='utf-8')
-        (staging/'report-data.js').write_text('window.SITL_REPORT='+json.dumps(report,separators=(',',':'),allow_nan=False)+';\n',encoding='utf-8')
+        (staging/'report-data.js').write_text('window.SITL_REPORT='+json.dumps(page,separators=(',',':'),allow_nan=False)+';\n',encoding='utf-8')
+        (staging/'guardian-data.js').write_text('window.SITL_GUARDIANS='+json.dumps(report['guardians'],separators=(',',':'),allow_nan=False)+';\n',
+                                               encoding='utf-8')
         retired=sample.with_name('.sitl-sample-retired')
         if retired.exists():shutil.rmtree(retired)
         if sample.exists():sample.rename(retired)
@@ -127,7 +163,7 @@ def main():
               'Three PX4 instances launch in sequence from pads on a carrier vehicle, fly separate inspection legs at 3, 4 and 5 m, and land back on the carrier while it drives. A ground-station node grants one launch and one landing at a time; each vehicle keeps its own C++ supervisor and PX4 failsafes.','',
               '| Vehicle | Goal | Altitude layer (m) | Touchdown pad error (m) | Carrier speed at touchdown (m/s) | Min obstacle clearance (m) |',
               '|---|---|---:|---:|---:|---:|']
-    fleet=report['fleet'];guardian=report['guardian']
+    fleet=report['fleet'];guardians=report['guardians']
     for v in fleet['vehicles']:
         touchdown=v['touchdown'] or {}
         lines.append(f"| {v['ns']} | ({v['goal'][0]}, {v['goal'][1]}) | {v['altitude']:.0f} | {touchdown.get('pad_error',float('nan')):.3f} | "
@@ -135,16 +171,18 @@ def main():
     lines += ['',f"Minimum separation between airborne vehicles: {fleet['min_separation_m']:.2f} m. Carrier travel: "
               f"{fleet['carrier'][-1]['e']-fleet['carrier'][0]['e']:.1f} m. Recording two cameras slows this simulation below real time; "
               'the adapters judge freshness on simulation time, as PX4 does.','',
-              '## Guardians against an intruder','',
-              'Three PX4 instances hold watch posts around the carrier. A simulated intruder flies to where the carrier is parked; the '
-              'first guardian reports it, the second is jammed as it arrives and keeps clear on its own, the station raises RED and '
-              'drives the carrier out of the path, and the center authorises recovery. See [the guardian design](guardian.md).','',
-              '| Measure | Value |','|---|---:|',
-              f"| Named checks passed | {sum(guardian['checks'].values())} / {len(guardian['checks'])} |",
-              f"| Warning, RED to the intruder's arrival (simulated s) | {guardian['warning_s']:.1f} |",
-              f"| Closest guardian to the intruder (m) | {min(guardian['guardian_separation_m'].values()):.2f} |",
-              f"| Carrier's closest approach to the intruder after relocating (m) | {guardian['station_miss_m']:.1f} |",
-              '',
+              '## Guardians against threats','',
+              'Three PX4 instances hold watch posts around the carrier while each scenario adds its own threats, a jammer, a GNSS '
+              'spoofer or a dead link to the center; the station and each guardian run the same decision code as the fast simulator. '
+              'Separations, drift and landings are measured on Gazebo truth. See [the guardian design](guardian.md).','',
+              '| Scenario | What happens | Checks | Warning (simulated s) | Closest guardian to a threat (m) | Recovery decided by |',
+              '|---|---|---:|---:|---:|---|']
+    for name,g in guardians.items():
+        seps=[v for v in (g.get('guardian_separation_m') or {}).values() if v is not None]
+        lines.append(f"| `{name}` | {g['title']} | {sum(g['checks'].values())} / {len(g['checks'])} | "
+                     f"{'—' if g.get('warning_s') is None else format(g['warning_s'],'.1f')} | {format(min(seps),'.2f') if seps else '—'} | "
+                     f"{(g.get('recovery') or {}).get('by','—')} |")
+    lines += ['',
               '## Exact upstream revisions','']
     lines += [f'- {name}: `{revision}`' for name,revision in revisions.items()]
     lines += ['','## Evidence and limitations','',

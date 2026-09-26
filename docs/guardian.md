@@ -29,9 +29,9 @@ The request: let drones work as guardians that help a station cope with an attac
 1. **Authority by time budget.** Onboard (under a second): keep clear of an imminent conflict, hold and then return when the uplink goes quiet. Station (seconds): fuse tracks, set the posture, order guardians, alert the crew, relocate. Center (tens of seconds): acknowledge, authorise recovery or resumption, anything beyond protection. The station's own actions are *pre-delegated* by the center; with the center unreachable it keeps protecting and may only land guardians after a timeout, never resume the mission.
 2. **One decision module, two simulators.** `tools/guardian.py` holds the tracker, threat assessment, posture, keep-clear, onboard fallbacks, the center model, the navigation integrity check and the authority table. The fast simulator and the PX4 nodes import the same code.
 3. **Tracks, not detections.** A constant-velocity Kalman filter per track, association in normalised residual, M-of-N confirmation, merging of duplicates, and a plausibility gate on how fast a young track may move.
-4. **Classification before alarm.** Guardian cameras label what they see; a track classed as a bird never raises RED, and an unclassified slow track may raise RED only close in. Fast tracks raise RED at once.
-5. **Invariants the tests enforce.** A keep-clear move never reduces the range to any threat, and every logged action is taken by a layer allowed to take it.
-6. **Cross-checks against spoofing.** The station compares each guardian's reported position with its own sensor's track of it; a slow drag-off passes the drone's own consistency checks but not this one.
+4. **Classification before alarm.** Guardian cameras label what they see; a track classed as a bird never raises RED and does not hold the posture at AMBER, and an unclassified slow track may raise RED only close in. Fast tracks with a steady speed raise RED at once.
+5. **Invariants the tests enforce.** A keep-clear or dispersal move, new or kept, opens the range along its whole straight path to every relevant track (not a bird, predicted to come near); a guardian re-checks any station move against its own tracks before flying it; and every logged action is taken by a layer allowed to take it.
+6. **Cross-checks against spoofing.** The station compares each guardian's reported GNSS position with an independent observation of it: its own sensor's track of that guardian in the fast simulator, a datalink fix in the PX4 flights. A slow drag-off passes the drone's own consistency checks but not this one. A flagged guardian navigates by the station's fixes (horizontal only; height stays barometric) and lands where it is if they stop.
 7. **Layout is part of the design.** The simulator tests where the posts are, not only what the software does.
 
 ## 4. Threats and scenarios
@@ -82,7 +82,7 @@ The generated tables are in [the simulator results](guardian-results.md). In sum
 - **Warning comes from the network.** Against a low intruder, the station's own sensor gives almost no warning; fusing guardian sensing gives over a minute, enough for the center to decide before arrival.
 - **Safety under jamming comes from onboard autonomy.** A networked design without it leaves a jammed picket in the threat's path; the hybrid design keeps every guardian clear.
 - **Spoofing is caught by cooperation.** Only the station's cross-check notices a slow drag-off; without it the picket is dragged hundreds of metres.
-- **False alarms need classification, not just tracking.** Linear prediction on a circling bird points at the station now and then; camera labels and the persistence rule removed every false RED in the drone-sensing designs.
+- **False alarms are a matter of speed, range and classification together.** In the fast simulator the birds circle beyond the 400 m inner radius and below the slow-speed gate, so no design raises a false RED from them, even the station alone, which has no camera. Camera labels matter where birds come close: in the PX4 flights a bird circles within a few metres of a guardian and of the carrier's stops. The false REDs that remain come from clutter and unlabelled birds in the combined scenario (1 in 40 hybrid runs; 2 to 6 for the other designs), and from a dragged guardian that the designs without the cross-check end up tracking as an intruder (spoofing: 1 or 2 per design, none for hybrid).
 - **Physics limits what software can do.** No design saves a drone hovering over the impact point of a 250 m/s object with a few seconds of warning. Moving that drone 250 m off the station fixes most of it; moving the pickets out buys warning against slow threats but little against fast ones.
 
 ## 8. Lessons the simulator taught
@@ -100,15 +100,57 @@ Each of these was found in a failing run, traced, and fixed in the shared module
 | Too few escape options | Two crossing intruders squeezed a guardian | Half-length moves and a climb option under a ceiling |
 | Overwatch above the protected point | Unsavable against a fast inbound object | Offset the overwatch (layout experiment) |
 
-## 9. The same logic on real PX4
+<a id="review"></a>
 
-The `guardian_intruder` flight scenario runs the decision module on three real PX4 instances in Gazebo. Guardians launch from the carrier and hold watch posts. A scripted, visual-only intruder flies to where the carrier is parked. The first guardian reports it over the network; the second is jammed as the intruder arrives and keeps clear on its own; the third is far away. The station raises RED, drives the carrier out of the path, and orders keep-clear moves; after the intruder has gone, the center authorises recovery and the guardians land back on the carrier. The environment (intruder, sensors, jamming) and the center are simulated; the guardians' adapters, supervisors and PX4 are the real flight stack. [The SITL guide](sitl-guide.md) lists the topics and acceptance checks.
+## 9. Logic and code review
 
-## 10. Limits
+Two independent reviews read the decision module, the fast simulator and the PX4 integration after the eight flights were built, and replayed their doubts in the simulator before reporting them. Every finding below was reproduced, fixed in the code, covered by a test, and the evidence was regenerated.
+
+| Found | What it did | Fix |
+|---|---|---|
+| The integrity check compared a stale or masked report with whatever return lay near it, and an alarm never cleared | In 30 of 280 non-spoofing hybrid runs a healthy guardian was switched to station fixes of a bird or another guardian; errors reached 2 km | The station keeps its own track of each guardian by continuity, gated by its sensor's accuracy, the guardian's reported velocity, its barometric height and the sensor's coverage; reports older than 2 s are not compared; an alarm clears after six consistent observations. Now 0 false alarms in 1280 runs |
+| The switch to station fixes was sent once; nothing limited a fix's age | One lost message left a flagged guardian on GNSS (dragged 603 m); if fixes stopped it flew on a frozen correction | Every fix carries the switch and every order names the navigation source; after a fix timeout the guardian lands in place on its own authority |
+| `predicted_miss` sampled 24 points in 60 s | A 250 m/s object "missed" by 250 m a guardian it would hit | Exact closest approach on each leg of the move |
+| Assessment extrapolated a relocating station's velocity forever | RED dropped seconds after relocation began, with the threat still inbound | Threats are judged against where the station will stop |
+| A late measurement was compared with the track's current state; class ties went to "bird" | A 0.4 s-late detection moved a fast track by 32 m; a drone labelled 2:2 could never raise RED | Late measurements are compared with where the track was; ties go to the class that needs more protection |
+| A stale answer from the center was accepted | A "recover" decided before a new event recalled guardians after it | Each clear is a numbered request; only the answer to the open one counts, and only at GREEN |
+| The station planned orders from stale guardian state | A move computed from a jammed guardian's old position sent it back toward a threat | Orders go only to guardians heard within three report periods, carried forward by their velocity; a silent one is told to hold; every guardian re-checks a station move against its own tracks |
+| Dispersal skipped every guard and was centred on the moving station | The PX4 fast-object dispersal pointed nearer the object and beside a cylinder | Dispersal points are checked for free space and for opening the range, and centred on the predicted impact point |
+| Keep-clear checked only the end point; kept orders were never re-checked | A path could dip toward a threat; a kept target could end up nearer one | The whole straight path must open the range, and a kept order is re-checked every cycle. Counting every track, distant birds included, then left an overwatch at its ceiling with no allowed move while an intruder passed beneath it; only relevant tracks count now |
+| The rally point and the delegation rule used knowledge the station and guardians could not have | A jammed guardian homed on the station's live position; delegation read the simulator's own flag | The rally is the station's position as last heard; delegation follows the center's silence |
+| Birds held the posture at AMBER; the PX4 birds flew faster than the slow-speed gate, one circling where the carrier relocates | The quiet watch never ended; an unlabelled bird raised RED | Birds do not hold AMBER; the PX4 birds were laid out and scaled like the fast simulator's |
+| Relocation always drove to the same stop | In the swarm the carrier drove toward the second intruder's path | The stop is chosen from the tracked threats' predicted paths |
+| The spoofer ran the `gz` command-line tool twice a second, and its comment had the drag direction reversed | The load starved the simulation; the supervisors saw stale IMU data and landed two guardians | An in-process Gazebo client, called only when the offset changes; the drag heads away from the cylinders |
+| One guardian's route passed a metre under another holding its post | 0.99 m separation in the fast-object flight | Every route and move keeps out of the cells around the other posts |
+| Metrics and checks were weaker than their names | False REDs were forced to 0 in threat scenarios; "X% pass" was the worst cell; designs drew from one random stream; `threat_confirmed` passed on clutter; one track could count twice | False REDs counted everywhere, exact shares, common random numbers per sensor and link, and truth-based PX4 checks |
+
+The review also questioned whether the invariants prove anything: checking a rule the code already enforces only catches a broken implementation. The results page now also measures the same property on truth. In some runs a move, planned on tracks, brought a guardian more than tracking error nearer a real threat, mostly a weaving one at long range: 13 of 40 hybrid runs in the combined scenario, 8 of 40 in the swarm. That is the price of straight-line prediction. No guardian lost its safe radius in those runs.
+
+## 10. The same logic on real PX4
+
+Eight flight scenarios, one per threat above, run the decision module on three real PX4 instances in Gazebo. Guardians launch from the carrier one at a time, hold watch posts at their own altitude layers, and land back on it when the event is over. Each scenario adds its own threats and conditions: a low intruder, a fast object diving on the carrier, three intruders from two sectors, circling birds with sensor clutter, a jammer around one guardian's post, a GNSS drag-off on every receiver, a dead link to the center, and all of these at once. The environment (threats, sensors, jamming, spoofing) and the center are simulated; the guardians' adapters, supervisors and PX4 are the real flight stack. Separations, drift and landings are judged on Gazebo truth. [The SITL guide](sitl-guide.md) lists the topics and acceptance checks, and [the PX4 evidence](sitl-execution.md) the measured results.
+
+In the final matrix all eight passed every check, 300 in all:
+
+| Flight | Checks | What the evidence shows |
+|---|---:|---|
+| `guardian_intruder` | 38 / 38 | RED 12.3 simulated seconds before the intruder reached the carrier's parking spot; the carrier drove to x = 11 m and stayed 10.1 m clear; closest guardian 5.96 m; recovery on the center's decision |
+| `guardian_fast` | 37 / 37 | RED 1.8 s before impact; the guardian nearest the impact point dispersed from 3.6 m to 4.4 m away before impact; closest guardian 5.0 m |
+| `guardian_swarm` | 38 / 38 | Three distinct tracks confirmed; the carrier's stop moved from x = 8 m to 11 m when the third intruder, from the east, was tracked; closest guardian 4.98 m |
+| `guardian_birds` | 35 / 35 | No RED and no keep-clear move in the whole flight; the quiet watch ended by asking the center |
+| `guardian_jamming` | 39 / 39 | The jammed guardian kept clear on its own, 4.17 m from the intruder at the closest, and regained its link 15.6 s later; filmed from both cameras |
+| `guardian_spoofing` | 37 / 37 | The station flagged all three receivers 11 s after the drag-off began; each flew on station fixes and none strayed more than 1.19 m from its post |
+| `guardian_center_loss` | 37 / 37 | With the center unreachable, the station recovered the guardians under delegation, after its 20 s timeout |
+| `guardian_combined` | 39 / 39 | Two intruders, two birds, clutter, the jammer and no center at once; closest guardian 2.63 m; recovery under delegation |
+
+## 11. Limits
 
 - The simulators model kinematics, not aerodynamics, radar physics, camera performance or radio propagation. Real sensor ranges, clutter and classification accuracy vary widely.
 - Threats fly to fixed points. A threat that steers toward a guardian cannot be escaped by keeping clear; the design's answer is warning and sheltering, not evasion.
-- Identification of friendlies relies on reported positions; real systems add transponders, authenticated datalinks and pre-briefed corridors.
+- Identification of friendlies relies on reported positions and the station's own track of each guardian; real systems add transponders, authenticated datalinks and pre-briefed corridors.
+- A slow track that no camera has labelled is treated as possibly a bird: guardians keep only a collision margin from it, and it raises RED only close to the station. An unlabelled hovering drone gets the same treatment until a camera sees it; the camera's range sets that price.
+- Keep-clear and dispersal are judged against straight-line predictions. Weaving threats defeat them at long range, which the results page measures on truth; a guardian's own reflex only runs while it holds its post (launch and recovery happen at GREEN, and a lost-link return flies a planned route to its rally point and holds there).
+- In the PX4 flights an unlabelled bird or a clutter chain still occasionally causes a brief keep-clear move; about one run in sixty of an offline replay of the birds flight raised a false RED from clutter that lined up at a steady fast speed.
 - The station and center are software stand-ins on one host; operator workload, rules of engagement and airspace procedures are out of scope.
 - Nothing here responds to a threat. That decision, and the systems that carry it out, sit with the center and with authorised operators.
 
@@ -117,5 +159,5 @@ The `guardian_intruder` flight scenario runs the decision module on three real P
 ```bash
 python3 tools/guardian_sim.py --seeds 40 --workers 8 --output artifacts/guardian
 python3 -m unittest tests.test_guardian
-bash scripts/run_sitl.sh --scenario guardian_intruder --video --output ~/work/mission-computer-lab/retests/guardian-001
+bash scripts/run_sitl.sh --scenario guardian_jamming --video --output ~/work/mission-computer-lab/retests/guardian-001
 ```

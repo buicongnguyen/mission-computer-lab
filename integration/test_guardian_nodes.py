@@ -1,4 +1,5 @@
-"""Guardian SITL nodes run as real ROS nodes without Gazebo or PX4: logging, fusion, posture, orders and relay."""
+"""Guardian SITL nodes run as real ROS nodes without Gazebo or PX4: logging, fusion, posture, orders, relay,
+navigation integrity and the scenario scripts."""
 import json
 import math
 from pathlib import Path
@@ -9,8 +10,9 @@ from unittest.mock import Mock
 import rclpy
 from std_msgs.msg import String
 from center_node import CenterNode
-from guardian import Tracker,authorised
-from guardian_layout import CFG,GUARDIANS,INTRUDER,RELOCATE
+from guardian import Track,Tracker,authorised,opens_range
+from guardian_layout import (CFG,EAST_HIGH,GUARDIANS,RELOCATE,SCENARIOS,NORTH,FAST,expected_checks,free_space,impact_time,
+                             reserved_for,threat_position,world_sdf)
 from guardian_mission_node import GuardianMission
 from guardian_station_node import GuardianStation
 from guardian_world_node import World
@@ -18,9 +20,11 @@ from guardian_world_node import World
 def message(data):
     m=String();m.data=json.dumps(data);return m
 
-def intruder_at(t):
-    s,a=INTRUDER['start'],INTRUDER['aim'];d=[a[0]-s[0],a[1]-s[1]];n=math.hypot(*d)
-    return [s[0]+d[0]/n*INTRUDER['speed']*t,s[1]+d[1]/n*INTRUDER['speed']*t,s[2]]
+def intruder_at(t):return threat_position(NORTH,t)[0]
+
+class Fresh(dict):
+    """Receipt times of guardian states in the tests: always just heard."""
+    def get(self,key,default=None):return math.inf
 
 class GuardianNodes(unittest.TestCase):
     @classmethod
@@ -33,9 +37,10 @@ class GuardianNodes(unittest.TestCase):
         self.folder.cleanup()
     def path(self,name):return str(Path(self.folder.name)/name)
     def records(self,name):return [json.loads(l) for l in Path(self.path(name)).read_text().splitlines()]
-    def station(self):
-        s=GuardianStation(SimpleNamespace(drones=','.join(g['ns'] for g in GUARDIANS),log=self.path('station.jsonl'),speed=0.,max_east=14.))
-        self.nodes.append(s);s.carrier={'e':0.,'n':-1.5,'yaw':0.,'speed':0.}
+    def station(self,scenario='guardian_intruder'):
+        s=GuardianStation(SimpleNamespace(drones=','.join(g['ns'] for g in GUARDIANS),log=self.path('station.jsonl'),speed=0.,
+                                          max_east=14.,scenario=scenario))
+        self.nodes.append(s);s.carrier={'e':0.,'n':-1.5,'yaw':0.,'speed':0.};s.heard=Fresh()
         for g in GUARDIANS:
             s.states[g['ns']]={'phase':'watch','position':[float(g['post'][0]),float(g['post'][1]),g['altitude']],
                                'armed':True,'layer':g['altitude'],'pad_error':None}
@@ -56,50 +61,127 @@ class GuardianNodes(unittest.TestCase):
         self.assertLessEqual({'confirmed','posture','crew_alert','relocate','center_report','order'},kinds)
         keep=[r for r in records if r['kind']=='order' and r['action']=='keep_clear']
         self.assertTrue(keep)
-        for r in keep:
-            for q in r['threats']:self.assertGreaterEqual(math.dist(r['target'],q),math.dist(r['own'],q)-1e-6)
-        payload=json.loads(json.dumps({'clearance':s.clear,'orders':s.orders,'posture':s.posture.state}))
-        self.assertEqual(set(payload['orders']),{g['ns'] for g in GUARDIANS})
+        for r in keep:self.assertTrue(opens_range(r['own'],r['target'],r['avoid']))  # Along the whole move.
+        self.assertEqual(next(r for r in records if r['kind']=='relocate')['target_x'],8.)  # NORTH only: the nearest safe stop.
+    def settle(self,s,now,limit=120.):
+        while s.posture.state!='GREEN' and now<limit:now+=0.2;s.protect(now)
+        return now
     def test_recovery_waits_for_the_center_and_carries_its_authority(self):
-        s=self.station();self.fly(s,0.,40.);now=41.
-        while s.posture.state!='GREEN' and now<120.:now+=0.2;s.protect(now)  # The intruder has gone.
-        s.protect(now+5.)
-        self.assertEqual(s.posture.state,'GREEN');self.assertTrue(s.held);self.assertIsNone(s.recovery)
+        s=self.station();self.fly(s,0.,40.);now=self.settle(s,41.);s.protect(now+5.)
+        self.assertTrue(s.held);self.assertIsNone(s.recovery)
         self.assertTrue(any(r['kind']=='center_report' and r['report']=='clear_after_red' for r in self.records('station.jsonl')))
         self.assertTrue(all(o['action']=='hold' for o in s.orders.values()))
-        s.on_decision(message({'decision':'recover'}));s.protect(now+6.)
+        s.on_decision(message({'decision':'recover','request':s.request-1}));s.protect(now+5.5)
+        self.assertIsNone(s.recovery)  # An answer to an older question does not count.
+        s.on_decision(message({'decision':'recover','request':s.request}));s.protect(now+6.)
         self.assertEqual((s.recovery,s.recovery_by),('recover','center'))
         for o in s.orders.values():self.assertEqual((o['action'],o['authority']),('recover','center'))
+    def test_a_decision_to_an_earlier_clear_is_ignored_after_a_new_event(self):
+        s=self.station();self.fly(s,0.,40.);now=self.settle(s,41.);s.protect(now+1.);first=s.request
+        s.posture.update(now+2.,['danger']);s.protect(now+2.)  # A new track goes RED before the answer arrives.
+        self.assertIsNone(s.request)
+        s.on_decision(message({'decision':'recover','request':first}));self.assertIsNone(s.recovery)
+        now=self.settle(s,now+3.);s.protect(now+1.);self.assertGreater(s.request,first)
     def test_station_lands_guardians_under_delegation_only_after_the_center_timeout(self):
-        s=self.station();self.fly(s,0.,40.);now=41.
-        while s.posture.state!='GREEN' and now<120.:now+=0.2;s.protect(now)
+        s=self.station();self.fly(s,0.,40.);self.settle(s,41.)
         cleared=s.clear_since;self.assertIsNotNone(cleared)
         s.protect(cleared+CFG.center_timeout-1.);self.assertIsNone(s.recovery)
         s.protect(cleared+CFG.center_timeout+0.5)
         self.assertEqual((s.recovery,s.recovery_by),('recover','station (delegated)'))
         self.assertTrue(authorised('recover','station (delegated)'))
+    def test_a_quiet_watch_ends_by_asking_the_center(self):
+        s=self.station('guardian_birds');watch=SCENARIOS['guardian_birds']['watch']
+        for k in range(int((watch+6.)/0.5)):s.protect(10.+k*0.5)
+        self.assertIsNotNone(s.watch_request)
+        self.assertTrue(any(r['kind']=='center_report' and r['report']=='watch_complete' for r in self.records('station.jsonl')))
+        s.on_decision(message({'decision':'recover','request':s.request}));s.protect(10.+watch+7.)
+        self.assertEqual((s.recovery,s.recovery_by),('recover','center'))
+    def test_birds_a_camera_has_labelled_leave_the_posture_green(self):
+        s=self.station('guardian_birds');t=10.
+        for k in range(40):  # A bird circling near px4_1, labelled by its camera.
+            a=0.3*k*0.2;p=[-3.+1.5*math.cos(a),8.+1.5*math.sin(a),3.5]
+            s.on_detections(message({'source':'px4_1','detections':[{'p':p,'label':'bird','sigma':0.15,'t':t}]}))
+            s.protect(t);t=round(t+0.2,6)
+        self.assertTrue(s.tracker.confirmed());self.assertEqual(s.posture.state,'GREEN')
+    def test_a_guardian_the_station_has_not_heard_from_is_told_to_hold_and_given_room(self):
+        s=self.station();s.heard={g['ns']:0. for g in GUARDIANS};s.heard['px4_0']=-10.
+        s.protect(0.5);self.assertEqual(s.orders['px4_0'],{'action':'hold','target':None,'reason':'state_stale'})
+        self.assertNotEqual(s.orders['px4_1'].get('reason'),'state_stale')
+    def test_relocation_moves_further_when_a_threat_comes_from_the_east(self):
+        s=self.station();north=Track(1,0.,list(NORTH['start']),'s');north.v=[0.15,-1.19,0.];north.labels={'drone':5}
+        self.assertEqual(s.relocation_stop(0.,[north]),8.)
+        east=Track(2,0.,list(EAST_HIGH['start']),'s');east.v=[-1.06,-0.56,0.];east.labels={'drone':5}
+        self.assertEqual(s.relocation_stop(0.,[north,east]),11.)
+    def test_a_fast_object_disperses_the_guardian_near_its_impact_point_safely(self):
+        s=self.station('guardian_fast');t=0.
+        for k in range(14):
+            p,_=threat_position(FAST,k*0.2)
+            s.on_detections(message({'source':'station','detections':[{'p':p,'label':None,'sigma':0.1,'t':t}]}));s.protect(t);t=round(t+0.2,6)
+        order=s.orders['px4_0'];self.assertEqual(order['action'],'disperse')
+        record=[r for r in self.records('station.jsonl') if r['kind']=='order' and r['action']=='disperse'][-1]
+        self.assertTrue(opens_range(record['own'],record['target'],record['avoid']))
+        self.assertTrue(free_space(record['own'],record['target'],reserved=reserved_for('px4_0')))
+        post=next(g['post'] for g in GUARDIANS if g['ns']=='px4_0')  # Away from where it comes down, never toward it.
+        self.assertGreater(math.dist(order['target'][:2],FAST['aim'][:2]),math.dist(post,FAST['aim'][:2]))
+    def test_navigation_cross_check_flags_a_dragged_guardian_and_sends_it_fixes(self):
+        s=self.station('guardian_spoofing');ns='px4_1'
+        for k in range(10):  # The reported (GNSS) position drifts east of the station's own fix.
+            s.states[ns]['position']=[0.3*k,12.,5.];s.on_fixes(message({ns:[0.,12.,5.,float(k)]}))
+        self.assertIn(ns,s.navigating);self.assertEqual(s.integrity[ns].state,'spoofed')
+        self.assertTrue(any(r['kind']=='integrity' and r['ns']==ns for r in self.records('station.jsonl')))
+        for o in (g['ns'] for g in GUARDIANS if g['ns']!=ns):self.assertNotIn(o,s.navigating)
+        s.uplink=Mock();s.publish_clearance(10.);sent=json.loads(s.uplink.publish.call_args.args[0].data)
+        self.assertEqual((sent['nav_mode'][ns],sent['nav_mode']['px4_0']),('station','gnss'));self.assertIn(ns,sent['nav'])
+        for k in range(CFG.integrity_clear):  # The drag-off ends: GNSS agrees with the fixes again.
+            s.states[ns]['position']=[0.,12.,5.];s.on_fixes(message({ns:[0.,12.,5.,20.+k]}))
+        self.assertNotIn(ns,s.navigating)
+        self.assertTrue(any(r['kind']=='integrity_clear' for r in self.records('station.jsonl')))
     def test_center_logs_reports_and_answers_after_its_delays(self):
-        c=CenterNode(SimpleNamespace(log=self.path('center.jsonl')));self.nodes.append(c)
-        c.report(message({'kind':'clear_after_red'}));c.report(message({'kind':'posture','state':'RED'}))
-        self.assertEqual([r['report'] for r in self.records('center.jsonl')],['clear_after_red','posture'])
+        c=CenterNode(SimpleNamespace(log=self.path('center.jsonl'),unreachable=False));self.nodes.append(c)
+        c.report(message({'kind':'clear_after_red'}));c.report(message({'kind':'watch_complete'}))
+        self.assertEqual([r['report'] for r in self.records('center.jsonl')],['clear_after_red','watch_complete'])
         now=c.now();self.assertEqual(c.center.step(now),[])
-        decided=c.center.step(now+10.);self.assertEqual(sorted(d for _,d in decided),['acknowledge','recover'])
+        self.assertEqual(sorted(d for _,d,_ in c.center.step(now+10.)),['recover','recover'])
+    def test_an_unreachable_center_hears_nothing_and_decides_nothing(self):
+        c=CenterNode(SimpleNamespace(log=self.path('center.jsonl'),unreachable=True));self.nodes.append(c)
+        c.report(message({'kind':'clear_after_red'}))
+        self.assertEqual([r['kind'] for r in self.records('center.jsonl')],['unreachable'])
+        self.assertEqual(c.center.step(c.now()+100.),[])
+    def world(self,scenario='guardian_jamming'):
+        w=World(SimpleNamespace(log=self.path('world.jsonl'),seed=1,scenario=scenario,world='guardian',origin=[47.397971,8.546164]))
+        self.nodes.append(w);return w
     def test_world_drops_links_only_inside_the_jamming_zone(self):
-        w=World(SimpleNamespace(log=self.path('world.jsonl'),seed=1,carrier=[0.,-1.5],deck=0.6));self.nodes.append(w)
-        w.uplink={g['ns']:Mock() for g in GUARDIANS}
-        w.pose={'px4_0':[1.,2.,4.],'px4_1':[0.,12.,5.],'px4_2':[12.,8.,3.]};w.jamming=True
-        w.station_uplink(message({'orders':{}}))
+        w=self.world();w.uplink={g['ns']:Mock() for g in GUARDIANS}
+        for i,p in enumerate(([1.,2.,4.],[0.,12.,5.],[12.,8.,3.])):w.truth[f'x500_{i}']={'p':p,'v':[0.,0.,0.]}
+        w.jamming=True;w.station_uplink(message({'orders':{}}))
         self.assertEqual({ns:m.publish.called for ns,m in w.uplink.items()},{'px4_0':False,'px4_1':True,'px4_2':True})
         self.assertEqual(w.dropped['px4_0'],1)
         w.jamming=False;w.station_uplink(message({'orders':{}}));self.assertTrue(w.uplink['px4_0'].publish.called)
-        w.started=1.;w.intruder={'p':[0.,6.,4.],'v':[0.,0.,0.]}
-        self.assertTrue(any(w.detect({'range':8.,'pd':0.9,'sigma':0.15},[0.,12.,5.]) for _ in range(5)))
-        self.assertIsNone(w.detect({'range':8.,'pd':1.,'sigma':0.15},[0.,30.,5.]))
+        w.started=w.now()-1.;w.truth['intruder']={'p':[0.,6.,4.],'v':[0.,0.,0.]}
+        self.assertTrue(any(w.detect({'range':8.,'pd':0.9,'sigma':0.15},[0.,12.,5.],'intruder',NORTH) for _ in range(5)))
+        self.assertIsNone(w.detect({'range':8.,'pd':1.,'sigma':0.15},[0.,30.,5.],'intruder',NORTH))
+    def test_station_sensor_loses_low_flyers_beyond_its_short_range(self):
+        w=self.world();w.started=w.now()-1.;sensor={'range':20.,'low_altitude':6.,'low_range':6.,'pd':1.,'sigma':0.1}
+        w.truth['intruder']={'p':[0.,10.,4.],'v':[0.,0.,0.]}
+        self.assertIsNone(w.detect(sensor,[0.,-1.5,0.3],'intruder',NORTH))  # 11.5 m away and low.
+        w.truth['intruder']={'p':[0.,10.,7.],'v':[0.,0.,0.]}
+        self.assertIsNotNone(w.detect(sensor,[0.,-1.5,0.3],'intruder',NORTH))  # High flyers are seen to 20 m.
+    def test_scripts_follow_their_lines_and_the_fast_object_ends_below_ground(self):
+        self.assertEqual(threat_position(NORTH,0.)[0],list(NORTH['start']))
+        end,done=threat_position(FAST,impact_time(FAST)+10.);self.assertTrue(done);self.assertLess(end[2],0.)
+        at_impact,_=threat_position(FAST,impact_time(FAST));self.assertLess(math.dist(at_impact,FAST['aim']),1e-6)
+        for name in SCENARIOS:
+            world=world_sdf(name)
+            for model in SCENARIOS[name]['threats']:self.assertIn(f'<model name="{model}">',world)
+            self.assertEqual(len(expected_checks(name)),len(set(expected_checks(name))))
     def guardian(self,order,link_age,now=100.):
         g=SimpleNamespace(ns='px4_0',post=[1.,2.,4.],altitude=4.,onboard=Tracker(CFG),order=order,last_uplink=now-link_age,
-                          carrier=(0.,-1.5,0.,0.,0.),blocked=set(),reflex=None,action='watch',layer='station',hold_at=None,
-                          guard_target=None,log=Mock(),start_return=Mock(return_value=[1.,-1.,4.]))
-        for name in ('guard','log_decision'):setattr(g,name,MethodType(getattr(GuardianMission,name),g))
+                          carrier=(0.,-1.5,0.,0.,0.),blocked=set(reserved_for('px4_0')),reflex=None,action='watch',layer='station',
+                          hold_at=None,guard_target=None,log=Mock(),start_return=Mock(return_value=[1.,-1.,4.]),nav_offset=None,
+                          nav_fix=None,nav_fix_at=None,rally=[0.,-1.5,4.],rally_route=None,send_command=Mock(),handed_off=False,
+                          land_requested=False,clearance={},posture=None,track=[],now=lambda:now)
+        for name in ('guard','log_decision','navigation','station_fix','on_clearance'):
+            setattr(g,name,MethodType(getattr(GuardianMission,name),g))
         return g
     def feed_track(self,g,now):
         for k in range(12):  # An intruder closing on the post from the north at 1.2 m/s.
@@ -108,16 +190,50 @@ class GuardianNodes(unittest.TestCase):
         g=self.guardian({'action':'watch','target':[1.,2.,4.]},link_age=5.);self.feed_track(g,100.)
         target=g.guard(100.,[1.,2.,4.])
         self.assertEqual((g.action,g.layer),('keep_clear','onboard'))
-        logged=g.log.write.call_args.kwargs
-        for q in logged['threats']:self.assertGreaterEqual(math.dist(target,q),math.dist([1.,2.,4.],q)-1e-6)
+        logged=g.log.write.call_args.kwargs;self.assertTrue(logged['avoid'])
+        self.assertTrue(opens_range([1.,2.,4.],target,logged['avoid']))
     def test_guardian_follows_station_orders_and_center_recovery(self):
         g=self.guardian({'action':'keep_clear','target':[4.,0.5,4.],'until':200.},link_age=0.1)
         self.assertEqual(g.guard(100.,[1.,2.,4.]),[4.,0.5,4.]);self.assertEqual(g.layer,'station')
         g=self.guardian({'action':'recover','target':None,'authority':'center'},link_age=0.1)
         self.assertEqual(g.guard(100.,[1.,2.,4.]),[1.,-1.,4.]);g.start_return.assert_called_once()
         self.assertEqual(g.log.write.call_args.kwargs['layer'],'center')
-        self.assertTrue(authorised('recover','center'))
         g=self.guardian({'action':'watch','target':[1.,2.,4.]},link_age=CFG.lost_link+1)
         g.guard(100.,[1.2,2.,4.]);self.assertEqual((g.action,g.layer),('lost_link_hold','onboard'))
+    def test_each_guardian_routes_around_the_other_posts_but_can_reach_its_own(self):
+        from world import astar
+        for g in GUARDIANS:
+            me=SimpleNamespace(ns=g['ns'],post=[float(g['post'][0]),float(g['post'][1]),g['altitude']])
+            reserved=GuardianMission.reserved_cells(me);post=tuple(g['post'])
+            self.assertNotIn(post,reserved)
+            for other in GUARDIANS:
+                if other is not g:self.assertIn(tuple(other['post']),reserved)
+            route=astar((round(g['pad']),-2),post,reserved)  # From its pad on the carrier's deck.
+            self.assertTrue(route);self.assertFalse(set(route)&reserved)
+    def test_guardian_navigates_by_station_fixes_once_its_gnss_is_flagged(self):
+        g=self.guardian({'action':'watch','target':[1.,2.,4.]},link_age=0.1)
+        g.track=[(t,[1.+0.1*t,2.,4.]) for t in range(10)]  # The GNSS-based estimate has been dragged east.
+        g.station_fix([1.,2.,4.,9.])
+        self.assertAlmostEqual(g.navigation(9.,[1.9,2.,4.])[0],1.,places=6)
+        self.assertEqual(g.log.write.call_args.kwargs['action'],'navigate_by_station')
+        self.assertTrue(authorised('navigate_by_station','station'))
+        g.on_clearance(message({'clearance':{},'orders':{},'nav_mode':{'px4_0':'gnss'}}))  # The cross-check cleared.
+        self.assertIsNone(g.nav_offset);self.assertEqual(g.navigation(9.,[1.9,2.,4.]),[1.9,2.,4.])
+    def test_a_guardian_on_station_fixes_lands_in_place_when_they_stop(self):
+        g=self.guardian({'action':'watch','target':[1.,2.,4.]},link_age=0.1)
+        g.nav_offset=[0.5,0.];g.nav_fix_at=100.-CFG.fix_timeout-1.
+        self.assertEqual(g.guard(100.,[1.,2.,4.]),[1.,2.,4.])
+        self.assertTrue(g.handed_off and g.land_requested);g.send_command.assert_called_once()
+        self.assertTrue(any(c.kwargs.get('action')=='land_in_place' for c in g.log.write.call_args_list))
+    def test_a_lost_link_return_follows_a_planned_route_to_the_last_known_carrier(self):
+        from world import OBSTACLES,occupancy
+        g=self.guardian({'action':'watch','target':[12.,8.,3.]},link_age=CFG.lost_link_return+1)
+        g.ns='px4_2';g.post=[12.,8.,3.];g.altitude=3.;g.rally=[0.,-1.5,3.]
+        g.blocked=occupancy([{'hit':True,'x':x+r*math.cos(a/8*math.pi),'y':y+r*math.sin(a/8*math.pi)}
+                             for x,y,r in OBSTACLES for a in range(16)],blocked=set(reserved_for('px4_2')))
+        first=g.guard(100.,[12.,8.,3.]);self.assertEqual(g.action,'lost_link_return')
+        route=[tuple(round(c) for c in p[:2]) for p in [first]+g.rally_route]
+        self.assertFalse(set(route)&g.blocked)  # Never across a cylinder or another post, unlike a straight line.
+        self.assertEqual(route[-1],(0,-2))
 
 if __name__=='__main__':unittest.main()
