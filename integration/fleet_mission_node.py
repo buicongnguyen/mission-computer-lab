@@ -25,13 +25,15 @@ DESCENT=0.6   # m below the current height: limits the descent rate to about 0.6
 GO_AROUND=0.5 # m of horizontal misalignment during descent that aborts back to the hold altitude.
 
 class FleetMission(Mission):
+    CLEARANCE_TOPIC='/fleet/clearance'   # Station -> vehicle; the guardian scenario routes these through a link.
+    STATE_TOPIC='/fleet/{ns}/state'      # Vehicle -> station.
     def __init__(self,args):
         super().__init__(args)
         self.pad=args.pad;self.phase='preflight';self.phase_since=0.;self.inspect_until=None
         self.carrier=None;self.clearance={}
         self.create_subscription(Odometry,'/model/carrier/odometry',self.on_carrier,10)
-        self.create_subscription(String,'/fleet/clearance',self.on_clearance,10)
-        self.state=self.create_publisher(String,f'/fleet/{self.ns}/state',10)
+        self.create_subscription(String,self.CLEARANCE_TOPIC.format(ns=self.ns),self.on_clearance,10)
+        self.state=self.create_publisher(String,self.STATE_TOPIC.format(ns=self.ns),10)
         self.create_timer(0.2,self.report)  # Keeps reporting after handoff, so the station sees touchdown.
     def on_carrier(self,msg):
         q=msg.pose.pose.orientation;yaw=math.atan2(2*(q.w*q.z+q.x*q.y),1-2*(q.y*q.y+q.z*q.z))
@@ -65,12 +67,7 @@ class FleetMission(Mission):
         if self.phase=='inspect':
             goal=[float(self.goal[0]),float(self.goal[1]),self.altitude]
             if now<self.inspect_until or self.carrier is None:return goal,False
-            # Head south to the road corridor, which no obstacle reaches; the carrier drives along it.
-            entry=(min(12,max(-2,round(position[0]))),ROAD_ROW)
-            path=astar((round(position[0]),round(position[1])),entry,self.blocked) or [entry]
-            self.goal=entry;self.targets=[[float(x),float(y),self.altitude] for x,y in path];self.waypoint=0
-            self.set_phase('return',now,path=path)
-            return self.targets[0],False
+            return self.start_return(now,position),False
         if self.phase=='return':
             target,done=super().next_target(now,position)
             if done:self.set_phase('rendezvous',now,position=position)
@@ -87,13 +84,21 @@ class FleetMission(Mission):
             return self.pad_target(self.altitude),False
         # Descend at a limited rate and press gently onto the deck; PX4 detects touchdown and disarms.
         return self.pad_target(max(DECK-0.3,position[2]-DESCENT)),False
+    def start_return(self,now,position):
+        """Head south to the road corridor, which no obstacle reaches; the carrier drives along it."""
+        entry=(min(12,max(-2,round(position[0]))),ROAD_ROW)
+        path=astar((round(position[0]),round(position[1])),entry,self.blocked) or [entry]
+        self.goal=entry;self.targets=[[float(x),float(y),self.altitude] for x,y in path];self.waypoint=0
+        self.set_phase('return',now,path=path)
+        return self.targets[0]
     def report(self):
         position=self.world_position()
         if position is None or self.status is None:return
         pad_error=math.dist(position[:2],self.pad_position()) if self.carrier else None
         state={'phase':self.phase,'position':position,'armed':self.status.arming_state==VehicleStatus.ARMING_STATE_ARMED,
-               'handed_off':self.handed_off,'layer':self.altitude,'pad_error':pad_error,'wall_time':time.time()}
+               'handed_off':self.handed_off,'layer':self.altitude,'pad_error':pad_error,'wall_time':time.time(),**self.extra_state()}
         message=String();message.data=json.dumps(state);self.state.publish(message)
+    def extra_state(self):return {}  # The guardian vehicle adds its protective action.
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--allow-sitl',action='store_true');p.add_argument('--log',required=True)

@@ -22,8 +22,8 @@ AIRBORNE=2.0      # m world altitude: a vehicle counts as airborne above this.
 LAUNCH_GAP=4.0    # s between successive launch clearances.
 
 class Station(Node):
-    def __init__(self,args):
-        super().__init__('fleet_station');self.args=args;self.log=JsonLog(args.log)
+    def __init__(self,args,name='fleet_station'):
+        super().__init__(name);self.args=args;self.log=JsonLog(args.log)
         self.drones=args.drones.split(',');self.states={};self.carrier=None
         self.clear={d:{'launch':False,'land':False} for d in self.drones}
         self.flown=set();self.landed=set();self.last_launch=-1e9;self.moving=False;self.parked=False
@@ -51,25 +51,34 @@ class Station(Node):
     def tick(self):
         now=self.now()
         if len(self.states)==len(self.drones):
-            # Launch in order, each after the previous one is airborne.
-            for i,d in enumerate(self.drones):
-                if self.clear[d]['launch']:continue
-                if (i==0 or self.drones[i-1] in self.flown) and now-self.last_launch>=LAUNCH_GAP:
-                    self.grant(d,'launch');self.last_launch=now
-                break
-            # Drive once every vehicle is up and the first heads home, so recoveries meet a moving deck.
+            self.sequence_launches(now);self.grant_landings()
+        twist=Twist();twist.linear.x=self.carrier_speed(now);self.drive.publish(twist)
+        self.publish_clearance(now);self.record(now)
+    def sequence_launches(self,now):
+        """Launch in order, each after the previous one is airborne and LAUNCH_GAP after its clearance."""
+        for i,d in enumerate(self.drones):
+            if self.clear[d]['launch']:continue
+            if (i==0 or self.drones[i-1] in self.flown) and now-self.last_launch>=LAUNCH_GAP:
+                self.grant(d,'launch');self.last_launch=now
+            break
+    def grant_landings(self):
+        """One landing at a time, lowest altitude layer first among the vehicles holding overhead."""
+        busy=[d for d in self.drones if self.clear[d]['land'] and d not in self.landed]
+        holding=[d for d in self.drones if self.states[d]['phase']=='rendezvous' and d not in self.landed]
+        if not busy and holding:self.grant(min(holding,key=lambda d:self.states[d]['layer']),'land')
+    def carrier_speed(self,now):
+        """Drive once every vehicle is up and the first heads home, so recoveries meet a moving deck."""
+        if len(self.states)==len(self.drones):
             homeward=any(s['phase'] in ('return','rendezvous','descend') for s in self.states.values())
             if not self.moving and not self.parked and homeward and len(self.flown)==len(self.drones):
                 self.moving=True;self.log.write('carrier_start',carrier=self.carrier)
-            # One landing at a time, lowest altitude layer first among the vehicles holding overhead.
-            busy=[d for d in self.drones if self.clear[d]['land'] and d not in self.landed]
-            holding=[d for d in self.drones if self.states[d]['phase']=='rendezvous' and d not in self.landed]
-            if not busy and holding:self.grant(min(holding,key=lambda d:self.states[d]['layer']),'land')
         if self.moving and (len(self.landed)==len(self.drones) or (self.carrier and self.carrier['e']>=self.args.max_east)):
             # Parked for good: landed vehicles still report their last phase, which must not restart the drive.
             self.moving=False;self.parked=True;self.log.write('carrier_stop',carrier=self.carrier)
-        twist=Twist();twist.linear.x=self.args.speed if self.moving else 0.;self.drive.publish(twist)
+        return self.args.speed if self.moving else 0.
+    def publish_clearance(self,now):
         message=String();message.data=json.dumps(self.clear);self.clearance.publish(message)
+    def record(self,now):
         airborne=[s['position'] for d,s in self.states.items() if s['armed'] and s['position'][2]>DECK+0.5]
         for a,b in itertools.combinations(airborne,2):self.min_separation=min(self.min_separation,math.dist(a,b))
         if now-self.last_log>=0.2 and self.carrier:

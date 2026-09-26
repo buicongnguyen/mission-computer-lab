@@ -33,9 +33,9 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 
 /* Paper is always light, whatever theme is on screen. */
 @media print{:root,:root:not([data-theme="light"]),:root[data-theme="dark"]{color-scheme:light;--bg:#fff;--surface:#fff;--surface-2:#e7f1f3;--code-bg:#eef3f5;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--quote-bg:#eef8f7;--quote-ink:#31505b;--pre-bg:#102c3b;--pre-ink:#e3f3f5}}
-</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flight replay</a><a href="../web/fleet.html">Fleet ops</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>PX4 / ROS 2 / Gazebo execution evidence</h1>
+</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet ops</a><a href="../web/guardian.html">Guardians</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>PX4 / ROS 2 / Gazebo execution evidence</h1>
 <p>Actual PX4/Gazebo/ROS; procedural camera/lidar; CPU synthetic ONNX; no Qualcomm hardware.</p>
-<p>Generated UTC: 2026-09-24T18:22:42.343244+00:00</p>
+<p>Generated UTC: 2026-09-26T07:14:07.675160+00:00</p>
 <table>
 <thead>
 <tr>
@@ -49,30 +49,30 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 <tbody><tr>
 <td>nominal</td>
 <td>PASS</td>
-<td align="right">131.64</td>
-<td align="right">3.016</td>
-<td align="right">1.171</td>
+<td align="right">80.96</td>
+<td align="right">2.995</td>
+<td align="right">1.186</td>
 </tr>
 <tr>
 <td>camera_dropout</td>
 <td>PASS</td>
-<td align="right">127.66</td>
-<td align="right">3.048</td>
-<td align="right">1.158</td>
+<td align="right">85.38</td>
+<td align="right">2.925</td>
+<td align="right">1.173</td>
 </tr>
 <tr>
 <td>companion_crash</td>
 <td>PASS</td>
-<td align="right">66.79</td>
-<td align="right">2.768</td>
-<td align="right">3.977</td>
+<td align="right">48.39</td>
+<td align="right">2.809</td>
+<td align="right">3.932</td>
 </tr>
 <tr>
 <td>gps_loss</td>
 <td>PASS</td>
-<td align="right">59.10</td>
-<td align="right">2.742</td>
-<td align="right">3.728</td>
+<td align="right">52.81</td>
+<td align="right">2.831</td>
+<td align="right">3.684</td>
 </tr>
 </tbody></table>
 <p>All four scenarios require actual armed offboard state, observed climb, land mode, landed state and final disarm. Normal and camera-recovery runs also require a reached goal, COMPLETE and accepted land command. GPS loss requires a post-injection stale-GNSS landing decision. Companion crash requires a subsequent PX4 failsafe.</p>
@@ -94,7 +94,7 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 <td>px4_0</td>
 <td>(9, 9)</td>
 <td align="right">3</td>
-<td align="right">0.030</td>
+<td align="right">0.070</td>
 <td align="right">0.27</td>
 <td align="right">1.23</td>
 </tr>
@@ -102,7 +102,7 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 <td>px4_1</td>
 <td>(10, 3)</td>
 <td align="right">4</td>
-<td align="right">0.034</td>
+<td align="right">0.007</td>
 <td align="right">0.27</td>
 <td align="right">1.36</td>
 </tr>
@@ -110,12 +110,38 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 <td>px4_2</td>
 <td>(-1, 10)</td>
 <td align="right">5</td>
-<td align="right">0.037</td>
+<td align="right">0.024</td>
 <td align="right">0.27</td>
 <td align="right">2.16</td>
 </tr>
 </tbody></table>
-<p>Minimum separation between airborne vehicles: 1.71 m. Carrier travel: 11.7 m. Recording two cameras slows this simulation below real time; the adapters judge freshness on simulation time, as PX4 does.</p>
+<p>Minimum separation between airborne vehicles: 1.71 m. Carrier travel: 12.7 m. Recording two cameras slows this simulation below real time; the adapters judge freshness on simulation time, as PX4 does.</p>
+<h2>Guardians against an intruder</h2>
+<p>Three PX4 instances hold watch posts around the carrier. A simulated intruder flies to where the carrier is parked; the first guardian reports it, the second is jammed as it arrives and keeps clear on its own, the station raises RED and drives the carrier out of the path, and the center authorises recovery. See <a href="guardian.html">the guardian design</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Measure</th>
+<th align="right">Value</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Named checks passed</td>
+<td align="right">38 / 38</td>
+</tr>
+<tr>
+<td>Warning, RED to the intruder&#39;s arrival (simulated s)</td>
+<td align="right">15.9</td>
+</tr>
+<tr>
+<td>Closest guardian to the intruder (m)</td>
+<td align="right">4.54</td>
+</tr>
+<tr>
+<td>Carrier&#39;s closest approach to the intruder after relocating (m)</td>
+<td align="right">8.0</td>
+</tr>
+</tbody></table>
 <h2>Exact upstream revisions</h2>
 <ul>
 <li>PX4 v1.16.0: <code>6ea3539157ca358c70a515878b77077af7d4611d</code></li>
@@ -124,7 +150,7 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 </ul>
 <h2>Evidence and limitations</h2>
 <ul>
-<li><a href="../web/sitl.html">Interactive replay</a> and <a href="../artifacts/sitl-sample/report.json">machine-readable report</a>.</li>
+<li>Interactive replays of the <a href="../web/sitl.html">single-drone flights</a>, the <a href="../web/fleet.html">fleet</a> and the <a href="../web/guardian.html">guardians</a>, and the <a href="../artifacts/sitl-sample/report.json">machine-readable report</a>.</li>
 <li>Per-scenario reference folders preserve final parameters, firmware log, mission/perception logs and acceptance result.</li>
 <li>Runtime source/binary hashes and installed versions were captured before flight; inputs were checked again after the matrix. Per-file SHA-256 hashes identify the exact tested inputs, including changes not yet committed when tested.</li>
 <li>Original run folders retain ROS bags and independent observer JSONL; Linux runtime folders retain PX4 ULogs.</li>

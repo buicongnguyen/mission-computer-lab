@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Guardian Drones | Mission Computer Lab</title><link rel="stylesheet" href="style.css"><script src="theme.js"></script><style>
+.shell{max-width:1300px;margin:36px auto;padding:0 24px}.eyebrow{color:var(--teal);letter-spacing:2px;font-size:12px;font-weight:800}.lead{max-width:860px;color:var(--muted)}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:20px 0}.card,.panel{padding:20px;border:1px solid var(--line);border-radius:12px;background:var(--surface);min-width:0}
+.card strong{font-size:28px;display:block;line-height:1.25}.card small{color:var(--muted)}.panel h2{font-size:19px;margin:0 0 6px;border:0;padding:0}.panel h3{font-size:15px;margin:18px 0 8px}
+.section{margin:26px 0}.grid{display:grid;grid-template-columns:1.5fr 1fr;gap:18px}.two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.heat{display:table;width:100%;border-collapse:separate;border-spacing:2px;font-size:13px;table-layout:fixed}.heat th{font-weight:600;color:var(--muted);text-align:left;padding:4px 6px;font-size:12px;min-width:0;background:none;border:0}
+.heat th.col{text-align:center}.heat td{padding:7px 4px;text-align:center;border-radius:4px;font-variant-numeric:tabular-nums;cursor:default}.heat td.na{color:var(--muted);background:var(--surface-2)}
+.heat tr.hl th{color:var(--ink)}.heat .scn{width:28%}.sub{font-size:12px;color:var(--muted)}
+.views{display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap}.views button{padding:5px 12px;font-size:13px}.views button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}.views button:disabled{opacity:.4;cursor:not-allowed}.event span:first-child{white-space:nowrap}
+.toolbar,.controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0}.controls input{flex:1;min-width:120px}
+.map{width:100%;height:auto;aspect-ratio:800/610;border-radius:8px;background:#0f2531;display:block}.scene3d{width:100%;aspect-ratio:800/610;border-radius:8px;overflow:hidden;background:#0f2531;touch-action:none}
+.scene3d canvas{display:block;width:100%;height:100%}.flight-video{width:100%;border-radius:8px;background:#000;display:block}
+.events{font:12px Consolas,monospace;max-height:320px;overflow:auto}.event{padding:5px 0;border-bottom:1px solid var(--line-soft);display:flex;gap:8px;align-items:baseline}
+.layer{display:inline-block;min-width:74px;text-align:center;font:600 11px system-ui;border-radius:10px;padding:1px 8px;border:1px solid var(--line)}
+.layer.onboard{background:var(--badge-bg);color:var(--badge-ink);border-color:var(--badge-line)}.layer.center{background:var(--notice-bg);color:var(--ink);border-color:var(--notice-line)}
+.check{display:flex;justify-content:space-between;gap:15px;font-size:12px;padding:6px 0;border-bottom:1px solid var(--line-soft)}.check b{color:var(--ok)}.check b.fail{color:var(--err-ink)}
+.posture{display:inline-flex;gap:6px;align-items:center;font-weight:700;font-size:13px}.posture i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;margin-top:10px}.legend span:before{content:'●';margin-right:6px;color:var(--dot)}
+.notice{background:var(--notice-bg);border-left:4px solid var(--notice-line);padding:16px;margin:22px 0;font-size:13px}.error{color:var(--err-ink)}
+table.plain{display:table;width:100%;border-collapse:collapse;font-size:13px}table.plain th{min-width:0}table.plain th,table.plain td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}[hidden]{display:none!important}.links{display:flex;gap:20px;flex-wrap:wrap}
+@media(max-width:900px){.grid,.two{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style></head><body>
+<nav><a href="sitl.html">MISSION COMPUTER LAB</a><a href="sitl.html">Single-drone flights</a><a href="fleet.html">Fleet ops</a><a href="../docs/guardian.html">Guardian design</a><a href="../docs/references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav>
+<main class="shell"><div class="eyebrow">GUARDIAN DRONES · SENSE · WARN · KEEP CLEAR · NON-KINETIC</div><h1>Guardians that see first, and never close in.</h1>
+<p class="lead">Drones on watch posts around a station extend its sensors, give the crew and the command center time to decide, keep themselves clear of intruders, and survive jamming and GNSS spoofing. Decisions are split by time budget: the drone acts alone within seconds, the station within its delegated authority, and the center decides everything beyond protection.</p>
+<div id="error" role="alert" class="error"></div>
+<div class="metrics" id="kpis"></div>
+<section class="section panel"><h2>Four designs against eight threats</h2><p class="sub" id="runsNote"></p>
+<div class="two"><div><h3>Guardians kept clear of every threat</h3><table class="heat" id="heatSafe" aria-label="Share of runs in which every guardian stayed outside the safe radius, by scenario and design"></table></div>
+<div><h3>Median warning before arrival</h3><table class="heat" id="heatWarn" aria-label="Median seconds between the station's RED alert and the threat reaching the protected zone"></table></div></div>
+<p class="sub">Cells are shaded by value in one hue; hover or focus a cell for the 10th to 90th percentile. "—" means the measure does not apply (no approaching threat). Station only: the station's ground sensor alone. Onboard only: drones sense and protect themselves, no network. Networked: drone sensing fused at the station, which gives every order. Hybrid (proposed): networked plus onboard reflexes, lost-link procedures and a navigation cross-check.</p>
+<div class="two"><div><h3>What else changed with the design</h3><table class="plain" id="extras"></table></div>
+<div><h3>Moving the posts: the layout experiment (hybrid)</h3><table class="plain" id="layouts"></table><p class="sub">The fast inbound object reaches the station in seconds; no decision logic saves a drone hovering over the impact point. Offsetting it does.</p></div></div></section>
+<section class="section"><div class="grid"><section class="panel"><h2>Replay any simulated run</h2>
+<div class="toolbar"><label for="scenario">Scenario</label><select id="scenario"></select><span class="posture" id="posture"></span></div>
+<div class="views" role="group" aria-label="Design" id="archButtons"></div>
+<canvas id="map" class="map" width="800" height="610" aria-label="Top-down replay of one seeded run: station, protected zone, guardians, threats and fused tracks"></canvas>
+<div class="controls"><button id="play" class="primary">Play</button><input id="time" type="range" min="0" max="1" value="0" aria-label="Replay time"><output id="clock">0 s</output></div>
+<div class="legend" id="mapLegend"></div><p class="sub" id="scenarioNote"></p></section>
+<section class="panel"><h2>Who decided what</h2><p class="sub">Seed 0 of the selected scenario and design. Onboard acts in under a second, the station within seconds, the center after its link delay and an operator's decision.</p><div id="events" class="events"></div></section></div></section>
+<section class="section"><div class="grid"><section class="panel"><h2>The same logic on real PX4: three guardians, one intruder</h2>
+<p class="sub">Three PX4 instances hold watch posts. A scripted intruder flies to where the carrier is parked. The first guardian reports it; the second is jammed as it arrives and keeps clear on its own; the station moves the carrier and the center authorises recovery.</p>
+<div class="metrics" id="sitlKpis"></div>
+<div class="views" role="group" aria-label="Flight view"><button id="view3d" aria-pressed="true">3D</button><button id="viewOverview" aria-pressed="false">Overview video</button><button id="viewClose" aria-pressed="false">Close-up video</button></div>
+<div id="scene3d" class="scene3d" aria-label="Interactive 3D replay of the guardian flight: drag to orbit, scroll to zoom"></div>
+<div id="videoPanel" hidden><video id="flightVideo" class="flight-video" controls muted playsinline preload="metadata"></video><p class="sub" id="videoNote"></p></div>
+<div class="controls"><button id="sitlPlay" class="primary">Play</button><input id="sitlTime" type="range" min="0" max="1" value="0" aria-label="Recorded flight time"><output id="sitlClock">0.0 s</output></div>
+<div class="legend" id="sitlLegend"></div></section>
+<section class="panel"><h2>Acceptance checks</h2><div id="checks"></div><h3>Decisions during the flight</h3><div id="sitlEvents" class="events"></div></section></div></section>
+<section class="section panel"><h2>Who may decide what</h2><table class="plain" id="authority"></table></section>
+<div class="notice">Non-kinetic by design: the guardians sense, report, warn, keep clear, shelter and fall back; nothing steers toward a threat, and the tests enforce it. Any response to the threat itself belongs to the center and to authorised systems outside this lab. The fast simulator is kinematic with illustrative round-number parameters, not the specification of any real sensor or aircraft. In the PX4 flight the intruder, sensors and jamming are simulated; the guardians' flight software, supervisors and PX4 are real.</div>
+<div class="links"><a href="../docs/guardian.html">Design and evaluation →</a><a href="fleet.html">Fleet from a moving carrier →</a><a href="../docs/sitl-guide.html">How to run it →</a></div><p class="sub" id="provenance"></p>
+</main><footer>Mission Computer Lab · WSL simulation portfolio · Guardian evaluation</footer>
+<script src="../artifacts/guardian/report-data.js"></script><script src="../artifacts/sitl-sample/report-data.js"></script><script src="vendor/three-0.147.0.min.js"></script><script src="vendor/OrbitControls-0.147.0.js"></script><script src="replay3d.js"></script><script src="guardian.js"></script></body></html>

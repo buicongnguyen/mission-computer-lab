@@ -8,9 +8,10 @@
   const at = (e, n, u) => new T.Vector3(e, u, -n);
   const DRONE_SCALE = 1.5;  // Drawn 1.5x so a 0.5 m airframe stays visible across a 14 m scene.
 
-  function droneModel(color) {
+  function droneModel(color, hostile) {
     const group = new T.Group();
-    const shell = new T.MeshStandardMaterial({ color: 0x30363b, roughness: 0.55, metalness: 0.35 });
+    // A hostile (simulated intruder) gets a red airframe so it never reads as one of the fleet.
+    const shell = new T.MeshStandardMaterial({ color: hostile ? 0xb3261e : 0x30363b, roughness: 0.55, metalness: 0.35 });
     group.add(new T.Mesh(new T.BoxGeometry(0.2, 0.07, 0.2), shell));
     const arm = new T.BoxGeometry(0.52, 0.025, 0.035);
     for (const angle of [Math.PI / 4, -Math.PI / 4]) { const m = new T.Mesh(arm, shell); m.rotation.y = angle; group.add(m); }
@@ -73,7 +74,7 @@
       this.world.traverse(o => { o.geometry?.dispose?.(); if (o.material && !o.material.shared) o.material.dispose?.(); });
       this.world.clear(); this.vehicles = []; this.carrier = null;
     }
-    /** data: {obstacles, markers, vehicles:[{name,color,samples:[{t,e,n,u,valid}],plans:[{t,points}]}], carrier, view} */
+    /** data: {obstacles, markers, zones, vehicles:[{name,color,hostile,ground,samples:[{t,e,n,u,valid}],plans:[{t,points}]}], carrier, view} */
     load(data) {
       this.clear();
       const rock = new T.MeshStandardMaterial({ color: 0xa4533f, roughness: 0.8 });
@@ -84,6 +85,10 @@
       for (const { e, n, radius = 0.6, color } of data.markers || []) {
         const m = new T.Mesh(new T.CylinderGeometry(radius, radius, 0.02, 40), new T.MeshStandardMaterial({ color }));
         m.position.copy(at(e, n, 0.011)); m.receiveShadow = true; this.world.add(m);
+      }
+      for (const { e, n, r, color, opacity = 0.28 } of data.zones || []) {  // Flat translucent areas, such as a jamming zone.
+        const m = new T.Mesh(new T.CircleGeometry(r, 64), new T.MeshBasicMaterial({ color, transparent: true, opacity, depthWrite: false }));
+        m.rotation.x = -Math.PI / 2; m.position.copy(at(e, n, 0.016)); this.world.add(m);
       }
       if (data.carrier) this.carrier = this.addCarrier(data.carrier);
       for (const v of data.vehicles) this.vehicles.push(this.addVehicle(v));
@@ -105,7 +110,7 @@
           new T.LineDashedMaterial({ color: 0x7ca1b3, dashSize: 0.35, gapSize: 0.25 }));
         line.computeLineDistances(); line.visible = false; this.world.add(line); return { t: plan.t, line };
       });
-      const model = droneModel(v.color); this.world.add(model);
+      const model = droneModel(v.color, v.hostile); this.world.add(model);
       return { ...v, trail, routes, model };
     }
     addCarrier(c) {

@@ -20,12 +20,18 @@ from evidence_contracts import read_records,flight_cycle_checks,bag_has_topics
 from perception import create_model
 from provenance import capture
 from security import provision,public_key_hex
-SCENARIOS=('nominal','camera_dropout','companion_crash','gps_loss','fleet_carrier')
+SCENARIOS=('nominal','camera_dropout','companion_crash','gps_loss','fleet_carrier','guardian_intruder')
+MULTI=('fleet_carrier','guardian_intruder')
 # Three vehicles launch from pads on a carrier; each flies its own leg at its own altitude layer.
 FLEET=[{'ns':'px4_0','pad':-1.1,'goal':(9,9),'altitude':3.},
        {'ns':'px4_1','pad':0.,'goal':(10,3),'altitude':4.},
        {'ns':'px4_2','pad':1.1,'goal':(-1,10),'altitude':5.}]
 CARRIER_START=(0.,-1.5);DECK=0.6
+sys.path.insert(0,str(ROOT/'integration'))
+import guardian_layout as GL
+from guardian import authorised
+# Guardians hold watch posts instead of flying inspection legs; the same launch and landing machinery applies.
+GUARDIAN_FLEET=[{'ns':g['ns'],'pad':g['pad'],'goal':g['post'],'altitude':g['altitude']} for g in GL.GUARDIANS]
 # Adapter nodes judge freshness on Gazebo's clock, as PX4 does: recording video can slow the simulation
 # below real time, and wall-clock freshness would then report healthy links as stale.
 SIM_TIME=['--ros-args','-p','use_sim_time:=true']
@@ -235,76 +241,88 @@ def resample(trace,times):
         out.append(trace[i] if trace and trace[0]['wall_time']<=t else None)
     return out
 
-def run_fleet(workspace,base_output,timeout,video=False,gui=False):
-    name='fleet_carrier';output=base_output/name
+def run_fleet(workspace,base_output,timeout,video=False,gui=False,name='fleet_carrier'):
+    """Three PX4 instances on a carrier: the fleet inspection legs, or the guardian scenario."""
+    guardian=name=='guardian_intruder';FLEET_=GUARDIAN_FLEET if guardian else FLEET;world='guardian' if guardian else 'fleet'
+    output=base_output/name
     if output.exists():raise RuntimeError(f'Output already exists: {output}. Choose a fresh --output directory.')
     output.mkdir(parents=True);stamp=time.time_ns()
     px4=workspace/'PX4-Autopilot';build=px4/'build/px4_sitl_default'
     env={k:v for k,v in os.environ.items() if not k.startswith('PX4_PARAM_')}
     env.update({'HEADLESS':'1','GZ_IP':'127.0.0.1','GZ_PARTITION':f'mission_{os.getpid()}_{name}',
-        'GZ_SIM_RESOURCE_PATH':str(px4/'Tools/simulation/gz/models'),'PX4_GZ_STANDALONE':'1','PX4_GZ_WORLD':'fleet',
+        'GZ_SIM_RESOURCE_PATH':str(px4/'Tools/simulation/gz/models'),'PX4_GZ_STANDALONE':'1','PX4_GZ_WORLD':world,
         'PX4_SYS_AUTOSTART':'4001','PX4_SIM_MODEL':'gz_x500',**{'PX4_PARAM_'+k:v for k,v in SITL_PARAMETERS.items()}})
     processes=Processes(output,env);error=None;launched=time.monotonic();recording=[];last_progress=0
-    spawns={v['ns']:[CARRIER_START[0]+v['pad'],CARRIER_START[1],DECK] for v in FLEET}
+    spawns={v['ns']:[CARRIER_START[0]+v['pad'],CARRIER_START[1],DECK] for v in FLEET_}
     try:
         agent_library_path=str(workspace/'agent-install/lib')+':'+env.get('LD_LIBRARY_PATH','')
         processes.launch('agent',['env','LD_LIBRARY_PATH='+agent_library_path,
                                   str(workspace/'agent-install/bin/MicroXRCEAgent'),'udp4','-p','8888','-v','3'])
         processes.launch('gazebo',['gz','sim','-r','-s','-v','2','--headless-rendering',
-                                   str(ROOT/'simulation/worlds/fleet.sdf')],cwd=output)
+                                   str(ROOT/f'simulation/worlds/{world}.sdf')],cwd=output)
         # One PX4 per airframe: instance N attaches to x500_N, uses DDS namespace px4_N and system ID N+1.
-        for i,v in enumerate(FLEET):
+        for i,v in enumerate(FLEET_):
             run_dir=workspace/'runs'/f'{name}-{v["ns"]}-{stamp}';run_dir.mkdir(parents=True)
             processes.launch(f'px4_{i}',['env',f'PX4_GZ_MODEL_NAME=x500_{i}',f'PX4_UXRCE_DDS_NS={v["ns"]}',
                                          str(build/'bin/px4'),'-i',str(i),'-d',str(build/'etc'),'-w',str(run_dir)])
             time.sleep(1)
         processes.launch('gcs',[sys.executable,str(ROOT/'integration/gcs_heartbeat.py'),
-                                '--ports',','.join(str(18570+i) for i in range(len(FLEET)))])
+                                '--ports',','.join(str(18570+i) for i in range(len(FLEET_)))])
         if gui:processes.launch('gui',['gz','sim','-g'])
         startup_deadline=time.monotonic()+60
-        while not all('Startup script returned successfully' in (output/f'px4_{i}.log').read_text() for i in range(len(FLEET))):
+        while not all('Startup script returned successfully' in (output/f'px4_{i}.log').read_text() for i in range(len(FLEET_))):
             if time.monotonic()>startup_deadline:raise RuntimeError('PX4 startup timeout')
             if any(p.poll() is not None for n,p in processes.children if n!='gui'):raise RuntimeError('Startup process exited')
             time.sleep(0.2)
         with (output/'parameters.log').open('w') as parameter_log:
-            for i in range(len(FLEET)):
+            for i in range(len(FLEET_)):
                 for parameter,value in SITL_PARAMETERS.items():
                     for action in (['set',parameter,value],['show',parameter]):
                         subprocess.run([str(build/'bin/px4-param'),'--instance',str(i),*action],env=env,
                                        stdout=parameter_log,stderr=subprocess.STDOUT,check=True,timeout=5)
         # The carrier's odometry and drive command cross between Gazebo and ROS 2 through the bridge.
+        intruder_topics=['/model/intruder/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
+                         '/model/intruder/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist'] if guardian else []
         processes.launch('bridge',['ros2','run','ros_gz_bridge','parameter_bridge',CLOCK_BRIDGE,
                                    '/model/carrier/odometry@nav_msgs/msg/Odometry[gz.msgs.Odometry',
-                                   '/model/carrier/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist'])
+                                   '/model/carrier/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist',*intruder_topics])
         if video:
-            for file,service in (('flight.mp4','/overview/record_video'),('deck.mp4','/deck/record_video')):
+            cameras=((('flight.mp4','/overview/record_video'),('close.mp4','/close/record_video')) if guardian else
+                     (('flight.mp4','/overview/record_video'),('deck.mp4','/deck/record_video')))
+            for file,service in cameras:
                 record_video(env,output/file,service);recording.append((file,service))
         model=output/'detector.onnx';create_model(model);release_key=Ed25519PrivateKey.generate()
         provision(model,release_key);trust_anchor=workspace/'runs'/f'{name}-trust-anchor-{stamp}.pub'
         trust_anchor.write_text(public_key_hex(release_key)+'\n');del release_key
         model_sha256=hashlib.sha256(model.read_bytes()).hexdigest()
-        for i,v in enumerate(FLEET):
+        if guardian:
+            # The environment (intruder, sensors, jammed link) and the center are stand-ins, not software under test.
+            processes.launch('world',[sys.executable,str(ROOT/'integration/guardian_world_node.py'),'--log',str(output/'world.jsonl'),
+                                      '--carrier',*[str(c) for c in CARRIER_START],'--deck',str(DECK),*SIM_TIME])
+            processes.launch('center',[sys.executable,str(ROOT/'integration/center_node.py'),'--log',str(output/'center.jsonl'),*SIM_TIME])
+        for i,v in enumerate(FLEET_):
             ns=v['ns'];spawn=[str(c) for c in spawns[ns]]
             processes.launch(f'observer_{ns}',[sys.executable,str(ROOT/'integration/observer_node.py'),'--ns',ns,
                                                '--log',str(output/f'observer_{ns}.jsonl')])
             processes.launch(f'payload_{ns}',[sys.executable,str(ROOT/'integration/payload_node.py'),'--ns',ns,'--spawn',*spawn,*SIM_TIME])
             processes.launch(f'perception_{ns}',[sys.executable,str(ROOT/'integration/perception_node.py'),'--ns',ns,
                              '--model',str(model),'--public-key',str(trust_anchor),'--log',str(output/f'perception_{ns}.jsonl')])
-            processes.launch(f'mission_{ns}',[sys.executable,str(ROOT/'integration/fleet_mission_node.py'),'--allow-sitl',
+            processes.launch(f'mission_{ns}',[sys.executable,str(ROOT/f'integration/{"guardian" if guardian else "fleet"}_mission_node.py'),'--allow-sitl',
                              '--ns',ns,'--spawn',*spawn,'--goal',*[str(g) for g in v['goal']],'--altitude',str(v['altitude']),
                              '--pad',str(v['pad']),'--system-id',str(i+1),'--model-sha256',model_sha256,
                              '--log',str(output/f'mission_{ns}.jsonl'),*SIM_TIME])
-        processes.launch('station',[sys.executable,str(ROOT/'integration/fleet_station_node.py'),
-                                    '--drones',','.join(v['ns'] for v in FLEET),'--log',str(output/'station.jsonl'),*SIM_TIME])
+        processes.launch('station',[sys.executable,str(ROOT/f'integration/{"guardian" if guardian else "fleet"}_station_node.py'),
+                                    '--drones',','.join(v['ns'] for v in FLEET_),'--log',str(output/'station.jsonl'),*SIM_TIME])
+        station_topics=['/station/uplink','/center/decision','/model/intruder/odometry'] if guardian else ['/fleet/clearance']
         processes.launch('rosbag',['ros2','bag','record','-o',str(output/'rosbag'),
-                                   *[f'/{v["ns"]}/mission/decision' for v in FLEET],'/fleet/clearance','/model/carrier/odometry'])
+                                   *[f'/{v["ns"]}/mission/decision' for v in FLEET_],*station_topics,'/model/carrier/odometry'])
         while time.monotonic()-launched<timeout:
             time.sleep(0.5)
             failures=[n for n,p in processes.children if p.poll() is not None and n!='gui']
             if failures:raise RuntimeError('Processes exited: '+', '.join(failures))
             station=read_records(output/'station.jsonl',live=True)
             touchdowns={r['drone'] for r in station if r['kind']=='touchdown'}
-            if touchdowns=={v['ns'] for v in FLEET}:
+            if touchdowns=={v['ns'] for v in FLEET_}:
                 time.sleep(3);break  # Let the carrier stop and the logs settle.
             if time.monotonic()-last_progress>15:
                 last_progress=time.monotonic();carrier=next((r for r in reversed(station) if r['kind']=='carrier'),None)
@@ -328,7 +346,7 @@ def run_fleet(workspace,base_output,timeout,video=False,gui=False):
     carrier=[r for r in station if r['kind']=='carrier'];grants=[r for r in station if r['kind']=='clearance']
     touchdowns={r['drone']:r for r in station if r['kind']=='touchdown'}
     checks={};vehicles=[]
-    for v in FLEET:
+    for v in FLEET_:
         ns=v['ns'];spawn=spawns[ns]
         records=read_records(output/f'observer_{ns}.jsonl');mission_records=read_records(output/f'mission_{ns}.jsonl')
         statuses=[r for r in records if r['kind']=='status']
@@ -341,11 +359,14 @@ def run_fleet(workspace,base_output,timeout,video=False,gui=False):
                        for x,y,r in OBSTACLES),default=0.)
         checks[f'{ns}_offboard_entered']=any(s['nav_state']==14 and s['arming_state']==2 for s in statuses)
         checks[f'{ns}_takeoff_observed']=max((t['u'] for t in trace),default=0.)>2.
-        checks[f'{ns}_goal_reached']=bool(inspect and math.dist(inspect['position'][:2],v['goal'])<0.6)
+        if guardian:
+            watch=next((p for p in phases if p['phase']=='watch'),None)
+            checks[f'{ns}_on_watch']=bool(watch and math.dist(watch['position'][:2],v['goal'])<0.6)
+        else:checks[f'{ns}_goal_reached']=bool(inspect and math.dist(inspect['position'][:2],v['goal'])<0.6)
         checks[f'{ns}_returned_to_carrier']='rendezvous' in names and 'descend' in names
         checks[f'{ns}_landed_on_pad']=bool(touchdown and touchdown['pad_error'] is not None and touchdown['pad_error']<0.4
                                            and abs(touchdown['position'][2]-DECK)<0.35)
-        checks[f'{ns}_carrier_moving_at_touchdown']=bool(touchdown and touchdown['carrier'] and touchdown['carrier']['speed']>0.15)
+        if not guardian:checks[f'{ns}_carrier_moving_at_touchdown']=bool(touchdown and touchdown['carrier'] and touchdown['carrier']['speed']>0.15)
         checks[f'{ns}_disarmed_at_end']=bool(statuses and statuses[-1]['arming_state']==1)
         checks[f'{ns}_no_failsafe']=not any(s['failsafe'] for s in statuses)
         checks[f'{ns}_obstacle_clearance']=clearance>0.5
@@ -353,7 +374,8 @@ def run_fleet(workspace,base_output,timeout,video=False,gui=False):
                          'plan':next((r for r in mission_records if r['kind']=='plan'),None),
                          'replans':[r for r in mission_records if r['kind']=='replan'],
                          'transitions':[r for r in mission_records if r['kind']=='transition'],
-                         'touchdown':touchdown,'min_clearance_m':clearance})
+                         'touchdown':touchdown,'min_clearance_m':clearance,
+                         'guardian':[r for r in mission_records if r['kind']=='guardian']})
     # Separation from the independent observers, time-aligned at 5 Hz while at least two are airborne.
     times=[t['wall_time'] for t in vehicles[0]['trace']][::2] if vehicles and vehicles[0]['trace'] else []
     tracks=[resample(v['trace'],times) for v in vehicles];separations=[]
@@ -363,18 +385,74 @@ def run_fleet(workspace,base_output,timeout,video=False,gui=False):
     min_separation=min(separations) if separations else None
     lands=[g for g in grants if g['grant']=='land']
     checks['fleet_min_separation']=min_separation is not None and min_separation>1.0
-    checks['landings_sequenced']=len(lands)==len(FLEET) and all(
+    checks['landings_sequenced']=len(lands)==len(FLEET_) and all(
         lands[k-1]['drone'] in touchdowns and lands[k]['wall_time']>=touchdowns[lands[k-1]['drone']]['wall_time'] for k in range(1,len(lands)))
-    checks['carrier_moved']=bool(carrier) and carrier[-1]['e']-carrier[0]['e']>3.
-    checks['rosbag_recorded']=bag_has_topics(output/'rosbag',[f'/{v["ns"]}/mission/decision' for v in FLEET]+['/fleet/clearance'])
+    if not guardian:checks['carrier_moved']=bool(carrier) and carrier[-1]['e']-carrier[0]['e']>3.
+    checks['rosbag_recorded']=bag_has_topics(output/'rosbag',[f'/{v["ns"]}/mission/decision' for v in FLEET_]+
+                                             (['/station/uplink','/center/decision'] if guardian else ['/fleet/clearance']))
     checks['no_runner_error']=error is None
+    extra=guardian_checks(output,station,vehicles,carrier,checks) if guardian else {}
     result={'scenario':name,'passed':all(checks.values()),'checks':checks,'error':error,
             'duration_wall_s':round(time.monotonic()-launched,2),'vehicles':vehicles,'carrier':carrier,'clearances':grants,
-            'min_separation_m':min_separation,'deck_height_m':DECK,
-            'videos':{k:f for k,f in (('overview','flight.mp4'),('deck','deck.mp4')) if (output/f).is_file()}}
+            'min_separation_m':min_separation,'deck_height_m':DECK,**extra,
+            'videos':{k:f for k,f in (('overview','flight.mp4'),('deck','deck.mp4'),('close','close.mp4')) if (output/f).is_file()}}
     (output/'result.json').write_text(json.dumps(result,indent=2,allow_nan=False),encoding='utf-8')
     print(name,'PASS' if result['passed'] else 'FAIL',json.dumps(checks),error or '',flush=True)
     return result
+
+def guardian_checks(output,station,vehicles,carrier,checks):
+    """Acceptance for the guardian scenario, from the environment's truth log, the station and the vehicles."""
+    world=read_records(output/'world.jsonl');center=read_records(output/'center.jsonl')
+    intruder=[r for r in world if r['kind']=='intruder'];start=next((r for r in world if r['kind']=='intruder_start'),None)
+    posture=[r for r in station if r['kind']=='posture'];orders=[r for r in station if r['kind']=='order']
+    red=next((r for r in posture if r['state']=='RED'),None);relocate=next((r for r in station if r['kind']=='relocate'),None)
+    recovery=next((r for r in station if r['kind']=='recovery'),None);decisions=[r for r in station if r['kind']=='center_decision']
+    checks['intruder_flew']=bool(start and len(intruder)>50 and intruder[-1]['p'][1]<GL.INTRUDER['aim'][1]-2)
+    checks['threat_confirmed']=any(r['kind']=='confirmed' for r in station)
+    # Where the intruder was at each moment: carrier and vehicle samples are matched on wall time.
+    track=[{'wall_time':r['wall_time'],'e':r['p'][0],'n':r['p'][1],'u':r['p'][2]} for r in intruder]
+    ctrack=resample(track,[c['wall_time'] for c in carrier]);station_miss=math.inf;arrival=None;closest=(math.inf,None)
+    for c,q in zip(carrier,ctrack):
+        if q is None:continue
+        d=math.hypot(q['e']-c['e'],q['n']-c['n']);station_miss=min(station_miss,d)
+        if d<closest[0]:closest=(d,c['wall_time'])
+        if arrival is None and d<GL.CFG.protect_radius:arrival=c['wall_time']
+    arrival=arrival or closest[1]
+    # Warning in simulated seconds: recording runs the simulation below real time, so wall time would overstate it.
+    sim_at=lambda wall:min(intruder,key=lambda r:abs(r['wall_time']-wall))['t'] if intruder else None
+    warning=None if red is None or arrival is None else sim_at(arrival)-red['t']
+    checks['red_before_arrival']=warning is not None and warning>0
+    checks['carrier_relocated_clear']=bool(relocate) and station_miss>=GL.CFG.protect_radius
+    separations={}
+    for v in vehicles:
+        q=resample(track,[t['wall_time'] for t in v['trace']])
+        d=[math.dist((t['e'],t['n'],t['u']),(p['e'],p['n'],p['u'])) for t,p in zip(v['trace'],q) if p and t['valid'] and t['u']>DECK+0.5]
+        separations[v['ns']]=min(d) if d else None
+    checks['guardians_kept_clear']=all(s is not None and s>=GL.CFG.safe_radius for s in separations.values())
+    jammed=GL.GUARDIANS[0]['ns'];other=[g['ns'] for g in GL.GUARDIANS[1:]]
+    alone=[r for v in vehicles if v['ns']==jammed for r in v['guardian'] if r['layer']=='onboard' and
+           (r['link_age'] or 0)>GL.CFG.lost_link]
+    checks['jammed_guardian_acted_alone']=(any(r['action']=='keep_clear' for r in alone) and
+                                          any(r['kind']=='dropped' and r['ns']==jammed for r in world))
+    checks['station_ordered_keep_clear']=any(r['action']=='keep_clear' and r['layer']=='station'
+                                             for v in vehicles if v['ns'] in other for r in v['guardian'])
+    closing=[]
+    for r in orders+[r for v in vehicles for r in v['guardian'] if r['layer']=='onboard']:
+        if r['action']=='keep_clear' and r.get('threats'):
+            if any(math.dist(r['target'],q)<math.dist(r['own'],q)-1e-6 for q in r['threats']):closing.append(r)
+    checks['never_closed_on_threat']=not closing and any(r['action']=='keep_clear' for r in orders)
+    # An order relaying a center decision (recovery) carries the center's authority, not the station's.
+    decided=[(r['action'],r['layer']) for v in vehicles for r in v['guardian']]+[(r['action'],r.get('authority') or 'station') for r in orders]
+    checks['authority_respected']=all(authorised(a,l) for a,l in decided)
+    checks['recovery_by_center']=bool(recovery and recovery['by']=='center' and decisions and
+                                      recovery['wall_time']>=decisions[0]['wall_time'])
+    return {'intruder':[{**t,'jamming':r['jamming']} for t,r in list(zip(track,intruder))[::4]],
+            'intruder_start_wall_time':start and start['wall_time'],'warning_s':warning,'station_miss_m':station_miss,
+            'guardian_separation_m':separations,'posture':posture,'orders':orders,'relocation':[r for r in station if r['kind'] in ('relocate','relocated')],
+            'center':[r for r in center if r['kind']=='decision'],'recovery':recovery,
+            'jamming':[r for r in world if r['kind'] in ('intruder_start','jammer_off','link')],'layout':{'guardians':GL.GUARDIANS,
+            'intruder':GL.INTRUDER,'jammer':GL.JAMMER,'relocate':GL.RELOCATE,'safe_radius':GL.CFG.safe_radius,
+            'clear_radius':GL.CFG.clear_radius,'protect_radius':GL.CFG.protect_radius}}
 
 def main():
     # Children run in their own sessions, so a closed terminal or a CI cancel must still reach the
@@ -394,7 +472,7 @@ def main():
     # The guard is wall-clock; recording runs the simulation at roughly 0.4-0.6x real time.
     timeout=args.timeout*(2.5 if args.video else 1.)
     for name in (SCENARIOS if args.all else (args.scenario,)):
-        if name=='fleet_carrier':results.append(run_fleet(workspace,out,max(timeout,900.),video=args.video,gui=args.gui))
+        if name in MULTI:results.append(run_fleet(workspace,out,max(timeout,900.),video=args.video,gui=args.gui,name=name))
         else:results.append(run_scenario(name,workspace,out,timeout,video=args.video,gui=args.gui))
         if not results[-1]['passed']:break
     (out/'results.json').write_text(json.dumps(results,indent=2,allow_nan=False))

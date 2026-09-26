@@ -33,7 +33,7 @@ jobs:
         run: |
           mkdir -p _site/artifacts
           cp -r web docs _site/
-          cp -r artifacts/sample artifacts/sitl-sample _site/artifacts/
+          cp -r artifacts/sample artifacts/sitl-sample artifacts/guardian _site/artifacts/
           touch _site/.nojekyll
           printf '%s\n' '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=web/sitl.html"><title>Mission Computer Lab</title><a href="web/sitl.html">PX4 flight replay</a>' > _site/index.html
       - name: Check links against the published layout, not the repository tree

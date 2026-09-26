@@ -1,6 +1,6 @@
 # Logic and code review record
 
-Review dates: 23 September 2026 (passes 1–3), 24 September 2026 (passes 4 and 5) and 25 September 2026 (pass 6). Scope: the WSL mission-computer lab, including C++ policy contracts, Python adapters and transport, flight orchestration, evidence publication, replays and guides. Six sequential passes were performed over the same implementation; later passes also reviewed earlier fixes. This is a local engineering review, not a flight qualification or a claim that all possible defects have been eliminated.
+Review dates: 23 September 2026 (passes 1–3), 24 September 2026 (passes 4 and 5), 25 September 2026 (pass 6) and 26 September 2026 (pass 7). Scope: the WSL mission-computer lab, including C++ policy contracts, Python adapters and transport, flight orchestration, evidence publication, replays and guides. Seven sequential passes were performed over the same implementation; later passes also reviewed earlier fixes. This is a local engineering review, not a flight qualification or a claim that all possible defects have been eliminated.
 
 The current source contains the fixes below. The measured reference artifacts identify runtime inputs by SHA-256, including source changes that were uncommitted when tested.
 
@@ -143,11 +143,44 @@ Added in this pass: `simulation/worlds/fleet.sdf` (carrier with three pads, a de
 
 Not changed, and recorded as remaining work: the ROS contract tests still need a ROS container job before CI can run them, the moving-deck GNSS behavior above needs an aircraft-level design before any re-launch from a moving carrier, and the station has no lost-link or authentication model.
 
+<a id="pass-7"></a>
+## Pass 7 — Guardian drones: evaluation and a real-PX4 flight
+
+Review date: 26 September 2026. The request was to let drones act as guardians against an attacking drone or a missile from far away, cooperating with the station, the command center and their own autonomy. [The guardian design](guardian.md) evaluates that idea, improves it twice (non-kinetic protection with authority split by time budget), and records the evaluation. This pass added `tools/guardian.py` (the decision logic), `tools/guardian_sim.py` (four designs against eight threats over 40 seeds), the guardian PX4 scenario and its nodes, and [the guardian page](../web/guardian.html). Every defect below was found in a failing run or test and traced before it was fixed.
+
+| Finding | Why it mattered | Fix and regression evidence |
+|---|---|---|
+| High: a fixed-gain filter with a two-point velocity start | An 18 m/s intruder read as 10–60 m/s and its heading flipped, so RED came seconds before arrival instead of a minute | Constant-velocity Kalman filter weighted by each sensor's noise. `test_confirms_and_estimates_a_straight_target` requires the velocity within 4 m/s |
+| High: friendly association by nearest reported position | A threat passing close to a guardian was absorbed as that guardian and dropped from tracking, and the mismatch raised a false spoofing alarm | Each friendly claims only its nearest return; the rest are tracked. Covered by the spoofing and combined scenarios over 40 seeds |
+| High: keep-clear chattering | A guardian that moved far enough to clear the prediction was told to hold, stopped halfway and was back in conflict; in the swarm and combined scenarios guardians came within 20–40 m of intruders | An episode latch keeps the move until the conflict has passed and re-plans instead of holding. `test_episode_is_kept_and_replanned_but_never_dropped_to_hold` |
+| Medium: straight-line prediction against a weaving intruder | At long range a 20° weave misses the station by hundreds of metres, so RED waited for the last few hundred metres | Inbound also means heading within 25° of the station. `test_weaving_drone_heading_roughly_inbound_counts` |
+| Medium: false RED alerts from clutter and birds | Clutter lined up into fast tracks; a bird's noisy speed estimate hovering around the slow-track threshold kept the persistence timer running because the heading hysteresis also bridged the bird gate | A young track may only take plausibly reachable detections; RED needs support beyond confirmation; fast tracks need a steady speed estimate; the bird gate is judged on every update. `test_clutter_does_not_confirm_implausible_tracks`, `test_fast_track_is_danger_at_once_only_with_a_steady_speed`, `test_bird_whose_speed_estimate_hovers_at_the_threshold_never_raises_red`; 0 false alerts in 160 bird runs |
+| Medium: lost-link return at ground level | A jammed guardian flew home at the station's height, through the intruders' altitude band | The rally point keeps cruise altitude |
+| Medium: the station and center nodes crashed on their first report | A log field named `kind` collided with the logger's own argument, the same pitfall as the fleet station; found on the first PX4 guardian run | Fields renamed; `integration/test_guardian_nodes.py` now builds the real station, center and environment nodes and drives them without Gazebo, so this class of fault fails in seconds |
+| Low: the authority check misjudged relayed recovery | Station orders relaying the center's `recover` were checked as station decisions | Orders carry the deciding authority; `test_recovery_waits_for_the_center_and_carries_its_authority` |
+| Low: warning time and page data | The PX4 warning was measured in wall time (the simulation ran below real time); the replay payload was 3.5 MB; the evaluation's artifacts were ignored by git and not copied to Pages | Simulated seconds; a columnar replay format of 0.8 MB; `artifacts/guardian/` is tracked and published |
+
+Recorded, not changed: in the combined scenario one hybrid run in 40 came within 70 m of an intruder (safe radius 75 m), when the overwatch above the station was caught between two intruders converging on it; the layout experiment shows that offsetting the overwatch removes that case. The fast inbound object cannot be escaped by a drone hovering over its impact point with under three seconds of warning; that is a limit of physics and layout, not of the decision logic.
+
+| Pass 7 verification | Observed result |
+|---|---|
+| C++ Release build and CTest | 1/1 passed |
+| Lightweight Python tests | 56/56 passed, including 21 for the guardian logic and its simulator; also under `python -O` |
+| ROS boundary and runner tests | 32/32 passed, including seven that build the real guardian station, center and environment nodes |
+| Fast scenario matrix / signed-artifact cases | 8/8 passed / 6/6 behaved as specified |
+| Guardian evaluation | 4 designs × 8 scenarios × 40 seeds, plus 240 layout runs, on Linux with Python 3.10 in about 30 s. Every run keeps both invariants; 0 false alerts in 160 bird runs; the report's hashes match `tools/guardian.py` and `tools/guardian_sim.py` |
+| PX4/Gazebo/ROS matrix with video on the final code | 6/6 passed; `inputs_unchanged: true`; all 46 recorded source hashes match the published files, including every guardian file |
+| Guardian flight | 38/38 checks; 15.9 simulated seconds from RED to arrival; closest guardian 4.54 m from the intruder; carrier 8.0 m clear after relocating. `px4_0` lost its link at 63.1 s, held and then kept clear on its own, and regained its link at 77.1 s after its move took it out of the jamming zone; recovery followed the center's decision |
+| Fleet flight | 32/32 checks; touchdown 7.0, 0.7 and 2.4 cm from the pads; closest approach 1.71 m |
+| Recorded video | Eight recordings (four single-drone, fleet overview and deck, guardian overview and close-up); frames extracted and inspected |
+| Web checks | Seven Mermaid diagrams parse; four replay state suites, the theme test and link checks pass on the repository and on the assembled Pages layout; the guardian page, its 3D view and the design document were inspected in headless Edge |
+
 ## Diagrams and how to read them
 
 | Document | Diagram | What it explains |
 |---|---|---|
 | [Architecture](architecture.md) | Fast-harness data-flow chart | Sensor, estimator, planner, supervisor and evidence paths; bounding boxes are observations rather than steering commands |
+| [Guardian design](guardian.md) | Authority data-flow chart | Center, station and guardians: what each layer sends and decides |
 | [Architecture](architecture.md) | Fleet data-flow chart | Station, carrier and three per-vehicle stacks; what flows to and from the station |
 | [Architecture](architecture.md) | C++ state graph | INIT, ACTIVE, HOLD, LAND and COMPLETE; the ROS handoff boundary is explained alongside it |
 | [SITL runbook](sitl-guide.md) | Mermaid sequence diagram | Process startup, typed data, supervision, terminal handoff, crash fallback and independent flight observations |
@@ -169,7 +202,7 @@ bash scripts/test_integration.sh
 .venv/bin/python -O -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-Expected: one CTest executable passes; 35 lightweight Python tests pass; eight fast scenarios pass; six security experiments behave as specified; 25 integration tests pass. Running the Python cases with `-O` also verifies evidence gates do not rely on removable `assert` statements. These commands do not start a physical aircraft.
+Expected: one CTest executable passes; 56 lightweight Python tests pass; eight fast scenarios pass; six security experiments behave as specified; 32 integration tests pass. Running the Python cases with `-O` also verifies evidence gates do not rely on removable `assert` statements. These commands do not start a physical aircraft.
 
 For the actual flight matrix, use a fresh Linux output directory and retain it for later inspection:
 
@@ -180,7 +213,7 @@ bash scripts/run_sitl.sh --all --video --output "$REVIEW_RUN"
 echo "Flight runner exit code: $?"
 ```
 
-Expect five PASS lines (four single-drone scenarios, then the fleet) and exit code zero. Do not publish if the runner failed. `results.json` contains detailed named checks; `provenance.json` must have `inputs_unchanged: true`. If a run fails, inspect its scenario `result.json`, `runner-error.log` if present, application logs and independent `observer.jsonl` before making a new attempt. Process cleanup still runs on a caught failure. Keep failed runs for comparison.
+Expect six PASS lines (four single-drone scenarios, the fleet, then the guardians) and exit code zero. Do not publish if the runner failed. `results.json` contains detailed named checks; `provenance.json` must have `inputs_unchanged: true`. If a run fails, inspect its scenario `result.json`, `runner-error.log` if present, application logs and independent `observer.jsonl` before making a new attempt. Process cleanup still runs on a caught failure. Keep failed runs for comparison.
 
 After a successful full matrix:
 
@@ -198,6 +231,7 @@ node tests/test_diagrams.mjs
 node tests/test_dashboard.mjs
 node tests/test_sitl_dashboard.mjs
 node tests/test_fleet_dashboard.mjs
+node tests/test_guardian_dashboard.mjs
 node tests/test_theme.mjs
 npm audit
 ```
@@ -209,7 +243,7 @@ Back in Ubuntu WSL:
 git diff --check
 ```
 
-Expect every Mermaid definition to parse, offline bundle checks to pass, all three replay state suites and the theme test to pass, and all local HTML links and anchors to resolve. The audit result can change as new advisories are published.
+Expect every Mermaid definition to parse, offline bundle checks to pass, all four replay state suites and the theme test to pass, and all local HTML links and anchors to resolve. The audit result can change as new advisories are published.
 
 ## Recorded verification and remaining boundaries
 

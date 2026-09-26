@@ -171,7 +171,9 @@ class FleetContracts(unittest.TestCase):
             clear={d:{'launch':False,'land':False} for d in self.DRONES},flown=set(),landed=set(),last_launch=-1e9,
             moving=False,parked=False,min_separation=math.inf,last_log=0.,log=Mock(),drive=Mock(),clearance=Mock(),
             args=SimpleNamespace(speed=0.3,max_east=14.),clock=0.)
-        s.now=lambda:s.clock;s.grant=MethodType(Station.grant,s)
+        s.now=lambda:s.clock
+        for method in ('grant','sequence_launches','grant_landings','carrier_speed','publish_clearance','record'):
+            setattr(s,method,MethodType(getattr(Station,method),s))
         return s
     def report(self,s,drone,phase='preflight',z=0.6,armed=False):
         state={'phase':phase,'position':[0.,0.,z],'armed':armed,'layer':3.+self.DRONES.index(drone),'pad_error':0.1}

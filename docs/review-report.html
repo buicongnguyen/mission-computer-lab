@@ -33,8 +33,8 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 
 /* Paper is always light, whatever theme is on screen. */
 @media print{:root,:root:not([data-theme="light"]),:root[data-theme="dark"]{color-scheme:light;--bg:#fff;--surface:#fff;--surface-2:#e7f1f3;--code-bg:#eef3f5;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--quote-bg:#eef8f7;--quote-ink:#31505b;--pre-bg:#102c3b;--pre-ink:#e3f3f5}}
-</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flight replay</a><a href="../web/fleet.html">Fleet ops</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>Logic and code review record</h1>
-<p>Review dates: 23 September 2026 (passes 1–3), 24 September 2026 (passes 4 and 5) and 25 September 2026 (pass 6). Scope: the WSL mission-computer lab, including C++ policy contracts, Python adapters and transport, flight orchestration, evidence publication, replays and guides. Six sequential passes were performed over the same implementation; later passes also reviewed earlier fixes. This is a local engineering review, not a flight qualification or a claim that all possible defects have been eliminated.</p>
+</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet ops</a><a href="../web/guardian.html">Guardians</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>Logic and code review record</h1>
+<p>Review dates: 23 September 2026 (passes 1–3), 24 September 2026 (passes 4 and 5), 25 September 2026 (pass 6) and 26 September 2026 (pass 7). Scope: the WSL mission-computer lab, including C++ policy contracts, Python adapters and transport, flight orchestration, evidence publication, replays and guides. Seven sequential passes were performed over the same implementation; later passes also reviewed earlier fixes. This is a local engineering review, not a flight qualification or a claim that all possible defects have been eliminated.</p>
 <p>The current source contains the fixes below. The measured reference artifacts identify runtime inputs by SHA-256, including source changes that were uncommitted when tested.</p>
 <h2>Pass 1 — Mission logic and control boundaries</h2>
 <p>Followed the flow from source timestamps through mission health, C++ evaluation, arming, velocity publication and landing. Read the C++ state/range rules and its tests, then examined how the ROS adapter used them.</p>
@@ -443,6 +443,112 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 </tr>
 </tbody></table>
 <p>Not changed, and recorded as remaining work: the ROS contract tests still need a ROS container job before CI can run them, the moving-deck GNSS behavior above needs an aircraft-level design before any re-launch from a moving carrier, and the station has no lost-link or authentication model.</p>
+<p><a id="pass-7"></a></p>
+<h2>Pass 7 — Guardian drones: evaluation and a real-PX4 flight</h2>
+<p>Review date: 26 September 2026. The request was to let drones act as guardians against an attacking drone or a missile from far away, cooperating with the station, the command center and their own autonomy. <a href="guardian.html">The guardian design</a> evaluates that idea, improves it twice (non-kinetic protection with authority split by time budget), and records the evaluation. This pass added <code>tools/guardian.py</code> (the decision logic), <code>tools/guardian_sim.py</code> (four designs against eight threats over 40 seeds), the guardian PX4 scenario and its nodes, and <a href="../web/guardian.html">the guardian page</a>. Every defect below was found in a failing run or test and traced before it was fixed.</p>
+<table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Why it mattered</th>
+<th>Fix and regression evidence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>High: a fixed-gain filter with a two-point velocity start</td>
+<td>An 18 m/s intruder read as 10–60 m/s and its heading flipped, so RED came seconds before arrival instead of a minute</td>
+<td>Constant-velocity Kalman filter weighted by each sensor&#39;s noise. <code>test_confirms_and_estimates_a_straight_target</code> requires the velocity within 4 m/s</td>
+</tr>
+<tr>
+<td>High: friendly association by nearest reported position</td>
+<td>A threat passing close to a guardian was absorbed as that guardian and dropped from tracking, and the mismatch raised a false spoofing alarm</td>
+<td>Each friendly claims only its nearest return; the rest are tracked. Covered by the spoofing and combined scenarios over 40 seeds</td>
+</tr>
+<tr>
+<td>High: keep-clear chattering</td>
+<td>A guardian that moved far enough to clear the prediction was told to hold, stopped halfway and was back in conflict; in the swarm and combined scenarios guardians came within 20–40 m of intruders</td>
+<td>An episode latch keeps the move until the conflict has passed and re-plans instead of holding. <code>test_episode_is_kept_and_replanned_but_never_dropped_to_hold</code></td>
+</tr>
+<tr>
+<td>Medium: straight-line prediction against a weaving intruder</td>
+<td>At long range a 20° weave misses the station by hundreds of metres, so RED waited for the last few hundred metres</td>
+<td>Inbound also means heading within 25° of the station. <code>test_weaving_drone_heading_roughly_inbound_counts</code></td>
+</tr>
+<tr>
+<td>Medium: false RED alerts from clutter and birds</td>
+<td>Clutter lined up into fast tracks; a bird&#39;s noisy speed estimate hovering around the slow-track threshold kept the persistence timer running because the heading hysteresis also bridged the bird gate</td>
+<td>A young track may only take plausibly reachable detections; RED needs support beyond confirmation; fast tracks need a steady speed estimate; the bird gate is judged on every update. <code>test_clutter_does_not_confirm_implausible_tracks</code>, <code>test_fast_track_is_danger_at_once_only_with_a_steady_speed</code>, <code>test_bird_whose_speed_estimate_hovers_at_the_threshold_never_raises_red</code>; 0 false alerts in 160 bird runs</td>
+</tr>
+<tr>
+<td>Medium: lost-link return at ground level</td>
+<td>A jammed guardian flew home at the station&#39;s height, through the intruders&#39; altitude band</td>
+<td>The rally point keeps cruise altitude</td>
+</tr>
+<tr>
+<td>Medium: the station and center nodes crashed on their first report</td>
+<td>A log field named <code>kind</code> collided with the logger&#39;s own argument, the same pitfall as the fleet station; found on the first PX4 guardian run</td>
+<td>Fields renamed; <code>integration/test_guardian_nodes.py</code> now builds the real station, center and environment nodes and drives them without Gazebo, so this class of fault fails in seconds</td>
+</tr>
+<tr>
+<td>Low: the authority check misjudged relayed recovery</td>
+<td>Station orders relaying the center&#39;s <code>recover</code> were checked as station decisions</td>
+<td>Orders carry the deciding authority; <code>test_recovery_waits_for_the_center_and_carries_its_authority</code></td>
+</tr>
+<tr>
+<td>Low: warning time and page data</td>
+<td>The PX4 warning was measured in wall time (the simulation ran below real time); the replay payload was 3.5 MB; the evaluation&#39;s artifacts were ignored by git and not copied to Pages</td>
+<td>Simulated seconds; a columnar replay format of 0.8 MB; <code>artifacts/guardian/</code> is tracked and published</td>
+</tr>
+</tbody></table>
+<p>Recorded, not changed: in the combined scenario one hybrid run in 40 came within 70 m of an intruder (safe radius 75 m), when the overwatch above the station was caught between two intruders converging on it; the layout experiment shows that offsetting the overwatch removes that case. The fast inbound object cannot be escaped by a drone hovering over its impact point with under three seconds of warning; that is a limit of physics and layout, not of the decision logic.</p>
+<table>
+<thead>
+<tr>
+<th>Pass 7 verification</th>
+<th>Observed result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>C++ Release build and CTest</td>
+<td>1/1 passed</td>
+</tr>
+<tr>
+<td>Lightweight Python tests</td>
+<td>56/56 passed, including 21 for the guardian logic and its simulator; also under <code>python -O</code></td>
+</tr>
+<tr>
+<td>ROS boundary and runner tests</td>
+<td>32/32 passed, including seven that build the real guardian station, center and environment nodes</td>
+</tr>
+<tr>
+<td>Fast scenario matrix / signed-artifact cases</td>
+<td>8/8 passed / 6/6 behaved as specified</td>
+</tr>
+<tr>
+<td>Guardian evaluation</td>
+<td>4 designs × 8 scenarios × 40 seeds, plus 240 layout runs, on Linux with Python 3.10 in about 30 s. Every run keeps both invariants; 0 false alerts in 160 bird runs; the report&#39;s hashes match <code>tools/guardian.py</code> and <code>tools/guardian_sim.py</code></td>
+</tr>
+<tr>
+<td>PX4/Gazebo/ROS matrix with video on the final code</td>
+<td>6/6 passed; <code>inputs_unchanged: true</code>; all 46 recorded source hashes match the published files, including every guardian file</td>
+</tr>
+<tr>
+<td>Guardian flight</td>
+<td>38/38 checks; 15.9 simulated seconds from RED to arrival; closest guardian 4.54 m from the intruder; carrier 8.0 m clear after relocating. <code>px4_0</code> lost its link at 63.1 s, held and then kept clear on its own, and regained its link at 77.1 s after its move took it out of the jamming zone; recovery followed the center&#39;s decision</td>
+</tr>
+<tr>
+<td>Fleet flight</td>
+<td>32/32 checks; touchdown 7.0, 0.7 and 2.4 cm from the pads; closest approach 1.71 m</td>
+</tr>
+<tr>
+<td>Recorded video</td>
+<td>Eight recordings (four single-drone, fleet overview and deck, guardian overview and close-up); frames extracted and inspected</td>
+</tr>
+<tr>
+<td>Web checks</td>
+<td>Seven Mermaid diagrams parse; four replay state suites, the theme test and link checks pass on the repository and on the assembled Pages layout; the guardian page, its 3D view and the design document were inspected in headless Edge</td>
+</tr>
+</tbody></table>
 <h2>Diagrams and how to read them</h2>
 <table>
 <thead>
@@ -456,6 +562,11 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 <td><a href="architecture.html">Architecture</a></td>
 <td>Fast-harness data-flow chart</td>
 <td>Sensor, estimator, planner, supervisor and evidence paths; bounding boxes are observations rather than steering commands</td>
+</tr>
+<tr>
+<td><a href="guardian.html">Guardian design</a></td>
+<td>Authority data-flow chart</td>
+<td>Center, station and guardians: what each layer sends and decides</td>
 </tr>
 <tr>
 <td><a href="architecture.html">Architecture</a></td>
@@ -492,14 +603,14 @@ bash scripts/run_all.sh
 bash scripts/test_integration.sh
 .venv/bin/python -O -m unittest discover -s tests -p &#39;test_*.py&#39; -v
 </code></pre>
-<p>Expected: one CTest executable passes; 35 lightweight Python tests pass; eight fast scenarios pass; six security experiments behave as specified; 25 integration tests pass. Running the Python cases with <code>-O</code> also verifies evidence gates do not rely on removable <code>assert</code> statements. These commands do not start a physical aircraft.</p>
+<p>Expected: one CTest executable passes; 56 lightweight Python tests pass; eight fast scenarios pass; six security experiments behave as specified; 32 integration tests pass. Running the Python cases with <code>-O</code> also verifies evidence gates do not rely on removable <code>assert</code> statements. These commands do not start a physical aircraft.</p>
 <p>For the actual flight matrix, use a fresh Linux output directory and retain it for later inspection:</p>
 <pre><code class="language-bash">export SITL_WORKSPACE=&quot;$HOME/work/mission-computer-lab&quot;
 REVIEW_RUN=&quot;$SITL_WORKSPACE/retests/review-$(date +%Y%m%d-%H%M%S)&quot;
 bash scripts/run_sitl.sh --all --video --output &quot;$REVIEW_RUN&quot;
 echo &quot;Flight runner exit code: $?&quot;
 </code></pre>
-<p>Expect five PASS lines (four single-drone scenarios, then the fleet) and exit code zero. Do not publish if the runner failed. <code>results.json</code> contains detailed named checks; <code>provenance.json</code> must have <code>inputs_unchanged: true</code>. If a run fails, inspect its scenario <code>result.json</code>, <code>runner-error.log</code> if present, application logs and independent <code>observer.jsonl</code> before making a new attempt. Process cleanup still runs on a caught failure. Keep failed runs for comparison.</p>
+<p>Expect six PASS lines (four single-drone scenarios, the fleet, then the guardians) and exit code zero. Do not publish if the runner failed. <code>results.json</code> contains detailed named checks; <code>provenance.json</code> must have <code>inputs_unchanged: true</code>. If a run fails, inspect its scenario <code>result.json</code>, <code>runner-error.log</code> if present, application logs and independent <code>observer.jsonl</code> before making a new attempt. Process cleanup still runs on a caught failure. Keep failed runs for comparison.</p>
 <p>After a successful full matrix:</p>
 <pre><code class="language-bash">.venv/bin/python tools/publish_sample.py
 &quot;$SITL_WORKSPACE/venv/bin/python&quot; tools/publish_sitl.py --input &quot;$REVIEW_RUN&quot;
@@ -511,6 +622,7 @@ node tests/test_diagrams.mjs
 node tests/test_dashboard.mjs
 node tests/test_sitl_dashboard.mjs
 node tests/test_fleet_dashboard.mjs
+node tests/test_guardian_dashboard.mjs
 node tests/test_theme.mjs
 npm audit
 </code></pre>
@@ -518,7 +630,7 @@ npm audit
 <pre><code class="language-bash">.venv/bin/python tools/check_docs.py
 git diff --check
 </code></pre>
-<p>Expect every Mermaid definition to parse, offline bundle checks to pass, all three replay state suites and the theme test to pass, and all local HTML links and anchors to resolve. The audit result can change as new advisories are published.</p>
+<p>Expect every Mermaid definition to parse, offline bundle checks to pass, all four replay state suites and the theme test to pass, and all local HTML links and anchors to resolve. The audit result can change as new advisories are published.</p>
 <h2>Recorded verification and remaining boundaries</h2>
 <table>
 <thead>

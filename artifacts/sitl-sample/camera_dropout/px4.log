@@ -40,26 +40,26 @@ INFO  [init] Standalone PX4 launch, waiting for Gazebo
 INFO  [init] Gazebo world is ready
 INFO  [init] PX4_GZ_MODEL_NAME set, PX4 will attach to existing model
 INFO  [gz_bridge] world: inspection, model: x500_0
-INFO  [lockstep_scheduler] setting initial absolute time to 1772000 us
+INFO  [lockstep_scheduler] setting initial absolute time to 1768000 us
 INFO  [commander] LED: open /dev/led0 failed (22)
   UXRCE_DDS_DOM_ID: curr: 0 -> new: 42
-WARN  [health_and_arming_checks] Preflight Fail: No connection to the ground control station	
 INFO  [uxrce_dds_client] init UDP agent IP:127.0.0.1, port:8888
 INFO  [tone_alarm] home set
+WARN  [health_and_arming_checks] Preflight Fail: No connection to the ground control station	
 INFO  [mavlink] mode: Normal, data rate: 4000000 B/s on udp port 18570 remote port 14550
 INFO  [mavlink] mode: Onboard, data rate: 4000000 B/s on udp port 14580 remote port 14540
 INFO  [mavlink] mode: Onboard, data rate: 4000 B/s on udp port 14280 remote port 14030
 INFO  [mavlink] mode: Gimbal, data rate: 400000 B/s on udp port 13030 remote port 13280
 INFO  [logger] logger started (mode=all)
 INFO  [logger] Start file log (type: full)
-INFO  [logger] [logger] ./log/2026-09-24/18_13_22.ulg	
-INFO  [logger] Opened full log file: ./log/2026-09-24/18_13_22.ulg
+INFO  [logger] [logger] ./log/2026-09-26/07_00_42.ulg	
+INFO  [logger] Opened full log file: ./log/2026-09-26/07_00_42.ulg
 INFO  [mavlink] MAVLink only on localhost (set param MAV_{i}_BROADCAST = 1 to enable network)
 INFO  [mavlink] MAVLink only on localhost (set param MAV_{i}_BROADCAST = 1 to enable network)
 INFO  [px4] Startup script returned successfully
 INFO  [mavlink] partner IP: 127.0.0.1
 INFO  [commander] [32mReady for takeoff![0m
-INFO  [uxrce_dds_client] synchronized with time offset 1790273609066610us
+INFO  [uxrce_dds_client] synchronized with time offset 1790406044619972us
 INFO  [uxrce_dds_client] successfully created rt/fmu/out/register_ext_component_reply data writer, topic id: 198
 INFO  [uxrce_dds_client] successfully created rt/fmu/out/arming_check_request data writer, topic id: 17
 INFO  [uxrce_dds_client] successfully created rt/fmu/out/mode_completed data writer, topic id: 150
@@ -88,8 +88,6 @@ INFO  [uxrce_dds_client] time sync converged
 INFO  [commander] Armed by external command	
 INFO  [tone_alarm] arming warning
 INFO  [commander] Takeoff detected	
-ERROR [vehicle_imu] 0 - gyro 1310988 timestamp error timestamp_sample: 13096000, previous timestamp_sample: 13096000
-ERROR [vehicle_imu] 0 - accel 1310988 timestamp error timestamp_sample: 13096000, previous timestamp_sample: 13096000
 WARN  [timesync] time jump detected. Resetting time synchroniser.
 WARN  [uxrce_dds_client] time sync no longer converged
 INFO  [uxrce_dds_client] time sync converged
@@ -97,13 +95,13 @@ WARN  [timesync] time jump detected. Resetting time synchroniser.
 WARN  [uxrce_dds_client] time sync no longer converged
 INFO  [uxrce_dds_client] time sync converged
 INFO  [commander] Landing at current position	
+INFO  [commander] Landing detected	
 WARN  [timesync] time jump detected. Resetting time synchroniser.
 WARN  [uxrce_dds_client] time sync no longer converged
-INFO  [commander] Landing detected	
-INFO  [uxrce_dds_client] time sync converged
 INFO  [commander] Disarmed by landing	
 INFO  [tone_alarm] notify neutral
-INFO  [logger] closed logfile, bytes written: 13786607
+INFO  [logger] closed logfile, bytes written: 13649070
+INFO  [uxrce_dds_client] time sync converged
 
 PX4 Exiting...
 Exiting NOW.

@@ -2,14 +2,14 @@
 
 Actual PX4/Gazebo/ROS; procedural camera/lidar; CPU synthetic ONNX; no Qualcomm hardware.
 
-Generated UTC: 2026-09-24T18:22:42.343244+00:00
+Generated UTC: 2026-09-26T07:14:07.675160+00:00
 
 | Scenario | Result | Wall duration (s) | Max estimated altitude (m) | Min estimated obstacle clearance (m) |
 |---|---|---:|---:|---:|
-| nominal | PASS | 131.64 | 3.016 | 1.171 |
-| camera_dropout | PASS | 127.66 | 3.048 | 1.158 |
-| companion_crash | PASS | 66.79 | 2.768 | 3.977 |
-| gps_loss | PASS | 59.10 | 2.742 | 3.728 |
+| nominal | PASS | 80.96 | 2.995 | 1.186 |
+| camera_dropout | PASS | 85.38 | 2.925 | 1.173 |
+| companion_crash | PASS | 48.39 | 2.809 | 3.932 |
+| gps_loss | PASS | 52.81 | 2.831 | 3.684 |
 
 All four scenarios require actual armed offboard state, observed climb, land mode, landed state and final disarm. Normal and camera-recovery runs also require a reached goal, COMPLETE and accepted land command. GPS loss requires a post-injection stale-GNSS landing decision. Companion crash requires a subsequent PX4 failsafe.
 
@@ -21,11 +21,22 @@ Three PX4 instances launch in sequence from pads on a carrier vehicle, fly separ
 
 | Vehicle | Goal | Altitude layer (m) | Touchdown pad error (m) | Carrier speed at touchdown (m/s) | Min obstacle clearance (m) |
 |---|---|---:|---:|---:|---:|
-| px4_0 | (9, 9) | 3 | 0.030 | 0.27 | 1.23 |
-| px4_1 | (10, 3) | 4 | 0.034 | 0.27 | 1.36 |
-| px4_2 | (-1, 10) | 5 | 0.037 | 0.27 | 2.16 |
+| px4_0 | (9, 9) | 3 | 0.070 | 0.27 | 1.23 |
+| px4_1 | (10, 3) | 4 | 0.007 | 0.27 | 1.36 |
+| px4_2 | (-1, 10) | 5 | 0.024 | 0.27 | 2.16 |
 
-Minimum separation between airborne vehicles: 1.71 m. Carrier travel: 11.7 m. Recording two cameras slows this simulation below real time; the adapters judge freshness on simulation time, as PX4 does.
+Minimum separation between airborne vehicles: 1.71 m. Carrier travel: 12.7 m. Recording two cameras slows this simulation below real time; the adapters judge freshness on simulation time, as PX4 does.
+
+## Guardians against an intruder
+
+Three PX4 instances hold watch posts around the carrier. A simulated intruder flies to where the carrier is parked; the first guardian reports it, the second is jammed as it arrives and keeps clear on its own, the station raises RED and drives the carrier out of the path, and the center authorises recovery. See [the guardian design](guardian.md).
+
+| Measure | Value |
+|---|---:|
+| Named checks passed | 38 / 38 |
+| Warning, RED to the intruder's arrival (simulated s) | 15.9 |
+| Closest guardian to the intruder (m) | 4.54 |
+| Carrier's closest approach to the intruder after relocating (m) | 8.0 |
 
 ## Exact upstream revisions
 
@@ -35,7 +46,7 @@ Minimum separation between airborne vehicles: 1.71 m. Carrier travel: 11.7 m. Re
 
 ## Evidence and limitations
 
-- [Interactive replay](../web/sitl.html) and [machine-readable report](../artifacts/sitl-sample/report.json).
+- Interactive replays of the [single-drone flights](../web/sitl.html), the [fleet](../web/fleet.html) and the [guardians](../web/guardian.html), and the [machine-readable report](../artifacts/sitl-sample/report.json).
 - Per-scenario reference folders preserve final parameters, firmware log, mission/perception logs and acceptance result.
 - Runtime source/binary hashes and installed versions were captured before flight; inputs were checked again after the matrix. Per-file SHA-256 hashes identify the exact tested inputs, including changes not yet committed when tested.
 - Original run folders retain ROS bags and independent observer JSONL; Linux runtime folders retain PX4 ULogs.

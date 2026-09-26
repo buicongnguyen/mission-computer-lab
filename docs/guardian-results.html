@@ -1,0 +1,261 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Guardian simulator results</title><style>/* Color tokens. Light is the default; dark follows the system unless the page's toggle chose a theme. */
+:root{color-scheme:light;
+  --bg:#f2f6f7;--surface:#fff;--surface-2:#e7f1f3;--code-bg:#eef3f5;--status-bg:#edf7f4;
+  --ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--line-soft:#e3eaed;
+  --link:#006c86;--teal:#067c80;--accent:#067c80;--accent-ink:#fff;--ok:#057864;--focus:#b36b00;
+  --nav-bg:#112e3d;--nav-ink:#d8f7f2;--pre-bg:#102c3b;--pre-ink:#e3f3f5;--pipe-bg:#143849;--pipe-ink:#e9f8f5;
+  --quote-bg:#eef8f7;--quote-ink:#31505b;--btn-bg:#fff;--btn-line:#6f8a97;--btn-hover:#dbf4ed;
+  --badge-bg:#d7f3e9;--badge-ink:#14634c;--badge-line:#b3deca;
+  --notice-bg:#fff8e9;--notice-line:#b47b24;--err-bg:#fdeaea;--err-ink:#962222}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --bg:#0b161d;--surface:#122530;--surface-2:#18313e;--code-bg:#1b3442;--status-bg:#16322f;
+  --ink:#e2eef2;--muted:#9db3be;--line:#284150;--line-soft:#213845;
+  --link:#74d3e6;--teal:#3cc1bd;--accent:#3cc1bd;--accent-ink:#04211f;--ok:#63d6ae;--focus:#ffb000;
+  --nav-bg:#071117;--nav-ink:#d8f7f2;--pre-bg:#07141b;--pre-ink:#e3f3f5;--pipe-bg:#1a4254;--pipe-ink:#e9f8f5;
+  --quote-bg:#14303a;--quote-ink:#c7dde3;--btn-bg:#152b37;--btn-line:#6e8d9c;--btn-hover:#1d3a47;
+  --badge-bg:#123b31;--badge-ink:#8fe6c6;--badge-line:#1f5a4a;
+  --notice-bg:#2a2313;--notice-line:#d6a24a;--err-bg:#3b1a1a;--err-ink:#ffb4b4}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --bg:#0b161d;--surface:#122530;--surface-2:#18313e;--code-bg:#1b3442;--status-bg:#16322f;
+  --ink:#e2eef2;--muted:#9db3be;--line:#284150;--line-soft:#213845;
+  --link:#74d3e6;--teal:#3cc1bd;--accent:#3cc1bd;--accent-ink:#04211f;--ok:#63d6ae;--focus:#ffb000;
+  --nav-bg:#071117;--nav-ink:#d8f7f2;--pre-bg:#07141b;--pre-ink:#e3f3f5;--pipe-bg:#1a4254;--pipe-ink:#e9f8f5;
+  --quote-bg:#14303a;--quote-ink:#c7dde3;--btn-bg:#152b37;--btn-line:#6e8d9c;--btn-hover:#1d3a47;
+  --badge-bg:#123b31;--badge-ink:#8fe6c6;--badge-line:#1f5a4a;
+  --notice-bg:#2a2313;--notice-line:#d6a24a;--err-bg:#3b1a1a;--err-ink:#ffb4b4}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:16px/1.65 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}a{color:var(--link);text-underline-offset:3px}nav{background:var(--nav-bg);display:flex;gap:28px;align-items:center;flex-wrap:wrap;padding:20px 5%;font-size:14px}nav a{color:var(--nav-ink);text-decoration:none}nav a:first-child{font-weight:750;letter-spacing:1.5px;margin-right:auto}.document{max-width:1060px;margin:38px auto;padding:46px 60px;background:var(--surface);border:1px solid var(--line);border-radius:14px}h1{font-size:clamp(30px,5vw,46px);line-height:1.14;letter-spacing:-1.3px;margin:0 0 24px}h2{font-size:26px;margin:44px 0 16px;line-height:1.3;border-top:1px solid var(--line);padding-top:25px}h3{font-size:20px;margin:26px 0 10px}p,li{max-width:85ch}blockquote{margin:20px 0;border-left:4px solid var(--teal);padding:12px 22px;background:var(--quote-bg);color:var(--quote-ink)}blockquote p{margin:0}table{border-collapse:collapse;width:100%;font-size:14px;display:block;overflow:auto}td,th{border:1px solid var(--line);padding:12px;text-align:left;vertical-align:top}th{background:var(--surface-2)}pre{background:var(--pre-bg);color:var(--pre-ink);padding:20px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.6}code{font-family:Consolas,monospace}p code,li code,td code{background:var(--code-bg);padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}footer{padding:25px;text-align:center;color:var(--muted);font-size:13px}button,select,input{font:inherit}button,select{padding:8px 14px;border-radius:6px;border:1px solid var(--btn-line);background:var(--btn-bg);color:var(--ink)}button{cursor:pointer}button:hover{background:var(--btn-hover)}:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+/* Grid items default to min-width:auto, so a canvas bitmap or a long unbroken string widened the page past a phone screen. */
+.grid>*,.metrics>*,.bottom>*{min-width:0}canvas{max-width:100%}.sub,#provenance{overflow-wrap:anywhere}
+nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:var(--nav-ink);border-color:rgba(216,247,242,.35)}nav .theme-toggle:hover{background:rgba(216,247,242,.12)}
+@media(max-width:700px){.document{padding:28px 20px;margin:16px 12px}nav{gap:15px;font-size:12px}td,th{min-width:120px}}@media print{nav,footer{display:none}.document{margin:0;padding:0;border:0;max-width:none}body{background:white}h2{break-after:avoid}pre{white-space:pre-wrap}a{color:inherit}}
+
+.diagram{margin:24px 0;border:1px solid var(--line);border-radius:10px;padding:16px;background:var(--surface);overflow:auto}.diagram pre.mermaid{background:var(--surface);color:var(--ink);text-align:center;padding:8px;margin:0;min-width:440px}.diagram svg{max-width:100%;height:auto}.diagram figcaption{font-size:13px;color:var(--muted);margin:10px 0}.diagram details{font-size:13px}.diagram summary{cursor:pointer}.diagram .diagram-error{text-align:left;white-space:pre-wrap}@media print{.diagram{break-inside:avoid}.diagram details{display:none}}
+
+/* Paper is always light, whatever theme is on screen. */
+@media print{:root,:root:not([data-theme="light"]),:root[data-theme="dark"]{color-scheme:light;--bg:#fff;--surface:#fff;--surface-2:#e7f1f3;--code-bg:#eef3f5;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--quote-bg:#eef8f7;--quote-ink:#31505b;--pre-bg:#102c3b;--pre-ink:#e3f3f5}}
+</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet ops</a><a href="../web/guardian.html">Guardians</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>Guardian simulator results</h1>
+<p>Generated by <code>tools/guardian_sim.py</code> from 40 seeded runs per scenario and design (Python 3.10.12, Linux). The simulator is kinematic and its parameters are illustrative round numbers; <a href="guardian.html">the design and evaluation</a> explains each design and what the numbers mean.</p>
+<h2>Guardians kept clear of every threat</h2>
+<p>Share of runs in which every airborne guardian stayed outside the 75 m safe radius of every real threat.</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th align="right">Station only</th>
+<th align="right">Onboard only</th>
+<th align="right">Networked</th>
+<th align="right">Hybrid</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>intruder</td>
+<td align="right">82%</td>
+<td align="right">100%</td>
+<td align="right">100%</td>
+<td align="right">100%</td>
+</tr>
+<tr>
+<td>fast_inbound</td>
+<td align="right">0%</td>
+<td align="right">0%</td>
+<td align="right">15%</td>
+<td align="right">2%</td>
+</tr>
+<tr>
+<td>swarm</td>
+<td align="right">52%</td>
+<td align="right">100%</td>
+<td align="right">100%</td>
+<td align="right">100%</td>
+</tr>
+<tr>
+<td>birds</td>
+<td align="right">—</td>
+<td align="right">—</td>
+<td align="right">—</td>
+<td align="right">—</td>
+</tr>
+<tr>
+<td>jamming</td>
+<td align="right">68%</td>
+<td align="right">100%</td>
+<td align="right">68%</td>
+<td align="right">100%</td>
+</tr>
+<tr>
+<td>spoofing</td>
+<td align="right">—</td>
+<td align="right">—</td>
+<td align="right">—</td>
+<td align="right">—</td>
+</tr>
+<tr>
+<td>center_loss</td>
+<td align="right">88%</td>
+<td align="right">100%</td>
+<td align="right">100%</td>
+<td align="right">100%</td>
+</tr>
+<tr>
+<td>combined</td>
+<td align="right">70%</td>
+<td align="right">98%</td>
+<td align="right">65%</td>
+<td align="right">98%</td>
+</tr>
+</tbody></table>
+<h2>Warning before arrival</h2>
+<p>Median seconds from the station&#39;s RED alert to the threat entering the 100 m protected zone (or its closest approach, if the station moved out of the way); 10th to 90th percentile in brackets.</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th align="right">Station only</th>
+<th align="right">Onboard only</th>
+<th align="right">Networked</th>
+<th align="right">Hybrid</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>intruder</td>
+<td align="right">0 (0–5)</td>
+<td align="right">0 (0–4)</td>
+<td align="right">79 (60–92)</td>
+<td align="right">79 (60–92)</td>
+</tr>
+<tr>
+<td>fast_inbound</td>
+<td align="right">0 (0–0)</td>
+<td align="right">0 (0–0)</td>
+<td align="right">3 (2–3)</td>
+<td align="right">3 (2–3)</td>
+</tr>
+<tr>
+<td>swarm</td>
+<td align="right">0 (0–3)</td>
+<td align="right">0 (0–2)</td>
+<td align="right">64 (58–82)</td>
+<td align="right">65 (58–82)</td>
+</tr>
+<tr>
+<td>birds</td>
+<td align="right">—</td>
+<td align="right">—</td>
+<td align="right">—</td>
+<td align="right">—</td>
+</tr>
+<tr>
+<td>jamming</td>
+<td align="right">1 (0–7)</td>
+<td align="right">0 (0–4)</td>
+<td align="right">28 (20–33)</td>
+<td align="right">31 (26–42)</td>
+</tr>
+<tr>
+<td>spoofing</td>
+<td align="right">—</td>
+<td align="right">—</td>
+<td align="right">—</td>
+<td align="right">—</td>
+</tr>
+<tr>
+<td>center_loss</td>
+<td align="right">1 (0–7)</td>
+<td align="right">0 (0–4)</td>
+<td align="right">77 (59–94)</td>
+<td align="right">77 (59–94)</td>
+</tr>
+<tr>
+<td>combined</td>
+<td align="right">0 (0–0)</td>
+<td align="right">0 (0–0)</td>
+<td align="right">60 (35–78)</td>
+<td align="right">58 (36–78)</td>
+</tr>
+</tbody></table>
+<h2>Other measures</h2>
+<table>
+<thead>
+<tr>
+<th>Measure</th>
+<th align="right">Station only</th>
+<th align="right">Onboard only</th>
+<th align="right">Networked</th>
+<th align="right">Hybrid</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>False RED alerts, birds scenario (total)</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Jammed picket acts alone (median s)</td>
+<td align="right">—</td>
+<td align="right">—</td>
+<td align="right">—</td>
+<td align="right">2.8</td>
+</tr>
+<tr>
+<td>GNSS drag-off detected (median s)</td>
+<td align="right">—</td>
+<td align="right">—</td>
+<td align="right">—</td>
+<td align="right">39</td>
+</tr>
+<tr>
+<td>Spoofed picket drift (median m)</td>
+<td align="right">604</td>
+<td align="right">609</td>
+<td align="right">604</td>
+<td align="right">68</td>
+</tr>
+<tr>
+<td>Center could decide in time, low intruder</td>
+<td align="right">0%</td>
+<td align="right">0%</td>
+<td align="right">100%</td>
+<td align="right">100%</td>
+</tr>
+</tbody></table>
+<p>Across all 1280 runs, 100% pass both invariants: no keep-clear decision closed on a threat, and no layer acted outside its authority.</p>
+<h2>Layout experiment (hybrid design)</h2>
+<table>
+<thead>
+<tr>
+<th>Layout</th>
+<th align="right">Low intruder warning (s)</th>
+<th align="right">Fast inbound kept clear</th>
+<th align="right">Fast inbound warning (s)</th>
+<th align="right">Swarm warning (s)</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>baseline: Pickets 900 m out; overwatch hovering over the station.</td>
+<td align="right">79</td>
+<td align="right">2%</td>
+<td align="right">2.6</td>
+<td align="right">65</td>
+</tr>
+<tr>
+<td>offset overwatch: Overwatch moved 250 m off the station it watches.</td>
+<td align="right">77</td>
+<td align="right">90%</td>
+<td align="right">2.9</td>
+<td align="right">65</td>
+</tr>
+<tr>
+<td>wide pickets: Pickets 1500 m out instead of 900 m.</td>
+<td align="right">90</td>
+<td align="right">20%</td>
+<td align="right">2.9</td>
+<td align="right">98</td>
+</tr>
+</tbody></table>
+<h2>Reproduce</h2>
+<pre><code class="language-bash">python3 tools/guardian_sim.py --seeds 40 --workers 8 --output artifacts/guardian
+</code></pre>
+<p>The report records the SHA-256 of <code>tools/guardian.py</code> and <code>tools/guardian_sim.py</code>; a test fails if either changes without regenerating it.</p>
+</main><footer>Mission Computer Lab · software simulation portfolio · <a href="https://github.com/buicongnguyen/mission-computer-lab">source on GitHub</a> · 2026</footer></body></html>

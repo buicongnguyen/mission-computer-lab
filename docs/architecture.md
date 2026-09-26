@@ -94,7 +94,7 @@ flowchart TB
 | Station authority | Clearances only, published at 10 Hz; vehicles request arming only while holding a launch clearance | Authenticated command links, operator override, lost-link rules for the station itself |
 | Evidence | Station log, per-vehicle observers, fleet checks for separation, sequencing, pad error and carrier motion | Fleet telemetry at scale, time synchronisation across radios, flight logs from every airframe |
 
-In this simulation the station and vehicles share one host and one DDS domain, so message delivery is effectively perfect. The carrier's road is obstacle-free by design. [The SITL guide](sitl-guide.md) lists the phases, topics and acceptance criteria.
+In this simulation the station and vehicles share one host and one DDS domain, so message delivery is effectively perfect, except where the guardian scenario deliberately jams it. [Guardian drones](guardian.md) builds on the same fleet: an authority split between each drone, the station and a command center, evaluated across eight threat scenarios and flown on PX4. The carrier's road is obstacle-free by design. [The SITL guide](sitl-guide.md) lists the phases, topics and acceptance criteria.
 
 ## Clock, units and frames
 

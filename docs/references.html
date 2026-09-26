@@ -33,8 +33,8 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 
 /* Paper is always light, whatever theme is on screen. */
 @media print{:root,:root:not([data-theme="light"]),:root[data-theme="dark"]{color-scheme:light;--bg:#fff;--surface:#fff;--surface-2:#e7f1f3;--code-bg:#eef3f5;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--quote-bg:#eef8f7;--quote-ink:#31505b;--pre-bg:#102c3b;--pre-ink:#e3f3f5}}
-</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flight replay</a><a href="../web/fleet.html">Fleet ops</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review and fixes</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>References</h1>
-<p>Every project this lab builds on, with its source repository, its official website or documentation, the exact version pinned here, and what it does in the lab. Links were checked on 25 September 2026. Pinned revisions are enforced by <a href="https://github.com/buicongnguyen/mission-computer-lab/blob/main/scripts/build_sitl.sh"><code>scripts/build_sitl.sh</code></a>, <code>requirements*.lock.txt</code> and <code>package-lock.json</code>; the flight evidence records them again at run time.</p>
+</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet ops</a><a href="../web/guardian.html">Guardians</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>References</h1>
+<p>Every project this lab builds on, with its source repository, its official website or documentation, the exact version pinned here, and what it does in the lab. Links were checked on 26 September 2026. Pinned revisions are enforced by <a href="https://github.com/buicongnguyen/mission-computer-lab/blob/main/scripts/build_sitl.sh"><code>scripts/build_sitl.sh</code></a>, <code>requirements*.lock.txt</code> and <code>package-lock.json</code>; the flight evidence records them again at run time.</p>
 <h2>This project</h2>
 <table>
 <thead>
@@ -58,6 +58,10 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 <tr>
 <td>Fleet on a moving carrier</td>
 <td><a href="https://buicongnguyen.github.io/mission-computer-lab/web/fleet.html">web/fleet.html</a></td>
+</tr>
+<tr>
+<td>Guardian evaluation and flight</td>
+<td><a href="https://buicongnguyen.github.io/mission-computer-lab/web/guardian.html">web/guardian.html</a></td>
 </tr>
 <tr>
 <td>Fast policy replay</td>
@@ -218,6 +222,11 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 <li><a href="https://docs.px4.io/v1.16/en/sim_gazebo_gz/multi_vehicle_simulation.html">PX4 multi-vehicle simulation with Gazebo (v1.16)</a>: instance numbers, model names and DDS namespaces for the fleet.</li>
 <li><a href="https://design.ros2.org/articles/clock_and_time.html">ROS 2 clock and time design</a>: <code>use_sim_time</code> and the <code>/clock</code> topic that keep every adapter on simulation time.</li>
 <li>Gazebo system references: <a href="https://gazebosim.org/api/sim/8/classgz_1_1sim_1_1systems_1_1CameraVideoRecorder.html">CameraVideoRecorder</a> for the recorded videos, <a href="https://gazebosim.org/api/sim/8/classgz_1_1sim_1_1systems_1_1VelocityControl.html">VelocityControl</a> and <a href="https://gazebosim.org/api/sim/8/classgz_1_1sim_1_1systems_1_1OdometryPublisher.html">OdometryPublisher</a> for the carrier.</li>
+</ul>
+<h2>Guardian design background</h2>
+<ul>
+<li><a href="https://store.astm.org/f3442_f3442m-23.html">ASTM F3442/F3442M-23, detect and avoid system performance requirements</a>: the standard framing for keeping an unmanned aircraft clear of other traffic; the guardians&#39; keep-clear logic is a simplified, simulation-only relative of it.</li>
+<li><a href="https://docs.px4.io/v1.16/en/advanced_config/tuning_the_ecl_ekf.html">PX4 EKF2 tuning guide (v1.16)</a>: the GNSS quality checks (<code>EKF2_GPS_CHECK</code>, <code>EKF2_REQ_HDRIFT</code>) behind the moving-deck finding, and the aircraft-side view of navigation integrity that the station&#39;s spoofing cross-check complements.</li>
 </ul>
 <h2>Target platforms (referenced, not executed)</h2>
 <table>

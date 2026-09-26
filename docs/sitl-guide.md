@@ -66,9 +66,9 @@ Three views show the same flights, each with a different purpose.
 bash scripts/run_sitl.sh --scenario nominal --video --gui --output ~/work/mission-computer-lab/retests/watch-001
 ```
 
-These cameras film the world for people. The payload camera that feeds ONNX is still the procedural one described in section 5.
+These cameras film the world for people. The payload camera that feeds ONNX is still the procedural one described in section 6.
 
-Recording is not free. Rendering and encoding happen inside the simulation loop; on the development machine the real-time factor fell from 1.0 to 0.64 with one recording camera and 0.41 with two, whatever the resolution. Nothing in the pipeline depends on running at real-time speed: PX4 already runs on Gazebo's clock, and every ROS adapter runs with `use_sim_time`, so freshness deadlines stretch with the simulation (section 6). The runner's wall-clock timeout is multiplied by 2.5 when `--video` is set.
+Recording is not free. Rendering and encoding happen inside the simulation loop; on the development machine the real-time factor fell from 1.0 to 0.64 with one recording camera and 0.41 with two, whatever the resolution. Nothing in the pipeline depends on running at real-time speed: PX4 already runs on Gazebo's clock, and every ROS adapter runs with `use_sim_time`, so freshness deadlines stretch with the simulation (section 7). The runner's wall-clock timeout is multiplied by 2.5 when `--video` is set.
 
 ## 4. Fly a fleet from a moving carrier
 
@@ -108,7 +108,53 @@ The ground station (`integration/fleet_station_node.py`) rides on the carrier. I
 
 Pad error compares the vehicle's PX4 estimate, converted to world coordinates, with the carrier pose from Gazebo odometry; separation and clearance also use PX4 estimates. These are simulation checks, not certified collision guarantees. The station and the vehicles share one host and one DDS domain. Radio links and their latency or loss, relative positioning on the pad (RTK or vision), deck motion, wind and a real carrier's dynamics are not modelled, and the carrier's road is obstacle-free by design.
 
-## 5. Exercise failures
+## 5. Guardians against an intruder
+
+```bash
+bash scripts/run_sitl.sh --scenario guardian_intruder --video --output ~/work/mission-computer-lab/retests/guardian-001
+```
+
+The guardian scenario runs the decision logic of [the guardian design](guardian.md) (`tools/guardian.py`) on three real PX4 instances. The `guardian` world is the fleet world plus a scripted, visual-only intruder (no collision, no gravity), post markers and a translucent jamming zone. Its cameras are an overview and a low close-up of the intruder's final approach.
+
+| Guardian | Watch post | Altitude | Role in the scenario |
+|---|---|---|---|
+| `px4_0` | (1, 2) | 4 m | In the intruder's path and inside the jamming zone: it must keep clear on its own |
+| `px4_1` | (0, 12) | 5 m | First contact: its detections reach the station over the network |
+| `px4_2` | (12, 8) | 3 m | Far from the path: it holds |
+
+1. The guardians launch one at a time and fly to their posts; the adapter's phase becomes `watch`.
+2. Five seconds after all three are on watch, the environment node starts the intruder at (−3.4, 23) flying at 1.2 m/s and 4 m to where the carrier is parked, and switches the jammer on.
+3. Each guardian's simulated sensor (8 m range, camera label inside 5 m) feeds its own onboard tracker directly; the same detections reach the station only over the link, which the environment drops while a guardian is inside the jamming zone. The station has its own 6 m sensor.
+4. The station fuses the tracks, raises AMBER and then RED, alerts the crew, drives the carrier east out of the path (a delegated action), and orders keep-clear moves. The order to `px4_1` arrives; the orders to `px4_0` do not.
+5. `px4_0` notices its silent uplink and holds on its own authority; when its own sensor predicts a conflict inside its reflex horizon, it keeps clear on its own.
+6. After the intruder has gone and the posture is back to GREEN, the station asks the center; the center node answers after its link delay and operator decision time, and the station relays its `recover` decision. The guardians return and land on the carrier one at a time.
+
+| Station, environment and center topics | Type | Contract |
+|---|---|---|
+| `/station/uplink` → environment → `/px4_N/guardian/uplink` | JSON in `std_msgs/String`, 10 Hz | Launch and land clearances, each guardian's order, the posture; dropped while that guardian is jammed |
+| `/px4_N/guardian/state` → environment → `/fleet/px4_N/state` | JSON, 5 Hz | Phase, world position, protective action and the layer that decided it, uplink age; dropped while jammed |
+| `/px4_N/guardian/detections` | JSON, 5 Hz | The guardian's own sensor; never jammed |
+| `/station/detections` | JSON | Guardian detections relayed over the link, plus the station's own sensor |
+| `/center/report`, `/center/decision` | JSON | Posture changes and recovery requests; acknowledgements and decisions after the center's delays |
+| `/model/intruder/odometry`, `/model/intruder/cmd_vel` | `nav_msgs/Odometry`, `geometry_msgs/Twist` | Intruder truth for the sensors and the checks; its scripted motion |
+
+| Acceptance check | Criterion |
+|---|---|
+| Per vehicle | Armed OFFBOARD; climb; on watch within 0.6 m of its post; returned, landed on its pad, disarmed; no failsafe; obstacle clearance |
+| `intruder_flew`, `threat_confirmed` | The intruder crossed the carrier's parking spot; the station confirmed a track |
+| `red_before_arrival` | RED came before the intruder reached the carrier's protected radius (3 m) or, if it never did, its closest approach; the warning is reported in simulated seconds |
+| `carrier_relocated_clear` | The station relocated the carrier, and the intruder never came within 3 m of it |
+| `guardians_kept_clear` | Every guardian stayed at least 1.5 m from the intruder, from the observers' traces and the intruder's odometry |
+| `jammed_guardian_acted_alone` | `px4_0` kept clear on the onboard layer with its uplink silent, and the environment recorded dropped messages |
+| `station_ordered_keep_clear` | A guardian that was not jammed executed a keep-clear order from the station |
+| `never_closed_on_threat` | Every keep-clear decision, by station or vehicle, moved away from every threat position it knew |
+| `authority_respected` | Every logged action was taken by a layer allowed to take it; relayed recovery carries the center's authority |
+| `recovery_by_center` | Recovery followed the center's decision |
+| Fleet | Separation between airborne guardians above 1 m; landings one at a time; ROS bag recorded |
+
+The intruder, the sensors and the jamming are simulated stand-ins; the guardians' adapters, supervisors and PX4 are the real flight stack. Nothing in the scenario responds to the intruder.
+
+## 6. Exercise failures
 
 The sequence separates mission intent from PX4's ownership of the actual vehicle. Logs and ROS bags observe both sides.
 
@@ -155,7 +201,7 @@ sequenceDiagram
 bash scripts/run_sitl.sh --all --video --output ~/work/mission-computer-lab/retests/matrix-001
 ```
 
-`--all` runs the four single-drone scenarios below and then the fleet scenario from section 4. The matrix stops at the first failed scenario so its logs can be investigated. Alternatively select `camera_dropout`, `companion_crash`, `gps_loss` or `fleet_carrier` with `--scenario`.
+`--all` runs the four single-drone scenarios below, then the fleet scenario from section 4 and the guardian scenario from section 5. The matrix stops at the first failed scenario so its logs can be investigated. Alternatively select `camera_dropout`, `companion_crash`, `gps_loss`, `fleet_carrier` or `guardian_intruder` with `--scenario`.
 
 | Scenario | Injection boundary | Evidence to inspect |
 |---|---|---|
@@ -166,7 +212,7 @@ bash scripts/run_sitl.sh --all --video --output ~/work/mission-computer-lab/rete
 
 The camera and LiDAR are **procedural ROS payload sensors**, not rendered Gazebo camera/lidar plugins. The camera contains a moving bright synthetic shape; the ONNX graph segments brightness. This deliberately small model tests artifact, tensor, timing and communication contracts. It has no trained class semantics, and its bounding box does not steer toward an aerial target. The inspection route is independent of object identity.
 
-## 6. Follow the interfaces
+## 7. Follow the interfaces
 
 | Producer → consumer | Interface | Contract |
 |---|---|---|
@@ -190,7 +236,7 @@ Do not compare PX4 boot microseconds directly with ROS wall-clock seconds. In SI
 
 The occupancy map starts from the first scan and grows with every later scan; the mission node replans if the remaining route closes and lands if no route remains. Payload scan geometry is generated from the same idealized obstacle configuration used by the world. Sensor occlusion, reflective materials, rolling shutter, calibration error and moving-obstacle avoidance are outside this experiment. EKF position telemetry is an estimate, not Gazebo ground truth; a clearance calculation from that estimate is not a certified collision guarantee.
 
-## 7. Inspect the evidence
+## 8. Inspect the evidence
 
 The output root also contains `provenance.json`: versions and source/binary hashes captured before flight, plus a post-run unchanged-input check. Publication uses this saved record. Each scenario directory contains:
 
@@ -203,7 +249,7 @@ The output root also contains `provenance.json`: versions and source/binary hash
 - Per-process `.log` files, plus `gps-injection.log` in the GPS-loss case.
 - `flight.mp4` when recorded with `--video`.
 
-The `fleet_carrier` folder holds one `result.json` for the whole fleet, `station.jsonl` (clearances, carrier samples, touchdowns), per-vehicle `mission_px4_N.jsonl`, `observer_px4_N.jsonl`, `perception_px4_N.jsonl` and `px4_N.log`, and `flight.mp4` plus `deck.mp4` when recorded.
+The `fleet_carrier` folder holds one `result.json` for the whole fleet, `station.jsonl` (clearances, carrier samples, touchdowns), per-vehicle `mission_px4_N.jsonl`, `observer_px4_N.jsonl`, `perception_px4_N.jsonl` and `px4_N.log`, and `flight.mp4` plus `deck.mp4` when recorded. The `guardian_intruder` folder has the same per-vehicle files plus `world.jsonl` (intruder truth, jamming and link events, dropped messages), `center.jsonl`, and `flight.mp4` plus `close.mp4`.
 
 Acceptance requires an ordered armed-offboard → airborne → armed-land-mode → touchdown → disarm sequence, a valid final vertical estimate near the ground, and recorded messages on all three selected bag topics. GPS-loss may invalidate horizontal localization after the recorded injection; pre-injection validity and final vertical validity remain required. Clearance is computed only while the position estimate is valid. Arm and land ACKs alone cannot establish those outcomes.
 
@@ -219,7 +265,7 @@ ros2 bag info artifacts/my-sitl-nominal/nominal/rosbag
 
 Do not replay command topics into a running controller. This recorder selects application evidence topics only; it does not record command topics for automatic playback.
 
-## 8. Understand the failsafe ownership
+## 9. Understand the failsafe ownership
 
 The C++ supervisor reacts to stale data with HOLD and escalates a sustained or repeatedly recurring fault to LAND; a fault episode ends only after 2 s of continuous health. It has a healthy-data dwell before initial activation and recovery. The ROS adapter stops commanding if PX4 enters a failsafe, invalidates its local estimate, disarms after a flight, or leaves OFFBOARD because a pilot or GCS changed mode. It does not automatically rearm or switch back to OFFBOARD after any of these.
 
@@ -231,7 +277,7 @@ If the companion process is killed, its own watchdog cannot save anything. The i
 
 The fleet keeps that split per vehicle. The station only grants or withholds clearances; it cannot arm, switch modes or override a handoff, and a vehicle that has handed off to PX4 stays handed off.
 
-## 9. Troubleshoot from evidence
+## 10. Troubleshoot from evidence
 
 | Symptom | Check and explanation |
 |---|---|
@@ -250,7 +296,7 @@ The fleet keeps that split per vehicle. The station only grants or withholds cle
 | Vehicles go stale on the ground while recording | An adapter is not on simulation time: check the `/clock` bridge and `use_sim_time:=true` on the node. |
 | A second fleet vehicle never arms | PX4 ignores commands addressed to another `MAV_SYS_ID`; check the adapter's `--system-id` and the command ACKs in its log. Each PX4 instance also needs its own GCS heartbeat before preflight passes. |
 
-## 10. Design walkthrough and hardware migration
+## 11. Design walkthrough and hardware migration
 
 Trace one image from bytes to tensor to inference result to the freshness gate. Trace one ENU velocity through its NED conversion and PX4 control mode. Explain why command acceptance, arming, takeoff, landing and disarm are distinct observations. Then kill the mission process and show firmware evidence recorded by a surviving observer.
 

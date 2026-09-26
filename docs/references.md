@@ -1,6 +1,6 @@
 # References
 
-Every project this lab builds on, with its source repository, its official website or documentation, the exact version pinned here, and what it does in the lab. Links were checked on 25 September 2026. Pinned revisions are enforced by [`scripts/build_sitl.sh`](https://github.com/buicongnguyen/mission-computer-lab/blob/main/scripts/build_sitl.sh), `requirements*.lock.txt` and `package-lock.json`; the flight evidence records them again at run time.
+Every project this lab builds on, with its source repository, its official website or documentation, the exact version pinned here, and what it does in the lab. Links were checked on 26 September 2026. Pinned revisions are enforced by [`scripts/build_sitl.sh`](https://github.com/buicongnguyen/mission-computer-lab/blob/main/scripts/build_sitl.sh), `requirements*.lock.txt` and `package-lock.json`; the flight evidence records them again at run time.
 
 ## This project
 
@@ -10,6 +10,7 @@ Every project this lab builds on, with its source repository, its official websi
 | Live replay site | [buicongnguyen.github.io/mission-computer-lab](https://buicongnguyen.github.io/mission-computer-lab/) |
 | PX4 flight replay | [web/sitl.html](https://buicongnguyen.github.io/mission-computer-lab/web/sitl.html) |
 | Fleet on a moving carrier | [web/fleet.html](https://buicongnguyen.github.io/mission-computer-lab/web/fleet.html) |
+| Guardian evaluation and flight | [web/guardian.html](https://buicongnguyen.github.io/mission-computer-lab/web/guardian.html) |
 | Fast policy replay | [web/index.html](https://buicongnguyen.github.io/mission-computer-lab/web/index.html) |
 
 ## Flight stack (executed)
@@ -50,6 +51,11 @@ Every project this lab builds on, with its source repository, its official websi
 - [PX4 multi-vehicle simulation with Gazebo (v1.16)](https://docs.px4.io/v1.16/en/sim_gazebo_gz/multi_vehicle_simulation.html): instance numbers, model names and DDS namespaces for the fleet.
 - [ROS 2 clock and time design](https://design.ros2.org/articles/clock_and_time.html): `use_sim_time` and the `/clock` topic that keep every adapter on simulation time.
 - Gazebo system references: [CameraVideoRecorder](https://gazebosim.org/api/sim/8/classgz_1_1sim_1_1systems_1_1CameraVideoRecorder.html) for the recorded videos, [VelocityControl](https://gazebosim.org/api/sim/8/classgz_1_1sim_1_1systems_1_1VelocityControl.html) and [OdometryPublisher](https://gazebosim.org/api/sim/8/classgz_1_1sim_1_1systems_1_1OdometryPublisher.html) for the carrier.
+
+## Guardian design background
+
+- [ASTM F3442/F3442M-23, detect and avoid system performance requirements](https://store.astm.org/f3442_f3442m-23.html): the standard framing for keeping an unmanned aircraft clear of other traffic; the guardians' keep-clear logic is a simplified, simulation-only relative of it.
+- [PX4 EKF2 tuning guide (v1.16)](https://docs.px4.io/v1.16/en/advanced_config/tuning_the_ecl_ekf.html): the GNSS quality checks (`EKF2_GPS_CHECK`, `EKF2_REQ_HDRIFT`) behind the moving-deck finding, and the aircraft-side view of navigation integrity that the station's spoofing cross-check complements.
 
 ## Target platforms (referenced, not executed)
 

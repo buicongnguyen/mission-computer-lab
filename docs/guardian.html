@@ -1,0 +1,269 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Guardian drones: design and evaluation</title><style>/* Color tokens. Light is the default; dark follows the system unless the page's toggle chose a theme. */
+:root{color-scheme:light;
+  --bg:#f2f6f7;--surface:#fff;--surface-2:#e7f1f3;--code-bg:#eef3f5;--status-bg:#edf7f4;
+  --ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--line-soft:#e3eaed;
+  --link:#006c86;--teal:#067c80;--accent:#067c80;--accent-ink:#fff;--ok:#057864;--focus:#b36b00;
+  --nav-bg:#112e3d;--nav-ink:#d8f7f2;--pre-bg:#102c3b;--pre-ink:#e3f3f5;--pipe-bg:#143849;--pipe-ink:#e9f8f5;
+  --quote-bg:#eef8f7;--quote-ink:#31505b;--btn-bg:#fff;--btn-line:#6f8a97;--btn-hover:#dbf4ed;
+  --badge-bg:#d7f3e9;--badge-ink:#14634c;--badge-line:#b3deca;
+  --notice-bg:#fff8e9;--notice-line:#b47b24;--err-bg:#fdeaea;--err-ink:#962222}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
+  --bg:#0b161d;--surface:#122530;--surface-2:#18313e;--code-bg:#1b3442;--status-bg:#16322f;
+  --ink:#e2eef2;--muted:#9db3be;--line:#284150;--line-soft:#213845;
+  --link:#74d3e6;--teal:#3cc1bd;--accent:#3cc1bd;--accent-ink:#04211f;--ok:#63d6ae;--focus:#ffb000;
+  --nav-bg:#071117;--nav-ink:#d8f7f2;--pre-bg:#07141b;--pre-ink:#e3f3f5;--pipe-bg:#1a4254;--pipe-ink:#e9f8f5;
+  --quote-bg:#14303a;--quote-ink:#c7dde3;--btn-bg:#152b37;--btn-line:#6e8d9c;--btn-hover:#1d3a47;
+  --badge-bg:#123b31;--badge-ink:#8fe6c6;--badge-line:#1f5a4a;
+  --notice-bg:#2a2313;--notice-line:#d6a24a;--err-bg:#3b1a1a;--err-ink:#ffb4b4}}
+:root[data-theme="dark"]{color-scheme:dark;
+  --bg:#0b161d;--surface:#122530;--surface-2:#18313e;--code-bg:#1b3442;--status-bg:#16322f;
+  --ink:#e2eef2;--muted:#9db3be;--line:#284150;--line-soft:#213845;
+  --link:#74d3e6;--teal:#3cc1bd;--accent:#3cc1bd;--accent-ink:#04211f;--ok:#63d6ae;--focus:#ffb000;
+  --nav-bg:#071117;--nav-ink:#d8f7f2;--pre-bg:#07141b;--pre-ink:#e3f3f5;--pipe-bg:#1a4254;--pipe-ink:#e9f8f5;
+  --quote-bg:#14303a;--quote-ink:#c7dde3;--btn-bg:#152b37;--btn-line:#6e8d9c;--btn-hover:#1d3a47;
+  --badge-bg:#123b31;--badge-ink:#8fe6c6;--badge-line:#1f5a4a;
+  --notice-bg:#2a2313;--notice-line:#d6a24a;--err-bg:#3b1a1a;--err-ink:#ffb4b4}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font:16px/1.65 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}a{color:var(--link);text-underline-offset:3px}nav{background:var(--nav-bg);display:flex;gap:28px;align-items:center;flex-wrap:wrap;padding:20px 5%;font-size:14px}nav a{color:var(--nav-ink);text-decoration:none}nav a:first-child{font-weight:750;letter-spacing:1.5px;margin-right:auto}.document{max-width:1060px;margin:38px auto;padding:46px 60px;background:var(--surface);border:1px solid var(--line);border-radius:14px}h1{font-size:clamp(30px,5vw,46px);line-height:1.14;letter-spacing:-1.3px;margin:0 0 24px}h2{font-size:26px;margin:44px 0 16px;line-height:1.3;border-top:1px solid var(--line);padding-top:25px}h3{font-size:20px;margin:26px 0 10px}p,li{max-width:85ch}blockquote{margin:20px 0;border-left:4px solid var(--teal);padding:12px 22px;background:var(--quote-bg);color:var(--quote-ink)}blockquote p{margin:0}table{border-collapse:collapse;width:100%;font-size:14px;display:block;overflow:auto}td,th{border:1px solid var(--line);padding:12px;text-align:left;vertical-align:top}th{background:var(--surface-2)}pre{background:var(--pre-bg);color:var(--pre-ink);padding:20px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.6}code{font-family:Consolas,monospace}p code,li code,td code{background:var(--code-bg);padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}footer{padding:25px;text-align:center;color:var(--muted);font-size:13px}button,select,input{font:inherit}button,select{padding:8px 14px;border-radius:6px;border:1px solid var(--btn-line);background:var(--btn-bg);color:var(--ink)}button{cursor:pointer}button:hover{background:var(--btn-hover)}:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+/* Grid items default to min-width:auto, so a canvas bitmap or a long unbroken string widened the page past a phone screen. */
+.grid>*,.metrics>*,.bottom>*{min-width:0}canvas{max-width:100%}.sub,#provenance{overflow-wrap:anywhere}
+nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:var(--nav-ink);border-color:rgba(216,247,242,.35)}nav .theme-toggle:hover{background:rgba(216,247,242,.12)}
+@media(max-width:700px){.document{padding:28px 20px;margin:16px 12px}nav{gap:15px;font-size:12px}td,th{min-width:120px}}@media print{nav,footer{display:none}.document{margin:0;padding:0;border:0;max-width:none}body{background:white}h2{break-after:avoid}pre{white-space:pre-wrap}a{color:inherit}}
+
+.diagram{margin:24px 0;border:1px solid var(--line);border-radius:10px;padding:16px;background:var(--surface);overflow:auto}.diagram pre.mermaid{background:var(--surface);color:var(--ink);text-align:center;padding:8px;margin:0;min-width:440px}.diagram svg{max-width:100%;height:auto}.diagram figcaption{font-size:13px;color:var(--muted);margin:10px 0}.diagram details{font-size:13px}.diagram summary{cursor:pointer}.diagram .diagram-error{text-align:left;white-space:pre-wrap}@media print{.diagram{break-inside:avoid}.diagram details{display:none}}
+
+/* Paper is always light, whatever theme is on screen. */
+@media print{:root,:root:not([data-theme="light"]),:root[data-theme="dark"]{color-scheme:light;--bg:#fff;--surface:#fff;--surface-2:#e7f1f3;--code-bg:#eef3f5;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--quote-bg:#eef8f7;--quote-ink:#31505b;--pre-bg:#102c3b;--pre-ink:#e3f3f5}}
+</style><script src="../web/theme.js"></script><script src="assets/mermaid-11.17.2.min.js" defer></script><script src="assets/diagrams.js" defer></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet ops</a><a href="../web/guardian.html">Guardians</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>Guardian drones: design and evaluation</h1>
+<p>The request: let drones work as guardians that help a station cope with an attack by another drone, or by a missile from far away; think through the scenarios, and design mission control that cooperates with the station, the command center and the drone&#39;s own autonomy. This page evaluates that idea, improves it twice, and records what was built and measured. The replay is on <a href="../web/guardian.html">the guardian page</a>; the numbers are in <a href="guardian-results.html">the simulator results</a>.</p>
+<h2>1. The idea, evaluated</h2>
+<p><strong>What is strong.</strong> A fleet already flying around a station is a sensor network. Drones at altitude see low flyers that a ground sensor loses behind terrain and clutter, and they can be placed where attacks come from. Giving them a protective role, coordinated with the station and a command center, is the right instinct: the value is in the cooperation, not in any single drone.</p>
+<p><strong>What does not hold up.</strong></p>
+<ul>
+<li><em>Engaging a missile.</em> A multirotor cruising at 12–15 m/s cannot reach, block or outrun an object moving at hundreds of metres per second; physics settles it before software does. Even a small intruder drone cannot be safely &quot;caught&quot; by another multirotor without specialised equipment and legal authority.</li>
+<li><em>Evading a guided threat.</em> A slower aircraft cannot out-manoeuvre anything that steers toward it. Keeping clear only works against threats flying to a place, not homing on a vehicle.</li>
+<li><em>Building intercept or homing guidance.</em> That is weapons development, and it is out of scope here by design. It would also teach less about mission computers than the problems that remain.</li>
+</ul>
+<p><strong>What the guardian role should be.</strong> Sense and track; warn the station and the crew early; keep the fleet clear of threats; shelter or disperse; fall back safely when links fail; and hand every decision beyond protection to the center. Jamming and GNSS spoofing are the attacks drones meet most often, so they belong in scope.</p>
+<h2>2. First round of improvements: the mission</h2>
+<table>
+<thead>
+<tr>
+<th>Idea as asked</th>
+<th>Improved</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Fight the attacker</td>
+<td><strong>Non-kinetic protection:</strong> sense, warn, keep clear, shelter, fall back</td>
+<td>Physically credible, legally clear, and it is where mission-computer design matters</td>
+</tr>
+<tr>
+<td>Missile threat</td>
+<td><strong>Early warning</strong> for fast threats, measured in seconds</td>
+<td>For fast threats the only lever is time; the simulator measures how much each design buys</td>
+</tr>
+<tr>
+<td>Drone and missile only</td>
+<td>Add <strong>jamming, GNSS spoofing, loss of the center link, birds and clutter, swarms</strong></td>
+<td>The realistic attack surface; false alarms matter as much as misses</td>
+</tr>
+<tr>
+<td>&quot;Cooperate with the station, the center or self-control&quot;</td>
+<td><strong>Three layers with explicit authority and time budgets</strong></td>
+<td>Who may decide what, and what happens when the layer above is unreachable</td>
+</tr>
+<tr>
+<td>Evaluate by watching</td>
+<td><strong>Measure</strong>: warning time, separation, false alarms, detection latency, invariants over many seeded runs</td>
+<td>Claims backed by numbers, and regressions caught by tests</td>
+</tr>
+</tbody></table>
+<h2>3. Second round of improvements: the engineering</h2>
+<ol>
+<li><strong>Authority by time budget.</strong> Onboard (under a second): keep clear of an imminent conflict, hold and then return when the uplink goes quiet. Station (seconds): fuse tracks, set the posture, order guardians, alert the crew, relocate. Center (tens of seconds): acknowledge, authorise recovery or resumption, anything beyond protection. The station&#39;s own actions are <em>pre-delegated</em> by the center; with the center unreachable it keeps protecting and may only land guardians after a timeout, never resume the mission.</li>
+<li><strong>One decision module, two simulators.</strong> <code>tools/guardian.py</code> holds the tracker, threat assessment, posture, keep-clear, onboard fallbacks, the center model, the navigation integrity check and the authority table. The fast simulator and the PX4 nodes import the same code.</li>
+<li><strong>Tracks, not detections.</strong> A constant-velocity Kalman filter per track, association in normalised residual, M-of-N confirmation, merging of duplicates, and a plausibility gate on how fast a young track may move.</li>
+<li><strong>Classification before alarm.</strong> Guardian cameras label what they see; a track classed as a bird never raises RED, and an unclassified slow track may raise RED only close in. Fast tracks raise RED at once.</li>
+<li><strong>Invariants the tests enforce.</strong> A keep-clear move never reduces the range to any threat, and every logged action is taken by a layer allowed to take it.</li>
+<li><strong>Cross-checks against spoofing.</strong> The station compares each guardian&#39;s reported position with its own sensor&#39;s track of it; a slow drag-off passes the drone&#39;s own consistency checks but not this one.</li>
+<li><strong>Layout is part of the design.</strong> The simulator tests where the posts are, not only what the software does.</li>
+</ol>
+<h2>4. Threats and scenarios</h2>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>What happens</th>
+<th>What it tests</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Low intruder</td>
+<td>One drone at 15–20 m/s and 30–50 m altitude, weaving, flies to the station from a random bearing</td>
+<td>Detection of low flyers, warning time, keeping clear, relocation</td>
+</tr>
+<tr>
+<td>Fast inbound</td>
+<td>A 250 m/s object cruises at 150–250 m and dives on the station for its last 1.5 km</td>
+<td>The limit of what warning can do; confirmation latency; layout</td>
+</tr>
+<tr>
+<td>Swarm</td>
+<td>Five low drones from two sectors, staggered over 30 s</td>
+<td>Multiple tracks, multi-threat keep-clear</td>
+</tr>
+<tr>
+<td>Birds and clutter</td>
+<td>Eight slow birds circling 700–1500 m out, with five times the usual clutter</td>
+<td>False alarms</td>
+</tr>
+<tr>
+<td>Jammed picket</td>
+<td>An intruder along one picket&#39;s sector; a jammer cuts that picket&#39;s link</td>
+<td>Onboard autonomy under jamming; loss of that picket&#39;s sensor data</td>
+</tr>
+<tr>
+<td>GNSS drag-off</td>
+<td>One picket&#39;s reported position drifts at up to 3 m/s, ramped in over 30 s</td>
+<td>Navigation integrity through cooperation</td>
+</tr>
+<tr>
+<td>No center link</td>
+<td>An intruder while the station cannot reach the center</td>
+<td>Delegated authority</td>
+</tr>
+<tr>
+<td>Combined</td>
+<td>Three intruders, a jammed picket, birds and no center link</td>
+<td>Everything at once</td>
+</tr>
+</tbody></table>
+<h2>5. Architecture</h2>
+<figure class="diagram"><pre class="mermaid">flowchart BT
+    CENTER[Center: acknowledge, authorise recovery, anything beyond protection]
+    STATION[Station on the carrier: fuse tracks, posture, orders, crew alert, relocation]
+    subgraph GUARDIANS[Guardians]
+        G1[Guardian: own sensor, onboard reflex, lost-link procedure, C++ supervisor, PX4]
+        G2[Guardian: own sensor, onboard reflex, lost-link procedure, C++ supervisor, PX4]
+    end
+    CENTER --&gt;|acknowledgements, decisions| STATION
+    STATION --&gt;|orders, clearances, station fixes| GUARDIANS
+    STATION --&gt;|posture reports, recovery requests| CENTER
+    GUARDIANS --&gt;|detections, position reports| STATION</pre><figcaption>Data-flow diagram — source is available below.</figcaption><details><summary>Mermaid source</summary><pre><code>flowchart BT
+    CENTER[Center: acknowledge, authorise recovery, anything beyond protection]
+    STATION[Station on the carrier: fuse tracks, posture, orders, crew alert, relocation]
+    subgraph GUARDIANS[Guardians]
+        G1[Guardian: own sensor, onboard reflex, lost-link procedure, C++ supervisor, PX4]
+        G2[Guardian: own sensor, onboard reflex, lost-link procedure, C++ supervisor, PX4]
+    end
+    CENTER --&gt;|acknowledgements, decisions| STATION
+    STATION --&gt;|orders, clearances, station fixes| GUARDIANS
+    STATION --&gt;|posture reports, recovery requests| CENTER
+    GUARDIANS --&gt;|detections, position reports| STATION</code></pre></details></figure><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Time budget</th>
+<th>Decides</th>
+<th>When the layer above is unreachable</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Onboard</td>
+<td>Under a second</td>
+<td>Keep clear of a conflict predicted inside the reflex horizon; hold when the uplink goes quiet; return to the rally point if it stays quiet</td>
+<td>Its own sensor and the pre-briefed lost-link procedure</td>
+</tr>
+<tr>
+<td>Station</td>
+<td>Seconds</td>
+<td>GREEN / AMBER / RED; crew alert; keep-clear, hold and disperse orders; relocation; switching a spoofed guardian to station fixes</td>
+<td>Keeps protecting; lands guardians under delegation after the center timeout; never resumes the mission alone</td>
+</tr>
+<tr>
+<td>Center</td>
+<td>Tens of seconds</td>
+<td>Acknowledgement; recovery or resumption after an event; any response to the threat itself (outside this lab)</td>
+<td>Nothing crosses a dead link; decisions are retried when it returns</td>
+</tr>
+</tbody></table>
+<h2>6. Evaluation method</h2>
+<p><code>tools/guardian_sim.py</code> is a kinematic simulator. Five guardians (four pickets 900 m out at 80 m, one overwatch above the station at 60 m) fly at up to 12 m/s. The station&#39;s ground sensor sees 1200 m, but only 400 m for targets below 50 m; guardian sensors see 800 m in every direction and classify inside 500 m. Links have 0.2 s latency and 2% loss; the center answers after 1.5 s each way plus an 8–20 s operator decision. These are illustrative round numbers chosen to expose trade-offs, not the specification of any real sensor or aircraft.</p>
+<p>Four designs run against the same seeded threats: <strong>station only</strong> (no drone sensing), <strong>onboard only</strong> (drones sense and protect themselves, no network), <strong>networked</strong> (drone sensing fused at the station, which gives every order; no onboard autonomy), and <strong>hybrid</strong> (networked plus onboard reflexes, lost-link procedures and the navigation cross-check). Each cell is many seeds; the results page lists medians and percentiles.</p>
+<h2>7. What the evaluation shows</h2>
+<p>The generated tables are in <a href="guardian-results.html">the simulator results</a>. In summary:</p>
+<ul>
+<li><strong>Warning comes from the network.</strong> Against a low intruder, the station&#39;s own sensor gives almost no warning; fusing guardian sensing gives over a minute, enough for the center to decide before arrival.</li>
+<li><strong>Safety under jamming comes from onboard autonomy.</strong> A networked design without it leaves a jammed picket in the threat&#39;s path; the hybrid design keeps every guardian clear.</li>
+<li><strong>Spoofing is caught by cooperation.</strong> Only the station&#39;s cross-check notices a slow drag-off; without it the picket is dragged hundreds of metres.</li>
+<li><strong>False alarms need classification, not just tracking.</strong> Linear prediction on a circling bird points at the station now and then; camera labels and the persistence rule removed every false RED in the drone-sensing designs.</li>
+<li><strong>Physics limits what software can do.</strong> No design saves a drone hovering over the impact point of a 250 m/s object with a few seconds of warning. Moving that drone 250 m off the station fixes most of it; moving the pickets out buys warning against slow threats but little against fast ones.</li>
+</ul>
+<h2>8. Lessons the simulator taught</h2>
+<p>Each of these was found in a failing run, traced, and fixed in the shared module:</p>
+<table>
+<thead>
+<tr>
+<th>Found</th>
+<th>Symptom</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Fixed-gain filter with a two-point velocity start</td>
+<td>An 18 m/s intruder read as 10–60 m/s; heading flipped; RED came seconds before arrival</td>
+<td>Constant-velocity Kalman filter weighted by each sensor&#39;s noise</td>
+</tr>
+<tr>
+<td>Straight-line prediction against a weaving intruder</td>
+<td>At long range a 20° weave misses the station by hundreds of metres</td>
+<td>&quot;Inbound&quot; also means heading within 25° of the station</td>
+</tr>
+<tr>
+<td>Friendly association by nearest report</td>
+<td>A threat passing close to a guardian was absorbed as that guardian and dropped from tracking; the same mistake raised a false spoofing alarm</td>
+<td>Each friendly claims only its nearest return; every other return is tracked</td>
+</tr>
+<tr>
+<td>Clutter chains</td>
+<td>Random points lined up into &quot;tracks&quot; at hundreds of metres per second and raised false REDs</td>
+<td>A young track may only take detections reachable at a plausible speed; RED needs support beyond confirmation</td>
+</tr>
+<tr>
+<td>Keep-clear chattering</td>
+<td>A guardian that moved far enough to clear the prediction was told to hold, stopped halfway and was back in conflict</td>
+<td>An episode latch: keep clear until the conflict has passed, re-planning but never dropping to hold</td>
+</tr>
+<tr>
+<td>Lost-link return at ground level</td>
+<td>A jammed guardian flew home at the station&#39;s height, straight through the intruders&#39; altitude band</td>
+<td>The rally point keeps cruise altitude</td>
+</tr>
+<tr>
+<td>Too few escape options</td>
+<td>Two crossing intruders squeezed a guardian</td>
+<td>Half-length moves and a climb option under a ceiling</td>
+</tr>
+<tr>
+<td>Overwatch above the protected point</td>
+<td>Unsavable against a fast inbound object</td>
+<td>Offset the overwatch (layout experiment)</td>
+</tr>
+</tbody></table>
+<h2>9. The same logic on real PX4</h2>
+<p>The <code>guardian_intruder</code> flight scenario runs the decision module on three real PX4 instances in Gazebo. Guardians launch from the carrier and hold watch posts. A scripted, visual-only intruder flies to where the carrier is parked. The first guardian reports it over the network; the second is jammed as the intruder arrives and keeps clear on its own; the third is far away. The station raises RED, drives the carrier out of the path, and orders keep-clear moves; after the intruder has gone, the center authorises recovery and the guardians land back on the carrier. The environment (intruder, sensors, jamming) and the center are simulated; the guardians&#39; adapters, supervisors and PX4 are the real flight stack. <a href="sitl-guide.html">The SITL guide</a> lists the topics and acceptance checks.</p>
+<h2>10. Limits</h2>
+<ul>
+<li>The simulators model kinematics, not aerodynamics, radar physics, camera performance or radio propagation. Real sensor ranges, clutter and classification accuracy vary widely.</li>
+<li>Threats fly to fixed points. A threat that steers toward a guardian cannot be escaped by keeping clear; the design&#39;s answer is warning and sheltering, not evasion.</li>
+<li>Identification of friendlies relies on reported positions; real systems add transponders, authenticated datalinks and pre-briefed corridors.</li>
+<li>The station and center are software stand-ins on one host; operator workload, rules of engagement and airspace procedures are out of scope.</li>
+<li>Nothing here responds to a threat. That decision, and the systems that carry it out, sit with the center and with authorised operators.</li>
+</ul>
+<h2>Reproduce</h2>
+<pre><code class="language-bash">python3 tools/guardian_sim.py --seeds 40 --workers 8 --output artifacts/guardian
+python3 -m unittest tests.test_guardian
+bash scripts/run_sitl.sh --scenario guardian_intruder --video --output ~/work/mission-computer-lab/retests/guardian-001
+</code></pre>
+</main><footer>Mission Computer Lab · software simulation portfolio · <a href="https://github.com/buicongnguyen/mission-computer-lab">source on GitHub</a> · 2026</footer></body></html>
