@@ -17,7 +17,6 @@ import platform
 import random
 import sys
 from guardian import (
-    GREEN,
     RED,
     Center,
     Config,
@@ -809,12 +808,11 @@ def run(scenario_name, architecture, seed, trace=False, layout='baseline'):
                     log(now, 'station', 'relocate', 'station')
             if before == RED:
                 station['held'] = True
-            if state == GREEN and station['held']:
-                station['clear_since'] = now
-        # After a RED event, ask the center. Each clear gets its own request number, and only an answer to
+                station['clear_since'] = now  # RED has cleared; only a new RED resets the question.
+        # After a RED event, ask the center once RED has cleared (recall orders still wait for GREEN). Each clear gets its own request number, and only an answer to
         # the current one counts: an answer to an earlier question must not recall guardians after a new
         # event. With no answer by center_timeout, the station recovers on its delegated authority.
-        if station['held'] and station['posture'].state == GREEN and station['recovery'] is None:
+        if station['held'] and station['posture'].state != RED and station['recovery'] is None:
             if station['request'] is None:
                 station['requests'] += 1
                 station['request'] = station['requests']
@@ -827,7 +825,7 @@ def run(scenario_name, architecture, seed, trace=False, layout='baseline'):
                 station['recovery_by'] = 'station (delegated)'
                 metrics['delegated'] = True
                 log(now, 'station (delegated)', 'recover', 'station')
-        elif station['posture'].state != GREEN:
+        elif station['posture'].state == RED:
             station['request'] = None
         for arrival, decision, request in center.step(now):
             center_replies.append((arrival, decision, request))
@@ -840,7 +838,7 @@ def run(scenario_name, architecture, seed, trace=False, layout='baseline'):
                 and station['recovery'] is None
                 and request is not None
                 and request == station['request']
-                and station['posture'].state == GREEN
+                and station['posture'].state != RED
             ):
                 station['recovery'] = decision
                 station['recovery_by'] = 'center'
@@ -1103,12 +1101,14 @@ def markdown(report):
     lines += [
         '',
         f"Both invariants held in {held:.0f} of {runs} runs ({held / runs * 100:.1f}%). First: every keep-clear or dispersal decision, "
-        "new or kept, opened the range along its whole path to every relevant track it was based on (not a bird, predicted to pass "
-        "within twice the clear radius inside twice the planning horizon). Second: no layer took an action outside its authority. "
-        "Both are properties of the decisions, checked in every run. The row above measures the same thing on truth instead: "
-        f"a run counts if some move brought a guardian more than {TRUTH_TOLERANCE:.0f} m nearer a real threat that a track was on "
-        "and that truly passed within the clear radius inside the planning horizon. These come from straight-line predictions "
-        "of weaving threats at long range; whether any guardian lost its safe radius is what the first table shows.",
+        "new or kept, opened the range along its whole path to every relevant slow track it was based on (not a bird, predicted "
+        "to pass within twice the clear radius inside twice the planning horizon), and shortened no steady fast object's "
+        "predicted miss. Second: no layer took an action outside its authority. Both are properties of the decisions, checked "
+        "in every run. The row above measures the same thing on truth instead: a run counts if some move brought a guardian "
+        f"more than {TRUTH_TOLERANCE:.0f} m nearer a real slow threat that a track was on and that truly passed within the clear "
+        f"radius inside the planning horizon, or shortened a real fast object's true miss by more than {TRUTH_TOLERANCE:.0f} m. "
+        "These come from straight-line predictions of weaving threats at long range; whether any guardian lost its safe radius "
+        "is what the first table shows.",
         '',
         '## Layout experiment (hybrid design)',
         '',

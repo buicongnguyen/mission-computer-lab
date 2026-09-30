@@ -11,7 +11,7 @@ from unittest.mock import Mock
 import rclpy
 from std_msgs.msg import String
 from center_node import CenterNode
-from guardian import Track, Tracker, authorised, safe_move
+from guardian import AMBER, GREEN, Track, Tracker, authorised, safe_move
 from guardian_layout import (
     CFG,
     EAST_HIGH,
@@ -184,6 +184,25 @@ class GuardianNodes(unittest.TestCase):
         s.protect(cleared + CFG.center_timeout + 0.5)
         self.assertEqual((s.recovery, s.recovery_by), ('recover', 'station (delegated)'))
         self.assertTrue(authorised('recover', 'station (delegated)'))
+
+    def test_an_amber_flicker_after_the_event_does_not_hold_recovery_back(self):
+        # In a combined flight an unlabelled circling bird was re-acquired every lap: AMBER a few seconds after each
+        # GREEN. Asking the center only at GREEN, and starting over each time, kept the guardians out for good.
+        s = self.station()
+        self.fly(s, 0.0, 40.0)
+        self.settle(s, 41.0)
+        cleared, request = s.clear_since, s.request
+        self.assertIsNotNone(request)
+        states = set()
+        for k in range(1, int((CFG.center_timeout + 1.0) / 0.5) + 1):
+            t = cleared + 0.5 * k
+            if k % 16 == 0:
+                s.posture.last_track = t  # An unlabelled bird re-acquired: AMBER for clear_time.
+            s.protect(t)
+            states.add(s.posture.state)
+        self.assertEqual(states, {GREEN, AMBER})  # It did flicker, and never went back to RED.
+        self.assertEqual(s.request, request)  # Still the same question.
+        self.assertEqual((s.recovery, s.recovery_by), ('recover', 'station (delegated)'))
 
     def test_a_quiet_watch_ends_by_asking_the_center(self):
         s = self.station('guardian_birds')

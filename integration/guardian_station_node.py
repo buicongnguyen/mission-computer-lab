@@ -127,7 +127,7 @@ class GuardianStation(Station):
             and self.recovery is None
             and request is not None
             and request == self.request
-            and self.posture.state == GREEN
+            and self.posture.state != RED  # Recall orders themselves still wait for GREEN.
         ):
             self.recovery = decision
             self.recovery_by = 'center'
@@ -189,8 +189,9 @@ class GuardianStation(Station):
                     self.relocate_x = self.relocation_stop(now, tracks)
                     self.log.write('relocate', t=now, carrier=self.carrier, target_x=self.relocate_x)
             if before == RED:
+                # RED has cleared: the question to the center starts now, and only a new RED resets it. Waiting
+                # for GREEN let an unlabelled circling bird, re-acquired each lap at AMBER, hold recovery for good.
                 self.held = True
-            if state == GREEN and self.held:
                 self.clear_since = now
         if self.relocating:  # Threats seen after the decision can move the stop further along.
             stop = self.relocation_stop(now, tracks)
@@ -211,7 +212,7 @@ class GuardianStation(Station):
         ):
             self.watch_request = now
             self.log.write('watch_complete', t=now)
-        asking = self.recovery is None and self.posture.state == GREEN and (self.held or self.watch_request is not None)
+        asking = self.recovery is None and self.posture.state != RED and (self.held or self.watch_request is not None)
         if asking:
             # Each clear is its own question, numbered, and resent until answered or the center times out.
             if self.request is None:
@@ -228,7 +229,7 @@ class GuardianStation(Station):
                 self.recovery = 'recover'
                 self.recovery_by = 'station (delegated)'
                 self.log.write('recovery', by=self.recovery_by, t=now)
-        elif self.posture.state != GREEN:
+        elif self.posture.state == RED:
             self.request = None
         # Orders are planned only for guardians heard from recently; a silent (jammed) guardian is told to hold
         # where it is, so that when its link returns it does not fly a move planned from where it used to be.
