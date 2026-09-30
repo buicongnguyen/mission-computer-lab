@@ -16,7 +16,7 @@ from rclpy.utilities import remove_ros_args
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from std_msgs.msg import String
-from common import JsonLog, drop_malformed, finite_vector, stamp_seconds, px4_topic, SENSOR_QOS
+from common import JsonLog, drop_malformed, finite_number, finite_vector, stamp_seconds, px4_topic, SENSOR_QOS
 from px4_msgs.msg import VehicleLandDetected
 from fleet_contracts import FreshInput, LAND_TIMEOUT
 
@@ -76,6 +76,7 @@ class Station(Node):
             return False
         # Checked before anything is stored: a half-read state would reach the next planning tick.
         finite_vector(state.get('position'))
+        finite_number(state.get('layer'))  # The altitude layer, which orders the landings.
         if not isinstance(state.get('armed'), bool) or not isinstance(state.get('phase'), str):
             raise ValueError('state needs armed and phase')
         if not self.state_inputs[drone].accept(state.get('t'), self.now()):

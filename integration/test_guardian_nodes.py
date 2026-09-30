@@ -497,6 +497,21 @@ class GuardianNodes(unittest.TestCase):
             self.assertTrue(route)
             self.assertFalse(set(route) & reserved)
 
+    def test_a_guardian_state_keeps_its_altitude_layer_for_the_landing_order(self):
+        # The state once carried the deciding layer ('station', 'onboard') under 'layer', the key in which the
+        # fleet state gives the altitude layer the station lands vehicles by, so guardians landed in no set order.
+        g = self.guardian({'action': 'watch', 'target': [1.0, 2.0, 4.0]}, link_age=0.1)
+        g.action, g.layer, g.origin, g.pose = 'keep_clear', 'onboard', None, None
+        extra = GuardianMission.extra_state(g)
+        self.assertNotIn('layer', extra)
+        self.assertEqual((extra['action'], extra['decided_by']), ('keep_clear', 'onboard'))
+        s = self.station()
+        before = dict(s.states['px4_1'])
+        s.on_state('px4_1', message({**before, 'telemetry_fresh': True, 'layer': None}))  # Dropped, not fatal.
+        self.assertEqual(s.states['px4_1'], before)
+        dropped = [r['topic'] for r in self.records('station.jsonl') if r['kind'] == 'dropped_message']
+        self.assertEqual(dropped, ['fleet state'])
+
     def test_a_dispersal_order_carries_its_impact_area_and_a_malformed_one_is_dropped(self):
         g = self.guardian({'action': 'watch', 'target': [1.0, 2.0, 4.0]}, link_age=0.1)
         order = {

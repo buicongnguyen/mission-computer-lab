@@ -127,9 +127,10 @@ class GuardianMission(FleetMission):
 
     def extra_state(self):
         raw = FleetMission.world_position(self)
+        # Not 'layer': in the fleet state that is the altitude layer, which orders the landings.
         return {
             'action': self.action,
-            'layer': self.layer,
+            'decided_by': self.layer,
             'posture': self.posture,
             'gnss_position': raw,
             'blocked_cells': sorted(self.blocked),

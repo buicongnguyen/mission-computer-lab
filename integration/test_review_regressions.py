@@ -167,6 +167,7 @@ class ReviewContracts(unittest.TestCase):
                         armed=armed,
                         position=[0.0, 0.0, z],
                         phase='descend',
+                        layer=3.0,
                         pad_error=0.1,
                     )
                 )
