@@ -284,6 +284,23 @@ class GuardianNodes(unittest.TestCase):
         self.assertNotIn(ns, s.navigating)
         self.assertTrue(any(r['kind'] == 'integrity_clear' for r in self.records('station.jsonl')))
 
+    def test_a_landed_guardian_on_station_fixes_keeps_getting_current_ones(self):
+        # Landed and disarmed while still dragged: the cross-check stops, but the fixes stay current, so the
+        # guardian's corrected position, and the pad error the station's touchdown depends on, follow the truth.
+        s = self.station('guardian_spoofing')
+        ns = 'px4_1'
+        for k in range(10):
+            s.states[ns]['position'] = [0.3 * k, 12.0, 5.0]
+            s.on_fixes(message({ns: [0.0, 12.0, 5.0, float(k)]}))
+        self.assertIn(ns, s.navigating)
+        s.states[ns].update(armed=False, phase='descend', position=[5.0, -1.5, 0.6])
+        s.on_fixes(message({ns: [0.0, -1.5, 0.6, 15.0]}))
+        self.assertEqual(s.fix[ns], [0.0, -1.5, 0.6, 15.0])
+        self.assertEqual(s.integrity[ns].state, 'spoofed')  # No cross-check on the deck.
+        s.uplink = Mock()
+        s.publish_clearance(15.0)
+        self.assertEqual(json.loads(s.uplink.publish.call_args.args[0].data)['nav'][ns], [0.0, -1.5, 0.6, 15.0])
+
     def test_malformed_messages_are_dropped_and_logged_never_fatal(self):
         def raw(text):
             m = String()

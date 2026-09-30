@@ -142,6 +142,27 @@ class PublicationContracts(unittest.TestCase):
         self.assertTrue(fleet_landing_confirmed(records + [landed], touchdown))
         self.assertFalse(fleet_landing_confirmed(records + [dict(landed, ground_contact=False)], touchdown))
 
+    def test_a_landing_is_timed_from_the_disarm_not_from_later_status_changes(self):
+        # guardian_jamming, 30 September: PX4 disarmed, then logged its preflight checks failing 2.8 s later, once the
+        # offboard stream had stopped. Timing from that last status rejected two good landings.
+        records = [
+            dict(kind='status', wall_time=1.0, arming_state=2, nav_state=14),
+            dict(kind='position', wall_time=50.0, valid=True, ned=[0.0, 0.0, -3.0]),
+            dict(kind='land', wall_time=59.92, landed=True, ground_contact=True),
+            dict(kind='status', wall_time=60.0, arming_state=1, nav_state=14),
+            dict(kind='status', wall_time=62.78, arming_state=1, nav_state=14, preflight=False),
+        ]
+        self.assertTrue(fleet_landing_confirmed(records, {'wall_time': 60.94}))
+        # The fleet flight the same day: the station declared touchdown 3.1 s after the disarm, at 0.4 of real time.
+        self.assertTrue(fleet_landing_confirmed(records, {'wall_time': 63.1}))
+        self.assertFalse(fleet_landing_confirmed(records, {'wall_time': 66.0}))  # Not this landing.
+        # A landed report from before the vehicle was last airborne is not evidence of the final landing.
+        early = records[:2] + [
+            dict(kind='land', wall_time=57.5, landed=True, ground_contact=True),
+            dict(kind='position', wall_time=58.5, valid=True, ned=[0.0, 0.0, -2.0]),
+        ]
+        self.assertFalse(fleet_landing_confirmed(early + records[3:], {'wall_time': 60.94}))
+
 
 if __name__ == '__main__':
     unittest.main()

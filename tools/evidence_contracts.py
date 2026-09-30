@@ -105,29 +105,41 @@ def bag_has_topics(folder, topics=('/mission/decision', '/mission/perception', '
     return set(topics) <= seen
 
 
+# PX4 disarms a landed vehicle after COM_DISARM_LAND, one second of simulated time. While the matrix records video the
+# simulation runs at 0.4 to 0.6 of real time, and the observer logs land-detector changes rather than a steady rate, so
+# the evidence of one landing spreads over a few wall-clock seconds.
+LANDING_WINDOW = 4.0
+
+
 def fleet_landing_confirmed(records, touchdown):
-    """Independent airborne -> fresh landed/contact -> disarm evidence; OFFBOARD deck landings need no AUTO_LAND."""
+    """Independent evidence of the final landing: PX4's land detector reported landed with ground contact after the
+    vehicle was last airborne and within LANDING_WINDOW of the disarm, and the station's touchdown lies within the same
+    window of it. The disarm is the arming transition itself: PX4 logs further status changes on the ground (its
+    preflight checks fail once the offboard stream stops), and timing from the last of them rejected valid landings.
+    OFFBOARD deck landings need no AUTO_LAND."""
     if not touchdown:
         return False
     statuses = [r for r in records if r['kind'] == 'status']
-    armed = next((r['wall_time'] for r in statuses if r['arming_state'] == 2 and r['nav_state'] == 14), math.inf)
-    airborne = next(
-        (
-            r['wall_time']
-            for r in records
-            if r['kind'] == 'position' and r['wall_time'] >= armed and r.get('valid') and -r['ned'][2] > 1.4
-        ),
-        math.inf,
-    )
     if not statuses or statuses[-1]['arming_state'] != 1:
         return False
-    disarm = statuses[-1]['wall_time']
-    return disarm > airborne and any(
-        r['kind'] == 'land'
-        and r.get('landed') is True
-        and r.get('ground_contact') is True
-        and r['wall_time'] > airborne
-        and abs(r['wall_time'] - disarm) <= 2.0
-        and abs(r['wall_time'] - touchdown['wall_time']) <= 2.0
+    armed = [i for i, r in enumerate(statuses) if r['arming_state'] == 2]
+    if not armed:
+        return False
+    first_armed, disarm = statuses[armed[0]]['wall_time'], statuses[armed[-1] + 1]['wall_time']
+    airborne = [
+        r['wall_time']
         for r in records
+        if r['kind'] == 'position' and first_armed <= r['wall_time'] < disarm and r.get('valid') and -r['ned'][2] > 1.4
+    ]
+    return (
+        bool(airborne)
+        and abs(touchdown['wall_time'] - disarm) <= LANDING_WINDOW
+        and any(
+            r['kind'] == 'land'
+            and r.get('landed') is True
+            and r.get('ground_contact') is True
+            and r['wall_time'] > airborne[-1]
+            and abs(r['wall_time'] - disarm) <= LANDING_WINDOW
+            for r in records
+        )
     )

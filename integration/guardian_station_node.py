@@ -92,13 +92,14 @@ class GuardianStation(Station):
             finite_vector(fix, 4)  # x, y, z, time; all checked before any is used.
         for ns, fix in fixes.items():
             state = self.states.get(ns)
-            if (
-                not state
-                or not state.get('armed')
-                or state.get('phase') not in ('watch', 'return', 'rendezvous', 'descend')
-            ):
+            if not state:
                 continue
+            # A flagged guardian flies on these fixes until it is down, so they stay current on the deck too. Frozen
+            # at the last airborne fix, under a drag-off that went on, a landed guardian's corrected position drifted
+            # and its pad error stayed over the touchdown limit for eight minutes.
             self.fix[ns] = fix
+            if not state.get('armed') or state.get('phase') not in ('watch', 'return', 'rendezvous', 'descend'):
+                continue  # The cross-check itself runs only in flight.
             monitor = self.integrity[ns]
             before = monitor.state
             # A guardian flying on station fixes reports the corrected position; compare what its GNSS says.
