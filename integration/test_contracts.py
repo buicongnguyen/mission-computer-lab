@@ -414,7 +414,9 @@ class FleetContracts(unittest.TestCase):
         self.assertEqual((len(self.logged(s, 'carrier_start')), len(self.logged(s, 'carrier_stop'))), (1, 1))
         self.assertEqual(len(self.logged(s, 'touchdown')), 3)
 
-    def test_one_landing_at_a_time_lowest_holding_layer_first(self):
+    def test_one_landing_at_a_time_lowest_airborne_layer_first(self):
+        # The fleet flight of 30 September: px4_1 (4 m) held over its pad first and was cleared, then descended
+        # through 3 m as px4_0 flew home over that pad at 3 m. They passed 0.19 m apart.
         s = self.station()
         for d in self.DRONES:
             self.report(s, d, 'outbound', z=3.0, armed=True)
@@ -422,13 +424,27 @@ class FleetContracts(unittest.TestCase):
         self.report(s, 'px4_2', 'rendezvous', z=5.0, armed=True)
         self.report(s, 'px4_1', 'rendezvous', z=4.0, armed=True)
         Station.tick(s)
-        self.assertEqual(self.grants(s, 'land'), ['px4_1'])
+        self.assertEqual(self.grants(s, 'land'), [])  # px4_0, in the lowest layer, is still flying home.
         self.report(s, 'px4_0', 'rendezvous', z=3.0, armed=True)
         Station.tick(s)
-        self.assertEqual(self.grants(s, 'land'), ['px4_1'])  # px4_1 is still landing.
+        self.assertEqual(self.grants(s, 'land'), ['px4_0'])
+        self.report(s, 'px4_0', 'descend', z=0.6, armed=False)
+        Station.tick(s)
+        self.assertEqual(self.grants(s, 'land'), ['px4_0', 'px4_1'])  # Only now may px4_1 descend through 3 m.
         self.report(s, 'px4_1', 'descend', z=0.6, armed=False)
         Station.tick(s)
-        self.assertEqual(self.grants(s, 'land'), ['px4_1', 'px4_0'])
+        self.assertEqual(self.grants(s, 'land'), ['px4_0', 'px4_1', 'px4_2'])
+
+    def test_a_vehicle_down_away_from_the_carrier_holds_no_landing_up(self):
+        s = self.station()
+        for d in self.DRONES:
+            self.report(s, d, 'outbound', z=3.0, armed=True)
+            s.clear[d]['launch'] = True
+        self.report(s, 'px4_0', 'return', z=0.0, armed=False)  # Came down short of the carrier, on the ground.
+        self.report(s, 'px4_1', 'rendezvous', z=4.0, armed=True)
+        Station.tick(s)
+        self.assertNotIn('px4_0', s.landed)
+        self.assertEqual(self.grants(s, 'land'), ['px4_1'])
 
     def vehicle(self, phase, carrier):
         m = SimpleNamespace(

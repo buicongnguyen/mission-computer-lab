@@ -168,11 +168,18 @@ class Station(Node):
             break
 
     def grant_landings(self):
-        """One landing at a time, lowest altitude layer first among the vehicles holding overhead."""
+        """One landing at a time, lowest altitude layer first among every vehicle still in the air, once it holds
+        over its pad. A descent passes through each lower layer, so a vehicle lands only after every lower one is
+        down. Clearing the lowest of the vehicles already holding let one descend through 3 m while another flew
+        home over its pad at 3 m, and they passed 0.19 m apart. A vehicle that came down away from the carrier is
+        disarmed, and holds nobody up."""
         busy = [d for d in self.drones if self.clear[d]['land'] and d not in self.landed]
-        holding = [d for d in self.drones if self.states[d]['phase'] == 'rendezvous' and d not in self.landed]
-        if not busy and holding:
-            self.grant(min(holding, key=lambda d: self.states[d]['layer']), 'land')
+        airborne = [d for d in self.drones if d in self.flown and d not in self.landed and self.states[d]['armed']]
+        if busy or not airborne:
+            return
+        lowest = min(airborne, key=lambda d: self.states[d]['layer'])
+        if self.states[lowest]['phase'] == 'rendezvous':
+            self.grant(lowest, 'land')
 
     def carrier_speed(self, now):
         """Drive once every vehicle is up and the first heads home, so recoveries meet a moving deck."""
