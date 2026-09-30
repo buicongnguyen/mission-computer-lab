@@ -25,27 +25,8 @@ FILES = (
 FLEET = 'fleet_carrier'
 FLEET_NAMES = ('px4_0', 'px4_1', 'px4_2')
 FLEET_FILES = ('result.json', 'parameters.log', 'station.jsonl', 'flight.mp4', 'deck.mp4')
-FLEET_VEHICLE_CHECKS = (
-    'offboard_entered',
-    'takeoff_observed',
-    'goal_reached',
-    'returned_to_carrier',
-    'landed_on_pad',
-    'carrier_moving_at_touchdown',
-    'disarmed_at_end',
-    'no_failsafe',
-    'obstacle_clearance',
-    'landed_confirmed',
-)
-FLEET_CHECKS = (
-    'fleet_min_separation',
-    'landings_sequenced',
-    'carrier_moved',
-    'rosbag_recorded',
-    'no_runner_error',
-    'messages_well_formed',
-)
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'integration'))
+from acceptance import required_fleet, required_single
 import guardian_layout as GL
 
 GUARDIANS = tuple(GL.SCENARIOS)
@@ -64,7 +45,7 @@ GUARDIAN_FILES = (
 def required_checks(result):
     """Named checks a multi-vehicle result must carry: the fleet's fixed list, or what each guardian scenario expects."""
     if result['scenario'] == FLEET:
-        return {f'{ns}_{c}' for ns in FLEET_NAMES for c in FLEET_VEHICLE_CHECKS} | set(FLEET_CHECKS)
+        return required_fleet(FLEET_NAMES)
     return set(GL.expected_checks(result['scenario']))
 
 
@@ -186,34 +167,7 @@ def main():
             if result['scenario'] in GUARDIANS:
                 validate_guardian(result)
             continue
-        required = {
-            'telemetry_received',
-            'offboard_entered',
-            'takeoff_observed',
-            'disarmed_at_end',
-            'landed_at_end',
-            'estimated_obstacle_clearance',
-            'altitude_bounded',
-            'land_mode_observed',
-            'image_messages',
-            'perception_messages',
-            'lidar_messages',
-            'arming_ack_accepted',
-            'no_runner_error',
-            'ordered_flight_cycle',
-            'final_pose_near_ground',
-            'finite_positions',
-            'estimator_valid_before_fault',
-            'rosbag_recorded',
-        }
-        if result['scenario'] in ('nominal', 'camera_dropout'):
-            required.update(('mission_complete', 'goal_reached', 'landing_ack_accepted', 'no_unexpected_faults'))
-        if result['scenario'] == 'camera_dropout':
-            required.update(('fault_injected', 'camera_hold_observed', 'camera_recovered'))
-        if result['scenario'] == 'companion_crash':
-            required.update(('fault_injected', 'px4_failsafe_after_crash'))
-        if result['scenario'] == 'gps_loss':
-            required.update(('fault_injected', 'gps_fault_handled', 'gps_fix_lost'))
+        required = required_single(result['scenario'])
         if not required <= result['checks'].keys():
             raise ValueError('Missing required checks: ' + result['scenario'])
         folder = source / result['scenario']
