@@ -254,7 +254,7 @@ def main():
         '',
         '## Fleet from a moving carrier',
         '',
-        'Three PX4 instances launch in sequence from pads on a carrier vehicle, fly separate inspection legs at 3, 4 and 5 m, and land back on the carrier while it drives. A ground-station node grants one launch and one landing at a time; each vehicle keeps its own C++ supervisor and PX4 failsafes.',
+        'Three PX4 instances launch in sequence from pads on a carrier vehicle, fly separate inspection legs at 3, 4.5 and 6 m, and land back on the carrier while it drives. A ground-station node grants one launch at a time and one landing at a time, lowest layer first; each vehicle keeps its own C++ supervisor and PX4 failsafes.',
         '',
         '| Vehicle | Goal | Altitude layer (m) | Touchdown pad error (m) | Carrier speed at touchdown (m/s) | Min obstacle clearance (m) |',
         '|---|---|---:|---:|---:|---:|',

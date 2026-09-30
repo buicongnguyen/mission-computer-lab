@@ -29,11 +29,13 @@ SCENARIOS = (
     'fleet_carrier',
 )  # Guardian scenarios are appended below.
 MULTI = ('fleet_carrier',)
-# Three vehicles launch from pads on a carrier; each flies its own leg at its own altitude layer.
+# Three vehicles launch from pads on a carrier; each flies its own leg at its own altitude layer. The layers are
+# 1.5 m apart: all three come home along the carrier, so one can pass under another holding over its pad, and at
+# 1 m apart that pass measured 0.97 m against the 1 m separation minimum.
 FLEET = [
     {'ns': 'px4_0', 'pad': -1.1, 'goal': (9, 9), 'altitude': 3.0},
-    {'ns': 'px4_1', 'pad': 0.0, 'goal': (10, 3), 'altitude': 4.0},
-    {'ns': 'px4_2', 'pad': 1.1, 'goal': (-1, 10), 'altitude': 5.0},
+    {'ns': 'px4_1', 'pad': 0.0, 'goal': (10, 3), 'altitude': 4.5},
+    {'ns': 'px4_2', 'pad': 1.1, 'goal': (-1, 10), 'altitude': 6.0},
 ]
 CARRIER_START = (0.0, -1.5)
 sys.path.insert(0, str(ROOT / 'integration'))
