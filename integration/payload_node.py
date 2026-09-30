@@ -8,6 +8,7 @@ import sys
 import rclpy
 from rclpy.node import Node
 from rclpy.utilities import remove_ros_args
+from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image, LaserScan
 from px4_msgs.msg import VehicleLocalPosition
 from common import SENSOR_QOS, mission_topic, px4_topic, ros_seconds
@@ -23,6 +24,7 @@ class Payload(Node):
         self.start = ros_seconds(self)
         self.args = args
         self.position = None
+        self.truth = None
         self.drop_until = -1.0
         # The runner sends SIGUSR1 once the vehicle is airborne, so the dropout is always tested in flight.
         signal.signal(signal.SIGUSR1, self.drop_camera)
@@ -32,6 +34,11 @@ class Payload(Node):
             self.pose,
             SENSOR_QOS,
         )
+        if args.truth:
+            # A real LiDAR measures the real surroundings whatever the GNSS says. Computed from a GNSS-dragged
+            # estimate, the ideal scan of a guardian holding its post on station fixes grazed a cylinder: ranges fell
+            # below the minimum, the adapter rejected the scans as stale vision, and the supervisor landed it.
+            self.create_subscription(Odometry, args.truth, self.on_truth, 10)
         self.images = self.create_publisher(Image, mission_topic('camera/image', ns), SENSOR_QOS)
         self.scans = self.create_publisher(LaserScan, mission_topic('lidar/scan', ns), SENSOR_QOS)
         self.create_timer(0.1, self.tick)
@@ -43,6 +50,10 @@ class Payload(Node):
     def pose(self, msg):
         e, n, u = self.args.spawn
         self.position = [msg.y + e, msg.x + n, -msg.z + u]
+
+    def on_truth(self, msg):
+        p = msg.pose.pose.position
+        self.truth = [p.x, p.y, p.z]  # Gazebo's world frame is ENU, as the scan is.
 
     def tick(self):
         now = ros_seconds(self)
@@ -59,7 +70,8 @@ class Payload(Node):
             image.step = 64 * 3
             image.data = rgb.tobytes()
             self.images.publish(image)
-        if self.position is None:
+        position = self.truth or self.position
+        if position is None:
             return  # No scan until the vehicle's position is known.
         scan = LaserScan()
         scan.header.stamp = stamp
@@ -70,7 +82,7 @@ class Payload(Node):
         scan.range_min = 0.05
         scan.range_max = 14.0
         scan.scan_time = 0.1
-        scan.ranges = [float(p['range']) for p in lidar(self.position)]
+        scan.ranges = [float(p['range']) for p in lidar(position)]
         self.scans.publish(scan)
 
 
@@ -79,6 +91,7 @@ def main():
     p.add_argument('--camera-drop-for', type=float, default=0.8)
     p.add_argument('--ns', default='')
     p.add_argument('--spawn', type=float, nargs=3, default=[0.0, 0.0, 0.0])
+    p.add_argument('--truth', help='Gazebo odometry topic of this airframe: the scan is computed from its true pose')
     args = p.parse_args(remove_ros_args(sys.argv)[1:])
     rclpy.init()
     node = Payload(args)

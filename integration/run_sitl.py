@@ -608,7 +608,16 @@ def run_fleet(workspace, base_output, timeout, video=False, gui=False, name='fle
             )
             processes.launch(
                 f'payload_{ns}',
-                [sys.executable, str(ROOT / 'integration/payload_node.py'), '--ns', ns, '--spawn', *spawn, *SIM_TIME],
+                [
+                    sys.executable,
+                    str(ROOT / 'integration/payload_node.py'),
+                    '--ns',
+                    ns,
+                    '--spawn',
+                    *spawn,
+                    *(['--truth', f'/model/x500_{i}/odometry'] if guardian else []),  # Bridged for guardians.
+                    *SIM_TIME,
+                ],
             )
             processes.launch(
                 f'perception_{ns}',

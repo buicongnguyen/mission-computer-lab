@@ -501,6 +501,28 @@ class GuardianNodes(unittest.TestCase):
             self.assertTrue(route)
             self.assertFalse(set(route) & reserved)
 
+    def test_the_payload_lidar_measures_the_true_surroundings(self):
+        # Under a GNSS drag-off a guardian holding its post on station fixes has its estimate metres away; in one
+        # flight it grazed the (4, 3) cylinder, ranges fell below the minimum, and the adapter rejected the scans.
+        from payload_node import Payload
+
+        truth = SimpleNamespace(
+            pose=SimpleNamespace(pose=SimpleNamespace(position=SimpleNamespace(x=1.0, y=2.0, z=4.0)))
+        )
+        p = Payload(
+            SimpleNamespace(ns='px4_0', spawn=[0.0, 0.0, 0.0], truth='/model/x500_0/odometry', camera_drop_for=0.8)
+        )
+        self.addCleanup(p.destroy_node)
+        p.images, p.scans = Mock(), Mock()
+        p.position = [2.99, 3.0, 4.0]  # The dragged estimate, 1 cm from the cylinder.
+        p.tick()
+        dragged = p.scans.publish.call_args.args[0]
+        self.assertLess(min(dragged.ranges), dragged.range_min)
+        p.on_truth(truth)
+        p.tick()
+        scan = p.scans.publish.call_args.args[0]
+        self.assertGreaterEqual(min(scan.ranges), scan.range_min)
+
     def test_a_guardian_state_keeps_its_altitude_layer_for_the_landing_order(self):
         # The state once carried the deciding layer ('station', 'onboard') under 'layer', the key in which the
         # fleet state gives the altitude layer the station lands vehicles by, so guardians landed in no set order.
