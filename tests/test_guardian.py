@@ -10,7 +10,9 @@ import unittest
 from unittest.mock import Mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'integration'))
 import guardian as G
+import guardian_layout as GL
 import guardian_sim as S
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -429,6 +431,76 @@ class StationAndCenter(unittest.TestCase):
         self.assertTrue(G.opens_range([0.0, 0.0, 60.0], o['target'], [tr.p]))
         tr.v = [0.0, 0.0, -100.0]
         self.assertEqual(G.impact_point(tr, 0.0, [500.0, 500.0, 0.0])[:2], [700.0, 0.0])  # Where it comes down.
+
+    def fast_dive(self):
+        """The PX4 fast-object flight 2.1 s before impact: a 5.5 m/s dive onto the carrier, and its impact area."""
+        cfg, fast = GL.CFG, GL.FAST
+        v = [
+            (a - s) / math.dist(fast['start'], fast['aim']) * fast['speed'] for s, a in zip(fast['start'], fast['aim'])
+        ]
+        tr = G.Track(1, 0.0, [a - c / fast['speed'] * 11.55 for a, c in zip(fast['aim'], v)], 's')
+        tr.v, tr.speeds, tr.labels, tr.n = v, [5.5, 5.4, 5.6], {'fast': 5}, 20
+        return cfg, tr, (G.impact_point(tr, 0.0, [*GL.CARRIER, 0.6]), 2 * cfg.protect_radius)
+
+    def test_inside_the_impact_area_dispersal_comes_first_when_it_also_keeps_clear(self):
+        # Guardians beside the impact point with a predicted conflict. On PX4 the best keep-clear move ran along
+        # the edge of the area and gained under half a metre from the impact point before impact.
+        cfg, tr, hazard = self.fast_dive()
+        centre = hazard[0]
+        for own in ([0.0, 2.0, 4.0], [0.0, 1.0, 4.0]):
+            with self.subTest(own=own):
+                self.assertTrue(G.conflicts(own, [tr], 0.0, cfg, cfg.order_horizon))  # Keep-clear alone would act.
+                o = G.station_orders(0.0, G.RED, [tr], {'g': {'p': own, 'post': own}}, cfg, hazard=hazard)['g']
+                self.assertEqual(o['action'], 'disperse')
+                self.assertTrue(G.keeps_clear(own, o['target'], [tr], 0.0, cfg))
+                self.assertTrue(G.safe_move(own, o['target'], [], G.fast_paths([tr], 0.0, cfg), cfg))
+                self.assertAlmostEqual(math.dist(o['target'][:2], centre[:2]), 1.2 * hazard[1], places=6)
+                self.assertEqual(o['hazard'], [list(centre), hazard[1]])  # So the guardian can re-plan its way out.
+        # From (0, 1) the nearest point outside would not keep clear of the dive; a farther one was chosen.
+        own = [0.0, 1.0, 4.0]
+        out = [c + 1.2 * hazard[1] * (p - c) / math.dist(own[:2], centre[:2]) for p, c in zip(own[:2], centre[:2])]
+        self.assertFalse(G.keeps_clear(own, [*out, 4.0], [tr], 0.0, cfg))
+        # With nowhere to go but up or down, keeping clear decides.
+        up = lambda name: lambda q: q[:2] == own[:2]
+        o = G.station_orders(0.0, G.RED, [tr], {'g': {'p': own, 'post': own}}, cfg, free_for=up, hazard=hazard)['g']
+        self.assertEqual((o['action'], o['target'][:2]), ('keep_clear', own[:2]))
+
+    def test_a_dispersal_under_way_is_kept_while_the_impact_estimate_moves(self):
+        # A young fast track's impact estimate moves by metres between updates. Re-planned from scratch every
+        # cycle, a PX4 guardian was sent east, north and east again, and never left the area.
+        cfg, tr, hazard = self.fast_dive()
+        view = {'g': {'p': [0.0, 2.0, 4.0], 'post': [0.0, 2.0, 4.0]}}
+        first = G.station_orders(0.0, G.RED, [tr], view, cfg, hazard=hazard)['g']
+        for dx, dy in ((-2.0, 0.0), (1.5, -1.0)):
+            moved = ([hazard[0][0] + dx, hazard[0][1] + dy, 0.0], hazard[1])
+            with self.subTest(moved=moved[0]):
+                again = G.station_orders(0.1, G.RED, [tr], view, cfg, hazard=moved, previous={'g': first})['g']
+                self.assertIs(again['target'], first['target'])
+                self.assertEqual(again['hazard'][0], moved[0])  # The order carries the latest estimate.
+                fresh = G.station_orders(0.1, G.RED, [tr], view, cfg, hazard=moved)['g']
+                self.assertNotEqual(fresh['target'], first['target'])  # Planned afresh, the move would turn.
+
+    def test_a_guardian_ordered_to_disperse_re_plans_its_own_way_out(self):
+        cfg, tr, hazard = self.fast_dive()
+        own = [0.0, 2.0, 4.0]
+        order = G.station_orders(0.0, G.RED, [tr], {'g': {'p': own, 'post': own}}, cfg, hazard=hazard)['g']
+        self.assertEqual(
+            G.onboard_decide(0.0, own, [tr], 0.0, order, cfg)[:3], ('disperse', order['target'], 'station')
+        )
+        # The station's target is blocked from where the guardian is. The keep-clear move it used to fall back
+        # on maximises the miss from the dive and took it 0.6 m closer to the impact point; it now leaves.
+        blocked = lambda q: math.dist(q[:2], order['target'][:2]) > 0.5
+        action, target, layer, detail = G.onboard_decide(0.0, own, [tr], 0.0, order, cfg, free=blocked)
+        self.assertEqual((action, layer), ('keep_clear', 'onboard'))
+        self.assertTrue(G.authorised(action, layer))
+        closer = G.keep_clear_order(own, [], [tr], 0.0, cfg, blocked)['target']
+        self.assertLess(math.dist(closer[:2], hazard[0][:2]), math.dist(own[:2], hazard[0][:2]))
+        self.assertGreater(math.dist(target[:2], hazard[0][:2]), math.dist(own[:2], hazard[0][:2]) + 1.0)
+        self.assertTrue(G.keeps_clear(own, target, [tr], 0.0, cfg))
+        again = G.onboard_decide(0.1, own, [tr], 0.0, order, cfg, free=blocked, previous=detail)
+        self.assertIs(again[1], target)  # Kept while the order stands.
+        lost = G.onboard_decide(0.0, own, [tr], cfg.lost_link + 1, order, cfg)
+        self.assertEqual((lost[0], lost[2]), ('keep_clear', 'onboard'))  # A stale order no longer steers it.
 
     def test_center_answers_after_latency_and_decision_time_with_the_request_it_answers(self):
         c = G.Center(1.5, 10.0)

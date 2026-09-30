@@ -54,9 +54,14 @@ class GuardianMission(FleetMission):
     @drop_malformed('guardian uplink')
     def on_clearance(self, msg):
         data = json.loads(msg.data)
+        # Checked before the message is accepted, so a dropped one leaves no partial state behind.
+        order = data.get('orders', {}).get(self.ns) if isinstance(data, dict) else None
+        if order and order.get('hazard') is not None:  # The impact area a dispersal order carries.
+            finite_vector(order['hazard'][0])
+            finite_number(order['hazard'][1])
         if not self.accept_clearance(data):
             return
-        self.order = data.get('orders', {}).get(self.ns) or self.order
+        self.order = order or self.order
         self.posture = data.get('posture')
         self.last_uplink = self.now()
         if self.carrier:

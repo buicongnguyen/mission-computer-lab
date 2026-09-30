@@ -480,6 +480,24 @@ class GuardianNodes(unittest.TestCase):
             self.assertTrue(route)
             self.assertFalse(set(route) & reserved)
 
+    def test_a_dispersal_order_carries_its_impact_area_and_a_malformed_one_is_dropped(self):
+        g = self.guardian({'action': 'watch', 'target': [1.0, 2.0, 4.0]}, link_age=0.1)
+        order = {
+            'action': 'disperse',
+            'target': [0.8, 4.1, 4.0],
+            'reason': 'impact_area',
+            'hazard': [[0.8, -3.1, 0.0], 6.0],
+        }
+        uplink = lambda o: message({'t': 100.0, 'clearance': {}, 'orders': {'px4_0': o}})
+        for hazard in ([[0.8, -3.1], 6.0], [[0.8, -3.1, 0.0], 'far'], [[0.8, -3.1, 0.0]]):
+            self.assertFalse(g.on_clearance(uplink(dict(order, hazard=hazard))))
+        self.assertEqual(g.order['action'], 'watch')
+        self.assertEqual([c.args[0] for c in g.log.write.call_args_list], ['dropped_message'] * 3)
+        g.on_clearance(uplink(order))  # Its timestamp was not used up by the dropped messages.
+        self.assertEqual(g.order['hazard'], order['hazard'])
+        self.assertEqual(g.guard(100.0, [1.0, 2.0, 4.0]), order['target'])  # Nothing seen: the station's move stands.
+        self.assertEqual((g.action, g.layer), ('disperse', 'station'))
+
     def test_guardian_navigates_by_station_fixes_once_its_gnss_is_flagged(self):
         g = self.guardian({'action': 'watch', 'target': [1.0, 2.0, 4.0]}, link_age=0.1)
         g.track = [(t, [1.0 + 0.1 * t, 2.0, 4.0]) for t in range(10)]  # The GNSS-based estimate has been dragged east.

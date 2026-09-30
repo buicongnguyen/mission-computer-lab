@@ -507,12 +507,29 @@ def onboard_decide(
     """What the guardian does itself: (action, target, layer, detail).
 
     It acts alone only for a conflict inside the reflex horizon, a lost uplink, navigation it can no longer
-    verify, or a station move that would close on a track it sees; otherwise it follows the station's last order. `previous` is its own last onboard
+    verify, a station move that would close on a track it sees, or a dispersal it must re-plan from where it
+    really is; otherwise it follows the station's last order. `previous` is its own last onboard
     keep-clear, if any. `fix_age` is the age of the last station fix while it navigates by fixes: its GNSS
     is known to be spoofed, so once the fixes stop it lands where it is rather than fly on a frozen
     correction. The rally point is pre-briefed (the station's last known position), not live."""
     if fix_age is not None and fix_age > cfg.fix_timeout:
         return 'land_in_place', None, 'onboard', {}
+    if order.get('action') == 'disperse' and order.get('hazard') and link_age <= cfg.lost_link:
+        # Ordered out of an impact area: the station's move, or the guardian's own way out from where it really
+        # is, comes before a reflex keep-clear whenever it is a keep-clear move for what the guardian sees. Its
+        # own move is an onboard keep-clear (only the station orders a dispersal), kept while the order stands.
+        target = order.get('target')
+        if target and leads_out(own_p, target, order['hazard'], tracks, now, cfg, free):
+            return 'disperse', target, 'station', {}
+        kept = (previous or {}).get('target') if (previous or {}).get('dispersal') else None
+        mine = dispersal_move(own_p, order['hazard'], tracks, now, cfg, free, kept=kept)
+        if mine is not None:  # Not a keep-clear episode (until: now): it ends with the dispersal order.
+            return (
+                'keep_clear',
+                mine,
+                'onboard',
+                {'action': 'keep_clear', 'target': mine, 'until': now, 'dispersal': True},
+            )
     o = keep_clear_step(own_p, previous, tracks, now, cfg, cfg.reflex_horizon, free)
     if o:
         return 'keep_clear', o['target'], 'onboard', o
@@ -552,28 +569,43 @@ def station_orders(
 
     guardians: {name: {'p': reported position, 'post': watch post}}. `recovery` is 'recover' or 'resume'
     once the center (or delegation) has decided; `held` keeps guardians where they are after a RED event
-    until then. `hazard` is (centre, radius) of a predicted impact area to disperse from."""
+    until then. `hazard` is (centre, radius) of a predicted impact area to disperse from.
+
+    Inside the impact area, dispersing comes before keeping clear whenever the dispersal move is itself a
+    keep-clear move (dispersal_move). The best keep-clear move maximises the miss from the object's path
+    instead, and on PX4 it ran along the edge of the area and gained less than half a metre from the impact
+    point before impact. A dispersal order carries the area, so the guardian can re-plan its own way out."""
     orders = {}
     previous = previous or {}
     for name, g in guardians.items():
+        prior = previous.get(name) or {}
+        kept = prior.get('target') if prior.get('action') == 'disperse' else None
+        # Once dispersing, a guardian keeps going until clearly outside: the impact estimate of a young fast
+        # track moves, and a guardian near the edge must not flip between dispersing and holding.
+        inside = (
+            posture == RED and hazard and math.dist(g['p'][:2], hazard[0][:2]) < hazard[1] * (1.25 if kept else 1.0)
+        )
+        if posture == RED and hazard and (inside or kept):
+            target = dispersal_move(g['p'], hazard, tracks, now, cfg, free_for(name), kept=kept)
+            if target is not None and (inside or target is kept):
+                orders[name] = (
+                    {**prior, 'hazard': dispersal_order(target, hazard)['hazard']}
+                    if target is kept
+                    else dispersal_order(target, hazard)
+                )
+                continue
         o = keep_clear_step(g['p'], previous.get(name), tracks, now, cfg, cfg.order_horizon, free_for(name))
         if o:
             orders[name] = o if o is previous.get(name) else {**o, 'reason': 'predicted_conflict'}
-        elif (
-            posture == RED
-            and hazard
-            and math.dist(g['p'][:2], hazard[0][:2])
-            < hazard[1] * (1.25 if (previous.get(name) or {}).get('action') == 'disperse' else 1.0)
-        ):
-            # Once dispersing, a guardian keeps going until clearly outside: the impact estimate of a young
-            # fast track moves, and a guardian near the edge must not flip between dispersing and holding.
+        elif inside:
+            # No dispersal move keeps clear of every track, yet none is in conflict: leave the area anyway.
             avoid, fast = relevant(g['p'], tracks, now, cfg), fast_paths(tracks, now, cfg)
             target = disperse_point(g['p'], hazard, avoid, free_for(name), cfg, fast)
             if target is None:
                 target, _ = keep_clear(
                     g['p'], [(tr.predict(now), tr.v) for tr in tracks], cfg, free_for(name), avoid=avoid, fast=fast
                 )
-            orders[name] = {'action': 'disperse', 'target': target, 'reason': 'impact_area'}
+            orders[name] = dispersal_order(target, hazard)
         elif recovery and posture == GREEN:
             orders[name] = {
                 'action': recovery,
@@ -587,6 +619,10 @@ def station_orders(
     return orders
 
 
+def dispersal_order(target, hazard):
+    return {'action': 'disperse', 'target': target, 'reason': 'impact_area', 'hazard': [list(hazard[0]), hazard[1]]}
+
+
 def impact_point(track, now, station_p):
     """Centre of a hazard area: where a descending track meets the ground, else its closest approach to
     the station. The station may be driving away; the object is not following it."""
@@ -596,33 +632,62 @@ def impact_point(track, now, station_p):
     return [p[0] + v[0] * t, p[1] + v[1] * t, 0.0]
 
 
-def disperse_point(own_p, hazard, avoid, free, cfg, fast=(), bearings=16):
+def disperse_point(own_p, hazard, avoid, free, cfg, fast=(), bearings=16, accept=lambda q: True):
     """Where to go to leave a hazard circle (centre, radius). First choice: the nearest point just outside it
     that is free and a safe_move. When obstacles or threats rule all of those out, the free, safe one-step
     move that gains the most distance from the centre, since leaving the area is the point of dispersing
     (the best keep-clear move maximises predicted miss instead and can run round the edge of the area).
-    None if no safe move gains any distance; the caller then keeps clear."""
+    `accept` is a further test every candidate must pass. None if no such move gains any distance; the
+    caller then keeps clear."""
     (c, r) = hazard
+    ok = lambda q: free(q) and safe_move(own_p, q, avoid, fast, cfg) and accept(q)
     best = None
     for i in range(bearings):
         a = 2 * math.pi * i / bearings
         q = [c[0] + 1.2 * r * math.cos(a), c[1] + 1.2 * r * math.sin(a), own_p[2]]
-        if (
-            free(q)
-            and safe_move(own_p, q, avoid, fast, cfg)
-            and (best is None or math.dist(own_p, q) < math.dist(own_p, best))
-        ):
+        if (best is None or math.dist(own_p, q) < math.dist(own_p, best)) and ok(q):
             best = q
     if best is not None:
         return best
     here = math.dist(own_p[:2], c[:2])
-    gains = [
-        (math.dist(q[:2], c[:2]), q)
-        for q in move_candidates(own_p, cfg, bearings)
-        if free(q) and safe_move(own_p, q, avoid, fast, cfg)
-    ]
+    gains = [(math.dist(q[:2], c[:2]), q) for q in move_candidates(own_p, cfg, bearings) if ok(q)]
     gains = [g for g in gains if g[0] > here + 1e-6]
     return max(gains, key=lambda g: g[0])[1] if gains else None
+
+
+def keeps_clear(own_p, target, tracks, now, cfg):
+    """True if flying straight to target and holding there keeps clear_radius from every track's predicted
+    path inside the planning horizon: the move is then itself a keep-clear move."""
+    horizon = max(cfg.order_horizon, cfg.reflex_horizon)
+    return predicted_miss(own_p, target, [(tr.predict(now), tr.v) for tr in tracks], cfg, horizon) >= cfg.clear_radius
+
+
+def dispersal_move(own_p, hazard, tracks, now, cfg, free, kept=None):
+    """A move out of the hazard circle that is also a keep-clear move: free, a safe_move, and keeping clear
+    of every track (keeps_clear). None if there is none.
+
+    `kept` is the target of a dispersal already under way. Like a keep-clear episode, it stands while it is
+    still such a move and still leads away from the current impact estimate. That estimate comes from a young
+    fast track and moves by metres between updates: re-planned from scratch every cycle, a PX4 guardian was
+    sent east, north and east again, and never left the area."""
+    if kept and leads_out(own_p, kept, hazard, tracks, now, cfg, free):
+        return kept
+    avoid, fast = relevant(own_p, tracks, now, cfg), fast_paths(tracks, now, cfg)
+    return disperse_point(
+        own_p, hazard, avoid, free, cfg, fast, accept=lambda q: keeps_clear(own_p, q, tracks, now, cfg)
+    )
+
+
+def leads_out(own_p, target, hazard, tracks, now, cfg, free):
+    """True if flying to target still leads away from the current impact estimate and is a keep-clear move:
+    free, a safe_move, and keeping clear of every track."""
+    c = hazard[0]
+    return (
+        math.dist(target[:2], c[:2]) > math.dist(own_p[:2], c[:2]) + 1e-6
+        and free(target)
+        and safe_move(own_p, target, relevant(own_p, tracks, now, cfg), fast_paths(tracks, now, cfg), cfg)
+        and keeps_clear(own_p, target, tracks, now, cfg)
+    )
 
 
 class Center:

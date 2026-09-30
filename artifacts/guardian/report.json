@@ -1492,7 +1492,7 @@
      "min_separation_m": {
       "p10": 62.0,
       "median": 240.9,
-      "p90": 279.4
+      "p90": 278.5
      },
      "first_confirm_range_m": {
       "p10": 835.6,
@@ -1683,7 +1683,7 @@
   }
  },
  "source_sha256": {
-  "guardian.py": "a24d4806a5172fd9730fbef123bd521d6d7b10e5e39839001027edd5bc6a666e",
+  "guardian.py": "6517ba62529e464e6f26640e7619f937664aaf04a5a2ec15c7647661979f2017",
   "guardian_sim.py": "530b8a3927a2025ea5703f46d88edafc44114683fff7cb1ba57536b2be65759d"
  },
  "python": "3.10.12",
