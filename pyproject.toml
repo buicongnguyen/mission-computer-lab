@@ -1,0 +1,15 @@
+# Tool configuration only; the project is not packaged. CI runs `ruff check` and `ruff format --check`.
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["node_modules", "docs/assets", "web/vendor", "artifacts"]
+
+[tool.ruff.format]
+# The code uses single quotes; preserving them keeps the formatting change to layout alone.
+quote-style = "preserve"
+
+[tool.ruff.lint]
+# Errors and likely bugs, not style: syntax and undefined names (E9, F), and bugbear (B).
+select = ["E9", "F", "B"]
+# zip(strict=) would change behaviour on unequal lengths, which several call sites rely on.
+ignore = ["B905"]

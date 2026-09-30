@@ -10,7 +10,7 @@ from unittest.mock import Mock
 import rclpy
 from std_msgs.msg import String
 from center_node import CenterNode
-from guardian import Track,Tracker,authorised,opens_range
+from guardian import Track,Tracker,authorised,safe_move
 from guardian_layout import (CFG,EAST_HIGH,GUARDIANS,RELOCATE,SCENARIOS,NORTH,FAST,expected_checks,free_space,impact_time,
                              reserved_for,threat_position,world_sdf)
 from guardian_mission_node import GuardianMission
@@ -64,7 +64,7 @@ class GuardianNodes(unittest.TestCase):
         self.assertLessEqual({'confirmed','posture','crew_alert','relocate','center_report','order'},kinds)
         keep=[r for r in records if r['kind']=='order' and r['action']=='keep_clear']
         self.assertTrue(keep)
-        for r in keep:self.assertTrue(opens_range(r['own'],r['target'],r['avoid']))  # Along the whole move.
+        for r in keep:self.assertTrue(safe_move(r['own'],r['target'],r['avoid'],r['fast'],CFG))  # Along the whole move.
         self.assertEqual(next(r for r in records if r['kind']=='relocate')['target_x'],8.)  # NORTH only: the nearest safe stop.
     def settle(self,s,now,limit=120.):
         while s.posture.state!='GREEN' and now<limit:now+=0.2;s.protect(now)
@@ -122,7 +122,7 @@ class GuardianNodes(unittest.TestCase):
             s.on_detections(message({'source':'station','detections':[{'p':p,'label':None,'sigma':0.1,'t':t}]}));s.protect(t);t=round(t+0.2,6)
         order=s.orders['px4_0'];self.assertEqual(order['action'],'disperse')
         record=[r for r in self.records('station.jsonl') if r['kind']=='order' and r['action']=='disperse'][-1]
-        self.assertTrue(opens_range(record['own'],record['target'],record['avoid']))
+        self.assertTrue(record['fast']);self.assertTrue(safe_move(record['own'],record['target'],record['avoid'],record['fast'],CFG))
         self.assertTrue(free_space(record['own'],record['target'],reserved=reserved_for('px4_0')))
         post=next(g['post'] for g in GUARDIANS if g['ns']=='px4_0')  # Away from where it comes down, never toward it.
         self.assertGreater(math.dist(order['target'][:2],FAST['aim'][:2]),math.dist(post,FAST['aim'][:2]))
@@ -147,6 +147,26 @@ class GuardianNodes(unittest.TestCase):
             s.states[ns]['position']=[0.,12.,5.];s.on_fixes(message({ns:[0.,12.,5.,20.+k]}))
         self.assertNotIn(ns,s.navigating)
         self.assertTrue(any(r['kind']=='integrity_clear' for r in self.records('station.jsonl')))
+    def test_malformed_messages_are_dropped_and_logged_never_fatal(self):
+        def raw(text):m=String();m.data=text;return m
+        s=self.station();tracks=len(s.tracker.tracks);states=json.dumps(s.states,sort_keys=True)
+        bad_detections=('not json','[]','{"detections": 5}','{"source": "px4_1", "detections": [{"p": [1, 2], "t": 1}]}',
+                        '{"source": "px4_1", "detections": [{"p": [1, 2, "x"], "t": 1}]}','{"source": ["px4_1"], "detections": []}')
+        for text in bad_detections:self.assertFalse(s.on_detections(raw(text)))
+        self.assertFalse(s.on_fixes(raw('[1, 2]')));self.assertFalse(s.on_fixes(raw('{"px4_1": [0, 12, 5]}')))
+        self.assertFalse(s.on_decision(raw('{}')))
+        for text in ('{"telemetry_fresh": true, "t": 1, "armed": true, "phase": "watch", "position": [0, 12]}',
+                     '{"telemetry_fresh": true, "t": 1, "armed": "yes", "phase": "watch", "position": [0, 12, 5]}'):
+            self.assertFalse(s.on_state('px4_1',raw(text)))
+        self.assertEqual(len(s.tracker.tracks),tracks);self.assertEqual(json.dumps(s.states,sort_keys=True),states)
+        dropped=[r for r in self.records('station.jsonl') if r['kind']=='dropped_message']
+        self.assertEqual(len(dropped),len(bad_detections)+5);self.assertTrue(all(r['error'] and r['topic'] for r in dropped))
+        s.protect(1.);s.tick()  # Still running, with the state it had.
+        c=CenterNode(SimpleNamespace(log=self.path('center.jsonl'),unreachable=False));self.nodes.append(c)
+        for text in ('[1]','{"state": "RED"}','nope'):self.assertFalse(c.report(raw(text)))
+        self.assertEqual(c.center.inbox,[]);c.tick()
+        self.assertEqual([r['kind'] for r in self.records('center.jsonl')],['dropped_message']*3)
+        w=self.world();self.assertFalse(w.state('px4_0',raw('[]')));self.assertNotIn('px4_0',w.phase)
     def test_center_logs_reports_and_answers_after_its_delays(self):
         c=CenterNode(SimpleNamespace(log=self.path('center.jsonl'),unreachable=False));self.nodes.append(c)
         c.report(message({'kind':'clear_after_red'}));c.report(message({'kind':'watch_complete'}))
@@ -205,7 +225,7 @@ class GuardianNodes(unittest.TestCase):
         target=g.guard(100.,[1.,2.,4.])
         self.assertEqual((g.action,g.layer),('keep_clear','onboard'))
         logged=g.log.write.call_args.kwargs;self.assertTrue(logged['avoid'])
-        self.assertTrue(opens_range([1.,2.,4.],target,logged['avoid']))
+        self.assertTrue(safe_move([1.,2.,4.],target,logged['avoid'],logged['fast'],CFG))
     def test_guardian_follows_station_orders_and_center_recovery(self):
         g=self.guardian({'action':'keep_clear','target':[4.,0.5,4.],'until':200.},link_age=0.1)
         self.assertEqual(g.guard(100.,[1.,2.,4.]),[4.,0.5,4.]);self.assertEqual(g.layer,'station')

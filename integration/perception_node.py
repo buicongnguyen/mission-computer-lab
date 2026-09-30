@@ -4,8 +4,10 @@ import argparse
 import hashlib
 from pathlib import Path
 import numpy as np
+import sys
 import rclpy
 from rclpy.node import Node
+from rclpy.utilities import remove_ros_args
 from sensor_msgs.msg import Image
 from mission_interfaces.msg import Perception
 from cryptography.exceptions import InvalidSignature
@@ -42,7 +44,7 @@ class PerceptionNode(Node):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--model',required=True);p.add_argument('--public-key',required=True)
-    p.add_argument('--log',required=True);p.add_argument('--ns',default='');args=p.parse_args()
+    p.add_argument('--log',required=True);p.add_argument('--ns',default='');args=p.parse_args(remove_ros_args(sys.argv)[1:])
     rclpy.init();node=PerceptionNode(args)
     try:rclpy.spin(node)
     except KeyboardInterrupt:pass

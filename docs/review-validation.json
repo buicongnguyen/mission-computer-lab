@@ -1,6 +1,6 @@
 {
   "date": "27 September 2026",
-  "run_directory": "/home/n/work/mission-computer-lab/retests/fixes-20260927-complete",
+  "run_directory": "$SITL_WORKSPACE/retests/fixes-20260927-complete",
   "source_base_commit": "dac9f1bb1db0df4ad6374c06d601cb191e1db4be",
   "inputs_unchanged": true,
   "input_sha256": {

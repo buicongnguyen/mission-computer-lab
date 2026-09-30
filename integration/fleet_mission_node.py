@@ -16,7 +16,7 @@ from std_msgs.msg import String
 from px4_msgs.msg import VehicleStatus
 from mission_node import Mission
 from world import astar
-from common import ros_seconds,stamp_seconds
+from common import drop_malformed,ros_seconds,stamp_seconds
 from fleet_contracts import FreshInput
 
 DECK=0.6      # Carrier deck height (m, world).
@@ -44,10 +44,9 @@ class FleetMission(Mission):
         v=msg.twist.twist.linear  # Body frame; rotate into world ENU.
         self.carrier=(msg.pose.pose.position.x,msg.pose.pose.position.y,yaw,
                       v.x*math.cos(yaw)-v.y*math.sin(yaw),v.x*math.sin(yaw)+v.y*math.cos(yaw))
+    @drop_malformed('clearance')
     def on_clearance(self,msg):
-        try:data=json.loads(msg.data)
-        except ValueError:return
-        self.accept_clearance(data)
+        self.accept_clearance(json.loads(msg.data))
     def fleet_now(self):return ros_seconds(self)
     def accept_clearance(self,data):
         if not isinstance(data,dict) or not isinstance(data.get('clearance'),dict):return False

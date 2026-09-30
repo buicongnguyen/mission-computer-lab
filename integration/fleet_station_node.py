@@ -15,7 +15,7 @@ from rclpy.utilities import remove_ros_args
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from std_msgs.msg import String
-from common import JsonLog,stamp_seconds,px4_topic,SENSOR_QOS
+from common import JsonLog,drop_malformed,finite_vector,stamp_seconds,px4_topic,SENSOR_QOS
 from px4_msgs.msg import VehicleLandDetected
 from fleet_contracts import FreshInput,LAND_TIMEOUT
 
@@ -45,10 +45,13 @@ class Station(Node):
         q=msg.pose.pose.orientation;yaw=math.atan2(2*(q.w*q.z+q.x*q.y),1-2*(q.y*q.y+q.z*q.z))
         p=msg.pose.pose.position;v=msg.twist.twist.linear
         self.carrier={'e':p.x,'n':p.y,'yaw':yaw,'speed':math.hypot(v.x,v.y)}
+    @drop_malformed('fleet state')
     def on_state(self,drone,msg):
-        try:state=json.loads(msg.data)
-        except ValueError:return False
+        state=json.loads(msg.data)
         if not isinstance(state,dict) or state.get('telemetry_fresh') is not True:return False
+        # Checked before anything is stored: a half-read state would reach the next planning tick.
+        finite_vector(state.get('position'))
+        if not isinstance(state.get('armed'),bool) or not isinstance(state.get('phase'),str):raise ValueError('state needs armed and phase')
         if not self.state_inputs[drone].accept(state.get('t'),self.now()):return False
         self.states[drone]=state
         if state['armed'] and state['position'][2]>AIRBORNE and drone not in self.flown:

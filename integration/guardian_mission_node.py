@@ -13,10 +13,11 @@ import sys
 import rclpy
 from rclpy.utilities import remove_ros_args
 from std_msgs.msg import String
+from common import drop_malformed,finite_number,finite_vector
 from fleet_mission_node import FleetMission
 from mission_node import Mission
 from px4_msgs.msg import VehicleStatus
-from guardian import INF,Tracker,onboard_decide,relevant
+from guardian import INF,Tracker,fast_paths,onboard_decide,relevant
 from guardian_layout import CFG,free_space,reserved_for
 from world import astar
 
@@ -35,9 +36,9 @@ class GuardianMission(FleetMission):
         """Pre-briefed transit keeps clear of the other guardians' watch posts: one guardian's route once passed
         a metre under another holding its post (the altitude layers are only 1 m apart)."""
         return reserved_for(self.ns)
+    @drop_malformed('guardian uplink')
     def on_clearance(self,msg):
-        try:data=json.loads(msg.data)
-        except ValueError:return
+        data=json.loads(msg.data)
         if not self.accept_clearance(data):return
         self.order=data.get('orders',{}).get(self.ns) or self.order
         self.posture=data.get('posture');self.last_uplink=self.now()
@@ -65,10 +66,11 @@ class GuardianMission(FleetMission):
     def world_position(self):
         raw=super().world_position()
         return None if raw is None else self.navigation(self.now(),raw)
+    @drop_malformed('guardian detections')
     def on_detections(self,msg):
-        try:data=json.loads(msg.data)
-        except ValueError:return
-        for d in data['detections']:self.onboard.update(d['t'],[(d['p'],self.ns,d.get('label'),d.get('sigma',CFG.sigma))])
+        detections=json.loads(msg.data)['detections']
+        for d in detections:finite_vector(d['p']);finite_number(d['t']);finite_number(d.get('sigma',CFG.sigma))
+        for d in detections:self.onboard.update(d['t'],[(d['p'],self.ns,d.get('label'),d.get('sigma',CFG.sigma))])
     def extra_state(self):
         raw=FleetMission.world_position(self)
         return {'action':self.action,'layer':self.layer,'posture':self.posture,'gnss_position':raw,
@@ -129,6 +131,7 @@ class GuardianMission(FleetMission):
                        link_age=None if math.isinf(link_age) else round(link_age,2),
                        threats=[tr.predict(now) for tr in tracks] if layer=='onboard' else None,
                        avoid=relevant(position,tracks,now,CFG) if layer=='onboard' else None,
+                       fast=fast_paths(tracks,now,CFG) if layer=='onboard' else None,
                        **{k:detail[k] for k in ('miss','t_cpa','until') if k in detail})
 
 def main():

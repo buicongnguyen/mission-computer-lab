@@ -156,6 +156,11 @@ def station_approach(p,v,station_p,station_v,station_goal=None):
     t2,d2=closest_approach(sub([a+b*stop for a,b in zip(p,v)],station_goal)[:2],v[:2])
     return (t1,d1) if d1<=d2 else (stop+t2,d2)
 
+def steady_fast(track,cfg):
+    """A fast track whose speed estimate has settled (the last three within 25%): its straight-line path is
+    a reliable prediction, and clutter that lines up by chance does not hold a steady speed."""
+    return track.speed>=cfg.fast_speed and len(track.speeds)>=3 and max(track.speeds)<=1.25*min(track.speeds)
+
 def assess(track,now,station_p,station_v,cfg,station_goal=None):
     """Threat level of one track for the protected zone: ('danger', 'watch' or 'bird', time to CPA, miss distance).
 
@@ -185,8 +190,7 @@ def assess(track,now,station_p,station_v,cfg,station_goal=None):
     eligible=track.speed>=cfg.slow_speed or track.cls=='drone' or rng<cfg.inner_radius
     entering=inbound and eligible
     track.danger_since=(track.danger_since if track.danger_since is not None else now) if entering else None
-    steady=len(track.speeds)>=3 and max(track.speeds)<=1.25*min(track.speeds)
-    danger=entering and ((track.speed>=cfg.fast_speed and steady) or now-track.danger_since>=cfg.slow_persist)
+    danger=entering and (steady_fast(track,cfg) or now-track.danger_since>=cfg.slow_persist)
     return ('danger' if danger else 'watch'),t,d
 
 class Posture:
@@ -228,26 +232,36 @@ def opens_range(own_p,target,positions):
     return all(sum(a*b for a,b in zip(m,sub(own_p,q)))>=-1e-9 for q in positions)
 
 def relevant(own_p,tracks,now,cfg):
-    """Positions a move must not close on: every track that is not a bird and is predicted to pass within
-    twice the clear radius of own_p inside twice the planning horizon (the margins absorb tracking error).
-    A bird needs only collision avoidance, and a track that stays far away cannot be closed on in any way
-    that matters: counting distant birds left a guardian at its ceiling with every escape direction
-    vetoed while an intruder passed beneath it."""
+    """Positions a move must not close on: every track that is not a bird or a steady fast object and is
+    predicted to pass within twice the clear radius of own_p inside twice the planning horizon (the margins
+    absorb tracking error). A bird needs only collision avoidance, and a track that stays far away cannot be
+    closed on in any way that matters: counting distant birds left a guardian at its ceiling with every
+    escape direction vetoed while an intruder passed beneath it. A steady fast object is judged on its
+    predicted path instead (fast_paths)."""
     horizon=2*max(cfg.order_horizon,cfg.reflex_horizon);out=[]
     for tr in tracks:
         p=tr.predict(now);t,d=closest_approach(sub(p,own_p),tr.v)
-        if tr.cls!='bird' and t<horizon and d<2*cfg.clear_radius:out.append(p)
+        if tr.cls!='bird' and not steady_fast(tr,cfg) and t<horizon and d<2*cfg.clear_radius:out.append(p)
     return out
 
-def keep_clear(own_p,threats,cfg,free=lambda p:True,bearings=16,horizon=None,avoid=None):
-    """Best point for one keep-clear move and its predicted miss distance.
+def fast_paths(tracks,now,cfg):
+    """(position, velocity) of every steady fast track that is not a bird. A move is judged against where
+    such an object is going: within a second or two it is far from where it is now, and a guardian near its
+    dive path usually has that object's current position on the far side of the way out."""
+    return [(tr.predict(now),list(tr.v)) for tr in tracks if tr.cls!='bird' and steady_fast(tr,cfg)]
 
-    threats: (position, velocity) predictions. A candidate is rejected unless the straight move to it opens
-    the range all the way to every position in `avoid` (by default every threat), so the move never closes
-    on one; staying put is always an option."""
-    avoid=[tp for tp,_ in threats] if avoid is None else avoid
+def safe_move(own_p,target,avoid,fast,cfg,horizon=None):
+    """The move rule every keep-clear, dispersal and re-checked station move obeys. The straight move must open
+    the range, all along it, to each position in `avoid` (slow or unsteady tracks, judged where they are),
+    and must not bring any steady fast object in `fast` (judged on its predicted path) closer than holding
+    still would: its predicted miss with the move is at least its predicted miss without it."""
+    if not opens_range(own_p,target,avoid):return False
     horizon=horizon or max(cfg.order_horizon,cfg.reflex_horizon)
-    options=[(predicted_miss(own_p,own_p,threats,cfg,horizon),0.,list(own_p))]
+    return all(predicted_miss(own_p,target,[f],cfg,horizon)>=predicted_miss(own_p,own_p,[f],cfg,horizon)-1e-9 for f in fast)
+
+def move_candidates(own_p,cfg,bearings=16):
+    """Points one keep-clear move away: full and half steps on each bearing, at the current height and one
+    climb or descent step (within the ceiling and floor), and a pure climb or descent."""
     heights=[own_p[2]]+([min(cfg.max_altitude,own_p[2]+cfg.climb_step)] if own_p[2]+1e-9<cfg.max_altitude and cfg.climb_step>0 else [])
     # Descending is the way out for a guardian near its ceiling with a threat crossing above it.
     heights+=[own_p[2]-cfg.climb_step] if cfg.climb_step>0 and own_p[2]-cfg.climb_step>=cfg.min_altitude else []
@@ -256,8 +270,19 @@ def keep_clear(own_p,threats,cfg,free=lambda p:True,bearings=16,horizon=None,avo
         for i in range(bearings):
             a=2*math.pi*i/bearings
             candidates+=[[own_p[0]+step*math.cos(a),own_p[1]+step*math.sin(a),z] for z in heights]
-    for cand in candidates:
-        if not free(cand) or not opens_range(own_p,cand,avoid):continue
+    return candidates
+
+def keep_clear(own_p,threats,cfg,free=lambda p:True,bearings=16,horizon=None,avoid=None,fast=()):
+    """Best point for one keep-clear move and its predicted miss distance.
+
+    threats: (position, velocity) predictions. A candidate is rejected unless it is a safe_move: it opens
+    the range all the way to every position in `avoid` (by default every threat) and shortens no steady fast
+    object's predicted miss in `fast`, so the move never closes on a threat; staying put is always an option."""
+    avoid=[tp for tp,_ in threats] if avoid is None else avoid
+    horizon=horizon or max(cfg.order_horizon,cfg.reflex_horizon)
+    options=[(predicted_miss(own_p,own_p,threats,cfg,horizon),0.,list(own_p))]
+    for cand in move_candidates(own_p,cfg,bearings):
+        if not free(cand) or not safe_move(own_p,cand,avoid,fast,cfg,horizon):continue
         options.append((predicted_miss(own_p,cand,threats,cfg,horizon),math.dist(own_p,cand),cand))
     miss,_,point=max(options,key=lambda o:(round(o[0],6),-o[1]))
     return point,miss
@@ -293,14 +318,16 @@ def keep_clear_step(own_p,previous,tracks,now,cfg,horizon,free):
     if episode:
         at_target=conflicts(previous['target'],tracks,now,cfg,horizon)
         if (not at_target and free(previous['target'])
-                and opens_range(own_p,previous['target'],relevant(own_p,tracks,now,cfg))):return previous
+                and safe_move(own_p,previous['target'],relevant(own_p,tracks,now,cfg),fast_paths(tracks,now,cfg),cfg)):
+            return previous
         return keep_clear_order(own_p,conflicts(own_p,tracks,now,cfg,horizon) or at_target,tracks,now,cfg,free,
                                 until=previous['until'])
     near=conflicts(own_p,tracks,now,cfg,horizon)
     return keep_clear_order(own_p,near,tracks,now,cfg,free) if near else None
 
 def keep_clear_order(own_p,near,tracks,now,cfg,free,until=None):
-    point,miss=keep_clear(own_p,[(tr.predict(now),tr.v) for tr in tracks],cfg,free,avoid=relevant(own_p,tracks,now,cfg))
+    point,miss=keep_clear(own_p,[(tr.predict(now),tr.v) for tr in tracks],cfg,free,avoid=relevant(own_p,tracks,now,cfg),
+                          fast=fast_paths(tracks,now,cfg))
     # With no local tracks, predicted clearance is unbounded. Omit that metric from JSON orders/logs.
     return {'action':'keep_clear','target':point,**({'miss':miss} if math.isfinite(miss) else {}),
             'until':now+max(t for _,t,_ in near)+cfg.clear_time/2 if near else until,
@@ -321,7 +348,7 @@ def onboard_decide(now,own_p,tracks,link_age,order,cfg,free=lambda p:True,rally=
     if link_age>cfg.lost_link:return 'lost_link_hold',None,'onboard',{}
     action,target=order.get('action','watch'),order.get('target')
     if action in ('keep_clear','disperse') and target and (not free(target)
-            or not opens_range(own_p,target,relevant(own_p,tracks,now,cfg))):
+            or not safe_move(own_p,target,relevant(own_p,tracks,now,cfg),fast_paths(tracks,now,cfg),cfg)):
         # The station planned this move from a report that is already a few seconds old; from where the
         # guardian really is, it would close on a track it can see. It keeps the intent, not the move.
         o=keep_clear_order(own_p,[],tracks,now,cfg,free,until=order.get('until',now+cfg.clear_time))
@@ -340,10 +367,14 @@ def station_orders(now,posture,tracks,guardians,cfg,free_for=lambda name:(lambda
         o=keep_clear_step(g['p'],previous.get(name),tracks,now,cfg,cfg.order_horizon,free_for(name))
         if o:
             orders[name]=o if o is previous.get(name) else {**o,'reason':'predicted_conflict'}
-        elif posture==RED and hazard and math.dist(g['p'][:2],hazard[0][:2])<hazard[1]:
-            target=disperse_point(g['p'],hazard,relevant(g['p'],tracks,now,cfg),free_for(name))
+        elif posture==RED and hazard and math.dist(g['p'][:2],hazard[0][:2])<hazard[1]*(
+                1.25 if (previous.get(name) or {}).get('action')=='disperse' else 1.):
+            # Once dispersing, a guardian keeps going until clearly outside: the impact estimate of a young
+            # fast track moves, and a guardian near the edge must not flip between dispersing and holding.
+            avoid,fast=relevant(g['p'],tracks,now,cfg),fast_paths(tracks,now,cfg)
+            target=disperse_point(g['p'],hazard,avoid,free_for(name),cfg,fast)
             if target is None:target,_=keep_clear(g['p'],[(tr.predict(now),tr.v) for tr in tracks],cfg,free_for(name),
-                                                 avoid=relevant(g['p'],tracks,now,cfg))
+                                                 avoid=avoid,fast=fast)
             orders[name]={'action':'disperse','target':target,'reason':'impact_area'}
         elif recovery and posture==GREEN:
             orders[name]={'action':recovery,'target':g['post'] if recovery=='resume' else None,'reason':'center_decision'}
@@ -358,14 +389,21 @@ def impact_point(track,now,station_p):
     t=p[2]/-v[2] if v[2]<-1e-6 else closest_approach(sub(p,station_p)[:2],v[:2])[0]
     return [p[0]+v[0]*t,p[1]+v[1]*t,0.]
 
-def disperse_point(own_p,hazard,avoid,free,bearings=16):
-    """Nearest point just outside a hazard circle that is free and whose straight path opens the range to
-    every position in `avoid`; None if there is none (the caller then falls back to the best keep-clear point)."""
-    (c,r)=hazard;positions=avoid;best=None
+def disperse_point(own_p,hazard,avoid,free,cfg,fast=(),bearings=16):
+    """Where to go to leave a hazard circle (centre, radius). First choice: the nearest point just outside it
+    that is free and a safe_move. When obstacles or threats rule all of those out, the free, safe one-step
+    move that gains the most distance from the centre, since leaving the area is the point of dispersing
+    (the best keep-clear move maximises predicted miss instead and can run round the edge of the area).
+    None if no safe move gains any distance; the caller then keeps clear."""
+    (c,r)=hazard;best=None
     for i in range(bearings):
         a=2*math.pi*i/bearings;q=[c[0]+1.2*r*math.cos(a),c[1]+1.2*r*math.sin(a),own_p[2]]
-        if free(q) and opens_range(own_p,q,positions) and (best is None or math.dist(own_p,q)<math.dist(own_p,best)):best=q
-    return best
+        if free(q) and safe_move(own_p,q,avoid,fast,cfg) and (best is None or math.dist(own_p,q)<math.dist(own_p,best)):best=q
+    if best is not None:return best
+    here=math.dist(own_p[:2],c[:2])
+    gains=[(math.dist(q[:2],c[:2]),q) for q in move_candidates(own_p,cfg,bearings) if free(q) and safe_move(own_p,q,avoid,fast,cfg)]
+    gains=[g for g in gains if g[0]>here+1e-6]
+    return max(gains,key=lambda g:g[0])[1] if gains else None
 
 class Center:
     """Remote command and control: reports arrive after a link delay; answers follow an operator decision.

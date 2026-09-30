@@ -155,7 +155,7 @@ nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:v
 <p>This is rollback and restart recovery, not a claim of a filesystem transaction across the generated report and Markdown page. During the two renames a reader can still briefly observe the sample path missing. Hosted Pages deployments use the completed repository snapshot after CI, rather than serving these local directories during publication.</p>
 <h2>Reproduce the checks in WSL</h2>
 <p>Use the existing setup from <a href="complete-reproduction-guide.html">the complete reproduction guide</a>. Do not run two PX4 matrices at once: their ports and simulator resources overlap.</p>
-<pre><code class="language-bash">cd /mnt/c/Users/n/source/repos/mission-computer-lab
+<pre><code class="language-bash">cd &quot;$DRONE_REPO&quot;   # your checkout
 export SITL_WORKSPACE=&quot;$HOME/work/mission-computer-lab&quot;
 export PYTHON=&quot;$SITL_WORKSPACE/venv/bin/python&quot;
 

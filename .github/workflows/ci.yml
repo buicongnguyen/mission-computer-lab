@@ -11,16 +11,21 @@ jobs:
         with:
           python-version: '3.10'
       - name: Install locked Python dependencies
-        run: python -m pip install -r requirements.lock.txt
+        run: python -m pip install -r requirements.lock.txt ruff==0.16.9
+      - name: Lint (syntax, undefined names, likely bugs)
+        run: ruff check .
       - name: Build, test and run fault matrix
         run: PYTHON=python bash scripts/run_all.sh
       - name: Evidence gates must not depend on assert statements
         run: python -O -m unittest discover -s tests -p 'test_*.py'
       - name: SITL runner process-cleanup tests (no ROS needed)
-        run: python -m unittest discover -s integration -p 'test_*runner.py'
+        # Python 3.10's unittest exits 0 when it finds nothing; require that tests actually ran.
+        run: |
+          python -m unittest discover -s integration -p 'test_*runner.py' -v 2>&1 | tee runner-tests.log
+          grep -Eq '^Ran [1-9][0-9]* tests?' runner-tests.log
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
       - name: Check dashboard state and documentation links
         run: |
           npm ci
@@ -39,3 +44,32 @@ jobs:
         with:
           name: simulation-evidence
           path: artifacts/latest/
+
+  ros-boundary:
+    # Every ROS node test (station, center, environment, vehicle adapters, runner), with the message packages the
+    # flights use, in the official ROS 2 Humble image. PX4 and Gazebo themselves only run in the WSL flight matrix.
+    runs-on: ubuntu-22.04
+    container: ros:humble-ros-base-jammy
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build px4_msgs (pinned) and mission_interfaces
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends git python3-pip python3-colcon-common-extensions
+          mkdir -p /tmp/ws/src && cd /tmp/ws
+          git clone -q --depth 1 --branch release/1.16 https://github.com/PX4/px4_msgs.git src/px4_msgs
+          git -C src/px4_msgs fetch -q --depth 1 origin 392e831c1f659429ca83902e66820d7094591410
+          git -C src/px4_msgs checkout -q --detach 392e831c1f659429ca83902e66820d7094591410
+          cp -r "$GITHUB_WORKSPACE/ros2/mission_interfaces" src/
+          source /opt/ros/humble/setup.bash
+          colcon build --event-handlers console_direct- --cmake-args -DCMAKE_BUILD_TYPE=Release
+      - name: Install the flight stack's locked Python dependencies
+        run: grep -E '^(numpy|onnx|onnxruntime|cryptography|pymavlink|protobuf)==' requirements-sitl.lock.txt | python3 -m pip install -q -r /dev/stdin
+      - name: Run every ROS boundary and runner test
+        run: |
+          source /opt/ros/humble/setup.bash && source /tmp/ws/install/setup.bash
+          python3 -m unittest discover -s integration -p 'test_*.py' -v 2>&1 | tee ros-tests.log
+          grep -Eq '^Ran [1-9][0-9]* tests?' ros-tests.log

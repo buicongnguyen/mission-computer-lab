@@ -1,9 +1,8 @@
 """Fail CI on incomplete evidence, including when Python optimization is enabled."""
-import json
 import math
 from pathlib import Path
 import sys
-from evidence_contracts import require_matrix
+from evidence_contracts import require_matrix,strict_loads
 
 SCENARIOS={'nominal','camera_dropout','gps_dropout','link_dropout','inference_overrun',
            'low_battery','imu_dropout','companion_crash'}
@@ -46,7 +45,7 @@ def validate(r):
         raise ValueError('This reference requires the CPU execution provider')
 
 def check(path):
-    validate(json.loads((path/'report.json').read_text()))
+    validate(strict_loads((path/'report.json').read_text()))  # NaN or Infinity is an error, as elsewhere.
     print('Evidence checks passed: eight distinct scenarios and six distinct security cases')
 
 if __name__=='__main__': check(Path(sys.argv[1]))

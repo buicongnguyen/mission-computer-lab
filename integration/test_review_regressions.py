@@ -1,6 +1,6 @@
 """Cross-phase and stream-loss regressions for review R1-R5 and R8; no flight processes."""
 import json
-from types import SimpleNamespace,MethodType
+from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
 from fleet_contracts import FreshInput
@@ -9,7 +9,6 @@ from fleet_station_node import Station
 from guardian_mission_node import GuardianMission
 from guardian_layout import CFG,free_space
 from guardian import Tracker,Track
-from mission_node import Mission
 from px4_msgs.msg import VehicleStatus
 
 

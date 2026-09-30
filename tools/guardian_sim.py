@@ -14,10 +14,10 @@ from multiprocessing import Pool
 from pathlib import Path
 import platform
 import random
-import statistics
 import sys
-from guardian import (AMBER,GREEN,RED,Center,Config,NavIntegrity,Posture,Tracker,assess,authorised,
-                      closest_approach,impact_point,onboard_decide,opens_range,relevant,segment_miss,station_orders,sub)
+from guardian import (GREEN,RED,Center,Config,NavIntegrity,Posture,Tracker,assess,authorised,
+                      closest_approach,fast_paths,impact_point,onboard_decide,predicted_miss,relevant,
+                      safe_move,segment_miss,station_orders,steady_fast,sub)
 
 ROOT=Path(__file__).resolve().parents[1]
 DT=0.1
@@ -203,7 +203,7 @@ def run(scenario_name,architecture,seed,trace=False,layout='baseline'):
     station={'p':[0.,0.,0.],'v':[0.,0.,0.],'goal':None,'tracker':Tracker(CFG),'posture':Posture(CFG),'next_scan':0.,
              'next_orders':0.,'reports':{},'gnss':{},'velocity':{},'integrity':{n:NavIntegrity(CFG) for n in guardians},'heard':{},
              'friendly':{},'rally':{},'recovery':None,'recovery_by':None,'clear_since':None,'orders':{},'pending_since':-1e9,
-             'held':False,'request':None,'requests':0}
+             'held':False,'request':None,'requests':0,'hazard':None}
     center=Center(CENTER_LATENCY,decision_time,reachable=lambda now:not center_down)
     uplink=[];downlink=[];center_replies=[];events=[];samples=[]
     metrics={'min_separation':math.inf,'red':[],'arrival':{},'first_confirm':None,'first_confirm_range':None,
@@ -226,17 +226,22 @@ def run(scenario_name,architecture,seed,trace=False,layout='baseline'):
         if j and j['on']<=now<j['off'] and math.dist(g.p[:2],j['p'])<j['r']:return False
         return random.Random(f'{key}/{g.name}/{kind}/{now:.1f}').random()>LINK_LOSS
     def check_move(now,g,target,tracks,own=None):
-        """A move being executed. The invariant: it opens the range along its whole path to every relevant track
-        it was decided on. Measured, not claimed: on truth, whether it brought the guardian more than tracking
-        error nearer a real threat that a track was on and that truly passes within the clear radius inside the
-        planning horizon. Predictions are straight lines and weaving threats defeat them, so this can happen;
-        a threat nobody has tracked yet is a detection gap and is not counted."""
+        """A move being executed. The invariant: it is a safe_move against the tracks it was decided on (it opens
+        the range along its whole path to every relevant slow track, and shortens no steady fast object's
+        predicted miss). Measured, not claimed: on truth, whether it brought the guardian more than tracking
+        error nearer a real slow threat that a track was on and that truly passes within the clear radius inside
+        the planning horizon, or shortened a real fast object's true miss by more than that. Predictions are
+        straight lines and weaving threats defeat them, so this can happen; a threat nobody has tracked yet is a
+        detection gap and is not counted."""
         own=own or g.nav(now);predicted=[tr.predict(now) for tr in tracks]
-        if not opens_range(own,target,relevant(own,tracks,now,CFG)):metrics['decision_closing']+=1
+        if not safe_move(own,target,relevant(own,tracks,now,CFG),fast_paths(tracks,now,CFG),CFG):metrics['decision_closing']+=1
         horizon=max(CFG.order_horizon,CFG.reflex_horizon)
-        known=[t.p for t in real if t.active(now) and any(math.dist(q,t.p)<200. for q in predicted)
+        tracked=[t for t in real if t.active(now) and any(math.dist(q,t.p)<200. for q in predicted)]
+        known=[t.p for t in tracked if t.kind!='fast'
                and (lambda tc,d:tc<horizon and d<CFG.clear_radius)(*closest_approach(sub(t.p,g.p),t.v))]
-        if closing(g.p,target,known)>TRUTH_TOLERANCE:metrics['closing']+=1  # Truth measure, reported as a rate.
+        shortened=max((predicted_miss(g.p,g.p,[(t.p,t.v)],CFG,horizon)-predicted_miss(g.p,target,[(t.p,t.v)],CFG,horizon)
+                       for t in tracked if t.kind=='fast'),default=0.)
+        if max(closing(g.p,target,known),shortened)>TRUTH_TOLERANCE:metrics['closing']+=1  # Truth measure, reported as a rate.
     def associate_friendlies(now,seen):
         """The station's own track of each airborne guardian from its sensor returns, kept by continuity rather
         than by the guardian's report, which may be spoofed or stale. Returns the claimed returns and the
@@ -404,7 +409,7 @@ def run(scenario_name,architecture,seed,trace=False,layout='baseline'):
         # event. With no answer by center_timeout, the station recovers on its delegated authority.
         if station['held'] and station['posture'].state==GREEN and station['recovery'] is None:
             if station['request'] is None:station['requests']+=1;station['request']=station['requests'];station['pending_since']=-1e9
-            if now-station['pending_since']>=10.:
+            if now-station['pending_since']>=5.:  # Resent as often as the PX4 station resends it.
                 center.send(now,{'kind':'clear_after_red','request':station['request']});station['pending_since']=now
             if now-station['clear_since']>=CFG.center_timeout:
                 station['recovery']='recover';station['recovery_by']='station (delegated)';metrics['delegated']=True
@@ -424,8 +429,14 @@ def run(scenario_name,architecture,seed,trace=False,layout='baseline'):
             # planned from an old report can send a guardian back toward a threat from where it really is.
             view={n:{'p':[a+b*(now-station['heard'][n]) for a,b in zip(station['reports'][n],station['velocity'][n])],'post':g.post}
                   for n,g in guardians.items() if not g.landed and n in station['reports'] and now-station['heard'][n]<=ORDER_AGE}
-            hazard=(impact_point(min(danger,key=lambda x:x[1])[0],now,station['p']),2*CFG.protect_radius) if danger else None
-            orders=station_orders(now,station['posture'].state,tracks,view,CFG,free_for=lambda name:(lambda p:math.hypot(p[0],p[1])<5000.),
+            # A hazard area stays declared for as long as RED would after its last danger, so a young track's
+            # flickering assessment cannot drop a dispersing guardian back to holding halfway out.
+            # Only a steady fast object declares an impact area, as on the PX4 station; slower threats are
+            # handled by keep-clear moves.
+            fast=[(tr,t) for tr,t in danger if steady_fast(tr,CFG)]
+            if fast:station['hazard']=((impact_point(min(fast,key=lambda x:x[1])[0],now,station['p']),2*CFG.protect_radius),now)
+            hazard=station['hazard'][0] if station['hazard'] and now-station['hazard'][1]<CFG.clear_time else None
+            orders=station_orders(now,station['posture'].state,tracks,view,CFG,free_for=lambda name:(lambda q:math.hypot(q[0],q[1])<5000.),
                                   recovery=station['recovery'],hazard=hazard,held=station['held'] and station['recovery'] is None,
                                   previous=station['orders'])
             for name,order in orders.items():
@@ -524,7 +535,6 @@ def markdown(report):
           ('Spoofed picket drift (median m)','spoofing',lambda r:f(r.get('spoof_drift_m',{}).get('median'))),
           ('Center could decide in time, low intruder','intruder',lambda r:'—' if r.get('center_in_time_rate') is None else f"{r['center_in_time_rate']*100:.0f}%")]
     for label,s,get in rows:lines.append(f'| {label} | '+' | '.join(get(table[s][a]) for a in archs)+' |')
-    total=lambda k:sum(table[s][a][k] for s in SCENARIOS for a in archs)
     nav=lambda a:max(table[s][a]['healthy_nav_error_max_m'] for s in SCENARIOS)
     lines.append('| Healthy guardian flagged as spoofed, all scenarios (total) | '+' | '.join(str(sum(table[s][a]['false_integrity_total'] for s in SCENARIOS)) for a in archs)+' |')
     lines.append('| Worst navigation error of a healthy guardian, all scenarios (m) | '+' | '.join(f(nav(a)) for a in archs)+' |')

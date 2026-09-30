@@ -83,7 +83,7 @@ This is rollback and restart recovery, not a claim of a filesystem transaction a
 Use the existing setup from [the complete reproduction guide](complete-reproduction-guide.md). Do not run two PX4 matrices at once: their ports and simulator resources overlap.
 
 ```bash
-cd /mnt/c/Users/n/source/repos/mission-computer-lab
+cd "$DRONE_REPO"   # your checkout
 export SITL_WORKSPACE="$HOME/work/mission-computer-lab"
 export PYTHON="$SITL_WORKSPACE/venv/bin/python"
 

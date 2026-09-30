@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Independent read-only PX4 observer, survives mission-node termination."""
 import argparse
+import sys
 import rclpy
 from rclpy.node import Node
+from rclpy.utilities import remove_ros_args
 from px4_msgs.msg import VehicleLocalPosition,VehicleStatus,VehicleCommandAck,VehicleLandDetected,FailsafeFlags,SensorGps
 from mission_interfaces.msg import Decision,Perception
 from sensor_msgs.msg import Image,LaserScan
@@ -53,7 +55,7 @@ class Observer(Node):
                                          position=[float(v) for v in m.position_enu],waypoint=int(m.waypoint),camera_age=float(m.camera_age))
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--log',required=True);p.add_argument('--ns',default='');args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--log',required=True);p.add_argument('--ns',default='');args=p.parse_args(remove_ros_args(sys.argv)[1:])
     rclpy.init();node=Observer(args)
     try:rclpy.spin(node)
     except KeyboardInterrupt:pass

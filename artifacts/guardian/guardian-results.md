@@ -23,9 +23,9 @@ Median seconds from the station's RED alert to the threat entering the 100 m pro
 
 | Scenario | Station only | Onboard only | Networked | Hybrid |
 |---|---:|---:|---:|---:|
-| intruder | 1 (0–6) | 0 (0–5) | 77 (56–96) | 77 (56–96) |
+| intruder | 1 (0–6) | 0 (0–5) | 77 (56–96) | 75 (56–96) |
 | fast_inbound | 0 (0–0) | 0 (0–0) | 3 (2–4) | 3 (2–4) |
-| swarm | 1 (0–3) | 0 (0–2) | 73 (54–86) | 73 (54–85) |
+| swarm | 1 (0–3) | 0 (0–2) | 73 (54–85) | 73 (54–85) |
 | birds | — | — | — | — |
 | jamming | 1 (0–5) | 0 (0–3) | 28 (23–32) | 33 (29–59) |
 | spoofing | — | — | — | — |
@@ -44,7 +44,7 @@ Median seconds from the station's RED alert to the threat entering the 100 m pro
 | Center could decide in time, low intruder | 0% | 0% | 100% | 100% |
 | Healthy guardian flagged as spoofed, all scenarios (total) | 0 | 0 | 0 | 0 |
 | Worst navigation error of a healthy guardian, all scenarios (m) | 0 | 0 | 0 | 0 |
-| Runs where a move brought a guardian nearer a real threat, judged on truth | 2 | 18 | 25 | 21 |
+| Runs where a move brought a guardian nearer a real threat, judged on truth | 2 | 18 | 22 | 22 |
 
 Both invariants held in 1280 of 1280 runs (100.0%). First: every keep-clear or dispersal decision, new or kept, opened the range along its whole path to every relevant track it was based on (not a bird, predicted to pass within twice the clear radius inside twice the planning horizon). Second: no layer took an action outside its authority. Both are properties of the decisions, checked in every run. The row above measures the same thing on truth instead: a run counts if some move brought a guardian more than 25 m nearer a real threat that a track was on and that truly passed within the clear radius inside the planning horizon. These come from straight-line predictions of weaving threats at long range; whether any guardian lost its safe radius is what the first table shows.
 
@@ -52,7 +52,7 @@ Both invariants held in 1280 of 1280 runs (100.0%). First: every keep-clear or d
 
 | Layout | Low intruder warning (s) | Fast inbound kept clear | Fast inbound warning (s) | Swarm warning (s) |
 |---|---:|---:|---:|---:|
-| baseline: Pickets 900 m out; overwatch hovering over the station. | 77 | 10% | 2.9 | 73 |
+| baseline: Pickets 900 m out; overwatch hovering over the station. | 75 | 10% | 2.9 | 73 |
 | offset overwatch: Overwatch moved 250 m off the station it watches. | 77 | 90% | 2.9 | 73 |
 | wide pickets: Pickets 1500 m out instead of 900 m. | 103 | 15% | 3.4 | 100 |
 

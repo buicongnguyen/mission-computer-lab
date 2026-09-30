@@ -13,14 +13,16 @@ import sys
 import rclpy
 from rclpy.utilities import remove_ros_args
 from std_msgs.msg import String
+from common import drop_malformed,finite_number,finite_vector
 from fleet_station_node import Station
-from guardian import (GREEN,INF,RED,NavIntegrity,Posture,Tracker,assess,impact_point,relevant,station_approach,
-                      station_orders)
+from guardian import (GREEN,INF,RED,NavIntegrity,Posture,Tracker,assess,fast_paths,impact_point,relevant,station_approach,
+                      station_orders,steady_fast)
 from guardian_layout import CFG,GUARDIANS,ORDER_AGE,RELOCATE,SCENARIOS,free_space,reserved_for
 
 class GuardianStation(Station):
     def __init__(self,args):
         super().__init__(args,name='guardian_station')
+        self.hazard=None  # ((centre, radius), time last confirmed) of a fast object's impact area
         self.scenario=SCENARIOS[args.scenario]
         self.tracker=Tracker(CFG);self.posture=Posture(CFG);self.orders={};self.recovery=None;self.recovery_by=None
         self.held=False;self.clear_since=None;self.pending_since=-1e9;self.relocating=False;self.relocated=False;self.relocate_x=None
@@ -35,15 +37,17 @@ class GuardianStation(Station):
         self.create_subscription(String,'/center/decision',self.on_decision,10)
     def on_state(self,drone,msg):
         if super().on_state(drone,msg):self.heard[drone]=self.now()
+    @drop_malformed('/station/detections')
     def on_detections(self,msg):
-        try:data=json.loads(msg.data)
-        except ValueError:return
+        data=json.loads(msg.data)
+        if not isinstance(data['source'],str):raise ValueError('source must be a name')
+        for d in data['detections']:finite_vector(d['p']);finite_number(d['t']);finite_number(d.get('sigma',CFG.sigma))
         for d in data['detections']:self.tracker.update(d['t'],[(d['p'],data['source'],d.get('label'),d.get('sigma',CFG.sigma))])
+    @drop_malformed('/station/fixes')
     def on_fixes(self,msg):
         """Compare each guardian's reported GNSS position with the station's own datalink fix of it."""
-        try:fixes=json.loads(msg.data)
-        except ValueError:return
-        now=self.now()
+        fixes=json.loads(msg.data);now=self.now()
+        for fix in fixes.values():finite_vector(fix,4)  # x, y, z, time; all checked before any is used.
         for ns,fix in fixes.items():
             state=self.states.get(ns)
             if not state or not state.get('armed') or state.get('phase') not in ('watch','return','rendezvous','descend'):continue
@@ -56,9 +60,9 @@ class GuardianStation(Station):
                 self.send_center(now,'integrity',ns=ns)
             elif after=='ok' and before=='spoofed':
                 self.navigating.discard(ns);self.log.write('integrity_clear',ns=ns,residual=monitor.residual,t=now)
+    @drop_malformed('/center/decision')
     def on_decision(self,msg):
-        try:data=json.loads(msg.data);decision=data['decision']
-        except (ValueError,KeyError):return
+        data=json.loads(msg.data);decision=data['decision']
         request=data.get('request');self.log.write('center_decision',decision=decision,request=request,t=self.now())
         # Only an answer to the question still open counts: one sent before a new event must not recall guardians.
         if (decision in ('recover','resume') and self.recovery is None and request is not None and request==self.request
@@ -139,9 +143,12 @@ class GuardianStation(Station):
             blocked={tuple(cell) for cell in fresh[name].get('blocked_cells',[])}
             return lambda p:(free_space(view[name]['p'],p,others,reserved=reserved_for(name),wide=wide)
                              and free_space(view[name]['p'],p,blocked=blocked))
-        fast=[(tr,t) for tr,(l,t,_) in zip(tracks,levels) if l=='danger' and tr.speed>=CFG.fast_speed]
-        # A fast object's impact area, centred where it comes down: disperse from it.
-        hazard=(impact_point(min(fast,key=lambda x:x[1])[0],now,sp),2*CFG.protect_radius) if fast else None
+        fast=[(tr,t) for tr,(l,t,_) in zip(tracks,levels) if l=='danger' and steady_fast(tr,CFG)]
+        # A fast object's impact area, centred where it comes down: disperse from it. It stays declared for as
+        # long as RED would after the last danger, so a young track's flickering assessment cannot drop a
+        # dispersing guardian back to holding halfway out.
+        if fast:self.hazard=((impact_point(min(fast,key=lambda x:x[1])[0],now,sp),2*CFG.protect_radius),now)
+        hazard=self.hazard[0] if self.hazard and now-self.hazard[1]<CFG.clear_time else None
         orders=station_orders(now,self.posture.state,tracks,view,CFG,free_for=free_for,recovery=self.recovery,
                               hazard=hazard,held=(self.held or self.watch_request is not None) and self.recovery is None,
                               previous=self.orders)
@@ -153,7 +160,8 @@ class GuardianStation(Station):
             if last is None or last['action']!=order['action'] or last.get('target')!=order.get('target'):
                 own=view[name]['p'] if name in view else watching[name]['position']
                 self.log.write('order',ns=name,layer='station',t=now,own=own,threats=[tr.predict(now) for tr in tracks],
-                               avoid=relevant(own,tracks,now,CFG),**{k:v for k,v in order.items() if k!='tracks'})
+                               avoid=relevant(own,tracks,now,CFG),fast=fast_paths(tracks,now,CFG),
+                               **{k:v for k,v in order.items() if k!='tracks'})
                 self.last_orders[name]=order
         # Keep recovery orders for guardians already heading home, so a late uplink still carries them.
         self.orders={**{d:o for d,o in self.orders.items() if d not in watching and o.get('action')=='recover'},**orders}

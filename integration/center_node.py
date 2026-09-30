@@ -9,7 +9,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.utilities import remove_ros_args
 from std_msgs.msg import String
-from common import JsonLog
+from common import JsonLog,drop_malformed
 from guardian import Center
 from guardian_layout import CENTER
 
@@ -24,9 +24,10 @@ class CenterNode(Node):
         self.decisions=self.create_publisher(String,'/center/decision',10);self.pending=[]
         self.create_timer(0.1,self.tick)
     def now(self):return self.get_clock().now().nanoseconds/1e9
+    @drop_malformed('/center/report')
     def report(self,msg):
-        try:report=json.loads(msg.data)
-        except ValueError:return
+        report=json.loads(msg.data)
+        if not isinstance(report,dict) or not isinstance(report.get('kind'),str):raise ValueError('a report needs a kind')
         self.center.send(self.now(),report)
         if self.reachable:self.log.write('report',t=self.now(),report=report.get('kind'),state=report.get('state'),request=report.get('request'))
     def tick(self):

@@ -1,3 +1,4 @@
+from contextlib import closing
 from copy import deepcopy
 from pathlib import Path
 import sys
@@ -12,7 +13,9 @@ class EvidenceTests(unittest.TestCase):
     def test_empty_or_partial_rosbag_does_not_prove_recording(self):
         with tempfile.TemporaryDirectory() as directory:
             folder=Path(directory);(folder/'metadata.yaml').write_text('test')
-            with sqlite3.connect(folder/'test.db3') as db:
+            # closing(): the connection's own context manager commits but leaves the file open, which
+            # keeps the temporary directory from being removed on Windows.
+            with closing(sqlite3.connect(folder/'test.db3')) as db:
                 db.execute('CREATE TABLE topics (id INTEGER, name TEXT)')
                 db.execute('CREATE TABLE messages (topic_id INTEGER)')
                 for i,name in enumerate(['/mission/decision','/mission/perception','/mission/lidar/scan']):

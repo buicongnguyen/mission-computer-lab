@@ -22,7 +22,7 @@ from rclpy.utilities import remove_ros_args
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from std_msgs.msg import String
-from common import JsonLog
+from common import JsonLog,drop_malformed
 from guardian_layout import GUARDIANS,SCENARIOS,SENSORS,WATCH_BEFORE_START,impact_time,threat_position
 
 class World(Node):
@@ -40,7 +40,7 @@ class World(Node):
         self.station_detections=self.create_publisher(String,'/station/detections',10)
         self.fixes=self.create_publisher(String,'/station/fixes',10)
         self.onboard={};self.uplink={};self.relay_state={}
-        for i,g in enumerate(GUARDIANS):
+        for g in GUARDIANS:
             ns=g['ns']
             self.create_subscription(String,f'/{ns}/guardian/state',lambda m,ns=ns:self.state(ns,m),10)
             self.onboard[ns]=self.create_publisher(String,f'/{ns}/guardian/detections',10)
@@ -64,9 +64,9 @@ class World(Node):
             if self.dropped[ns]%25==1:self.log.write('dropped',ns=ns,message=kind,count=self.dropped[ns],t=self.now())
             return
         publisher.publish(message)
+    @drop_malformed('guardian state')
     def state(self,ns,msg):
-        try:self.phase[ns]=json.loads(msg.data).get('phase')
-        except ValueError:return
+        self.phase[ns]=json.loads(msg.data).get('phase')
         self.relay(self.relay_state[ns],msg,ns,'state')
     def station_uplink(self,msg):
         for ns,publisher in self.uplink.items():self.relay(publisher,msg,ns,'uplink')
@@ -80,7 +80,7 @@ class World(Node):
             if watching and now-self.watch_since>=WATCH_BEFORE_START:
                 self.started=now;self.jamming=bool(self.jammer);self.log.write('scenario_start',t=now)
         if self.started is not None:self.fly(now);self.jam(now);self.spoof_step(now)
-        for i,g in enumerate(GUARDIANS):  # Record each guardian's link going down and coming back.
+        for g in GUARDIANS:  # Record each guardian's link going down and coming back.
             jammed=self.jammed(g['ns'])
             if jammed!=self.link.get(g['ns'],False):self.link[g['ns']]=jammed;self.log.write('link',ns=g['ns'],jammed=jammed,t=now)
         if now>=self.next_log:

@@ -22,7 +22,7 @@ The publisher correctly refuses this matrix. The replay sample remains the earli
 | `guardian_center_loss` | PASS | 40/40 | — |
 | `guardian_combined` | PASS | 42/42 | — |
 
-All 50 runtime input hashes match the current source/binary; `inputs_unchanged` is true. The recorded `source_commit` is the base commit before these tested changes were committed; per-file hashes identify the tested implementation. [Compact results and hashes](review-validation.json) preserve each check, including failures. Raw records remain at `/home/n/work/mission-computer-lab/retests/fixes-20260927-complete`.
+All 50 runtime input hashes match the current source/binary; `inputs_unchanged` is true. The recorded `source_commit` is the base commit before these tested changes were committed; per-file hashes identify the tested implementation. [Compact results and hashes](review-validation.json) preserve each check, including failures. Raw records remain at `$SITL_WORKSPACE/retests/fixes-20260927-complete`.
 
 The 78 portable Python tests passed normally and under `python -O`; all 59 ROS/runner tests passed; CTest passed 1/1; the accelerated matrix passed 8/8 scenarios and 6/6 security cases. The 40-seed guardian evaluation was regenerated with matching decision-source hashes. Browser state, Mermaid and local-link checks are performed before committing the rendered pages; no new pixel-level browser verification is claimed.
 

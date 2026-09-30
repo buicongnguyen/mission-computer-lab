@@ -79,8 +79,8 @@ def expected_checks(name):
     """Every named check a guardian scenario must produce, derived from what it expects to show."""
     scenario=SCENARIOS[name];expect=scenario['expect']
     out=[f'{g["ns"]}_{c}' for g in GUARDIANS for c in VEHICLE_CHECKS]
-    out+=['fleet_min_separation','landings_sequenced','rosbag_recorded','no_runner_error','scenario_started',
-          'never_closed_on_threat','authority_respected']
+    out+=['fleet_min_separation','landings_sequenced','rosbag_recorded','no_runner_error','messages_well_formed',
+          'scenario_started','never_closed_on_threat','authority_respected']
     if scenario['threats']:out.append('threats_flew')
     if any(s['kind']!='bird' for s in scenario['threats'].values()):out.append('guardians_kept_clear')
     out+=['threat_confirmed','red_before_arrival'] if expect['red'] else ['no_red_alert','guardians_held_their_posts']

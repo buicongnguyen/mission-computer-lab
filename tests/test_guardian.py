@@ -140,6 +140,28 @@ class KeepClear(unittest.TestCase):
         point,_=G.keep_clear([0.,0.,80.],[([600.,0.,110.],[-18.,0.,0.])],cfg,free=lambda p:math.hypot(p[0],p[1])<1.)
         self.assertEqual(point,[0.,0.,80.-cfg.climb_step])  # Boxed in sideways, at the ceiling: only down is open.
         self.assertEqual(G.keep_clear([0.,0.,60.],[([600.,0.,110.],[-18.,0.,0.])],CFG,free=lambda p:math.hypot(p[0],p[1])<1.)[0][2]>=60.,True)
+    def test_a_steady_fast_object_is_judged_on_its_path_not_where_it_is_now(self):
+        # A 250 m/s object 1.5 km north-west of a guardian, diving to a point 400 m south of it.
+        own=[0.,0.,80.];p=[-900.,1200.,200.];aim=[0.,-400.,0.]
+        tr=G.Track(1,0.,p,'s');tr.v=[(a-b)/math.dist(p,aim)*250. for a,b in zip(aim,p)];tr.speeds=[250.,251.,249.]
+        self.assertTrue(G.steady_fast(tr,CFG));self.assertEqual(G.relevant(own,[tr],0.,CFG),[])
+        fast=G.fast_paths([tr],0.,CFG);hold=G.predicted_miss(own,own,fast,CFG,60.)
+        north=[0.,250.,80.]  # Out of the impact area, but toward where the object is now.
+        self.assertFalse(G.opens_range(own,north,[p]))  # The position rule would forbid it,
+        self.assertGreater(G.predicted_miss(own,north,fast,CFG,60.),hold)  # yet it widens the predicted miss.
+        self.assertTrue(G.safe_move(own,north,[],fast,CFG))
+        west=[-250.,0.,80.]  # Toward the dive path: it shortens the predicted miss and is refused.
+        self.assertLess(G.predicted_miss(own,west,fast,CFG,60.),hold);self.assertFalse(G.safe_move(own,west,[],fast,CFG))
+        tr.speeds=[250.,120.,249.]  # Not steady: judged where it is, like any other track.
+        self.assertEqual(G.fast_paths([tr],0.,CFG),[]);self.assertEqual(len(G.relevant(own,[tr],0.,CFG)),1)
+    def test_dispersal_takes_the_step_that_leaves_the_area_fastest_when_its_edge_is_out_of_reach(self):
+        own=[0.,0.,80.];hazard=([0.,-300.,0.],100.)  # The nearest edge point, (0, -180), is out of reach.
+        reach=lambda q:math.dist(q[:2],own[:2])<=150.
+        q=G.disperse_point(own,hazard,[],reach,CFG)
+        self.assertAlmostEqual(q[1],CFG.keep_clear_step/2,places=6);self.assertAlmostEqual(q[0],0.,places=6)
+        self.assertIsNone(G.disperse_point(own,hazard,[],lambda q:False,CFG))  # Nothing safe gains distance.
+        q=G.disperse_point(own,hazard,[],lambda q:True,CFG)  # Otherwise the nearest point just outside the edge.
+        self.assertAlmostEqual(math.dist(q[:2],hazard[0][:2]),1.2*hazard[1],places=6)
     def test_predicted_miss_is_exact_for_a_fast_object(self):
         # A 250 m/s object passes straight through a hovering guardian; a coarse time grid reported 250 m.
         self.assertLess(G.predicted_miss([0.,0.,80.],[0.,0.,80.],[([-5000.,0.,80.],[250.,0.,0.])],CFG,60.),1e-6)

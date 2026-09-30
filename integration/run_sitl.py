@@ -29,7 +29,7 @@ FLEET=[{'ns':'px4_0','pad':-1.1,'goal':(9,9),'altitude':3.},
 CARRIER_START=(0.,-1.5);DECK=0.6
 sys.path.insert(0,str(ROOT/'integration'))
 import guardian_layout as GL
-from guardian import authorised,opens_range
+from guardian import authorised,safe_move
 # Guardians hold watch posts instead of flying inspection legs; the same launch and landing machinery applies.
 GUARDIAN_FLEET=[{'ns':g['ns'],'pad':g['pad'],'goal':g['post'],'altitude':g['altitude']} for g in GL.GUARDIANS]
 SCENARIOS+=tuple(GL.SCENARIOS);MULTI+=tuple(GL.SCENARIOS)
@@ -181,7 +181,7 @@ def run_scenario(name,workspace,base_output,timeout,video=False,gui=False):
     statuses=[r for r in records if r['kind']=='status'];poses=[r for r in records if r['kind']=='position']
     decisions=[r for r in records if r['kind']=='decision'];acks=[r for r in records if r['kind']=='ack']
     counts=[r for r in records if r['kind']=='counts'];max_alt=max([-r['ned'][2] for r in poses],default=0.)
-    states=[r['nav_state'] for r in statuses];modes=[r['mode'] for r in decisions]
+    states=[r['nav_state'] for r in statuses]
     transitions=[r for r in mission_records if r['kind']=='transition']
     min_clearance=min((math.hypot(p['ned'][1]-x,p['ned'][0]-y)-radius
                        for p in poses if p['valid'] for x,y,radius in OBSTACLES),default=0.)
@@ -409,6 +409,9 @@ def run_fleet(workspace,base_output,timeout,video=False,gui=False,name='fleet_ca
     checks['rosbag_recorded']=bag_has_topics(output/'rosbag',[f'/{v["ns"]}/mission/decision' for v in FLEET_]+
                                              (['/station/uplink'] if guardian else ['/fleet/clearance']))
     checks['no_runner_error']=error is None
+    # A node drops a malformed message instead of dying; a drop in a flight is still a fault, and fails it.
+    dropped=[r for log in sorted(output.glob('*.jsonl')) for r in read_records(log) if r.get('kind')=='dropped_message']
+    checks['messages_well_formed']=not dropped
     extra=guardian_checks(name,output,station,vehicles,carrier,checks) if guardian else {}
     result={'scenario':name,'passed':all(checks.values()),'checks':checks,'error':error,
             'duration_wall_s':round(time.monotonic()-launched,2),'vehicles':vehicles,'carrier':carrier,'clearances':grants,
@@ -518,12 +521,13 @@ def guardian_checks(name,output,station,vehicles,carrier,checks):
         request=next((r for r in station if r['kind']=='center_report' and r['report'] in ('clear_after_red','watch_complete')),None)
         checks['recovery_under_delegation']=bool(recovery and recovery['by']==by and not decisions and request and
                                                  recovery['t']-request['t']>=cfg.center_timeout-0.5)
-    # Every keep-clear or dispersal decision, by station or vehicle, opened the range along its whole path to
-    # every relevant track it was based on (the positions it logged); the straight-line test is exact.
+    # Every keep-clear or dispersal decision, by station or vehicle, was a safe move against what it logged: it
+    # opened the range along its whole path to every relevant slow track, and shortened no steady fast object's
+    # predicted miss. Both tests are exact for straight lines.
     closing=[]
     for r in orders+[d for v in vehicles for d in v['guardian'] if d['layer']=='onboard']:
         if r['action'] in ('keep_clear','disperse') and r.get('target') and r.get('avoid') is not None:
-            if not opens_range(r['own'],r['target'],r['avoid']):closing.append(r)
+            if not safe_move(r['own'],r['target'],r['avoid'],r.get('fast') or [],cfg):closing.append(r)
     checks['never_closed_on_threat']=not closing
     # An order relaying a center decision (recovery) carries the center's authority, not the station's.
     decided=[(d['action'],d['layer']) for v in vehicles for d in v['guardian']]+[(r['action'],r.get('authority') or 'station') for r in orders]

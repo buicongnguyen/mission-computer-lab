@@ -18,7 +18,7 @@ FLEET_NAMES=('px4_0','px4_1','px4_2')
 FLEET_FILES=('result.json','parameters.log','station.jsonl','flight.mp4','deck.mp4')
 FLEET_VEHICLE_CHECKS=('offboard_entered','takeoff_observed','goal_reached','returned_to_carrier','landed_on_pad',
                       'carrier_moving_at_touchdown','disarmed_at_end','no_failsafe','obstacle_clearance','landed_confirmed')
-FLEET_CHECKS=('fleet_min_separation','landings_sequenced','carrier_moved','rosbag_recorded','no_runner_error')
+FLEET_CHECKS=('fleet_min_separation','landings_sequenced','carrier_moved','rosbag_recorded','no_runner_error','messages_well_formed')
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'integration'))
 import guardian_layout as GL
 GUARDIANS=tuple(GL.SCENARIOS)
