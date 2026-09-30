@@ -140,6 +140,8 @@ class ReviewContracts(unittest.TestCase):
             states={},
             flown=set(),
             landed=set(),
+            disarmed_at={},
+            unconfirmed=set(),
             airborne_at={},
             airborne_px4={},
             land_reports={},

@@ -25,7 +25,8 @@ def mission_topic(name, ns=''):
 
 
 # What a malformed JSON message raises when a callback reads it: bad JSON, a missing key, a wrong type or length.
-MALFORMED = (ValueError, KeyError, TypeError, IndexError, AttributeError)
+# ArithmeticError: a zero sigma or an absurd time reaches a division or a power inside a tracker update.
+MALFORMED = (ValueError, KeyError, TypeError, IndexError, AttributeError, ArithmeticError)
 
 
 def drop_malformed(topic):
@@ -53,6 +54,13 @@ def finite_number(value):
     """A finite number from a JSON message, or ValueError (booleans are not numbers here)."""
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
         raise ValueError(f'expected a finite number, got {value!r}'[:80])
+    return value
+
+
+def positive_number(value):
+    """A finite number above zero from a JSON message (a measurement sigma), or ValueError."""
+    if finite_number(value) <= 0:
+        raise ValueError(f'expected a positive number, got {value!r}'[:80])
     return value
 
 

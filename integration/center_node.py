@@ -10,7 +10,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.utilities import remove_ros_args
 from std_msgs.msg import String
-from common import JsonLog, drop_malformed
+from common import JsonLog, drop_malformed, finite_number
 from guardian import Center
 from guardian_layout import CENTER
 
@@ -39,6 +39,12 @@ class CenterNode(Node):
         report = json.loads(msg.data)
         if not isinstance(report, dict) or not isinstance(report.get('kind'), str):
             raise ValueError('a report needs a kind')
+        # Checked before the report is queued: the decision that answers it logs the request, and a bad one
+        # there would stop the node on its timer.
+        if report.get('request') is not None:
+            finite_number(report['request'])
+        if report.get('state') is not None and not isinstance(report['state'], str):
+            raise ValueError('a posture state is a name')
         self.center.send(self.now(), report)
         if self.reachable:
             self.log.write(

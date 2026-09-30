@@ -159,6 +159,14 @@ class Mission(Node):
                 )
         return points
 
+    def estimate_position(self):
+        """World position from the current PX4 estimate: the local frame moved to the spawn point."""
+        return [
+            self.pose.y - self.origin[0] + self.spawn[0],
+            self.pose.x - self.origin[1] + self.spawn[1],
+            self.origin[2] - self.pose.z + self.spawn[2],
+        ]
+
     def position_at(self, when):
         # Place a scan where the vehicle was when it was captured, not where it is now.
         return min(self.track, key=lambda item: abs(item[0] - when))[1] if self.track else None
@@ -200,6 +208,10 @@ class Mission(Node):
                 return
             self.last_tick = now
         if self.handed_off:
+            # The track goes on after the handoff: a landed guardian's station fixes are matched against it, and
+            # frozen at the handoff it let a GNSS drag-off leak into the corrected position on the deck.
+            if self.pose is not None and self.origin is not None:
+                self.track.append((now, self.estimate_position()))
             return
         if not (self.pose and self.status and self.scan and self.perception):
             return
@@ -237,11 +249,7 @@ class Mission(Node):
         # geofence floor (-0.1 m) before takeoff; the horizontal plan frame stays fixed.
         if not self.flight_seen:
             self.origin[2] = self.pose.z
-        position = [
-            self.pose.y - self.origin[0] + self.spawn[0],
-            self.pose.x - self.origin[1] + self.spawn[1],
-            self.origin[2] - self.pose.z + self.spawn[2],
-        ]
+        position = self.estimate_position()
         self.track.append((now, position))
         if self.scan is not self.mapped_scan and not self.map_scan(position):
             self.send_command(VehicleCommand.VEHICLE_CMD_NAV_LAND)

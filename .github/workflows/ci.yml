@@ -19,8 +19,10 @@ jobs:
       - name: Evidence gates must not depend on assert statements
         run: python -O -m unittest discover -s tests -p 'test_*.py'
       - name: SITL runner process-cleanup tests (no ROS needed)
-        # Python 3.10's unittest exits 0 when it finds nothing; require that tests actually ran.
+        # Python 3.10's unittest exits 0 when it finds nothing; require that tests actually ran. A run step has no
+        # pipefail by default, so without it the step would take tee's status and pass on failing tests.
         run: |
+          set -o pipefail
           python -m unittest discover -s integration -p 'test_*runner.py' -v 2>&1 | tee runner-tests.log
           grep -Eq '^Ran [1-9][0-9]* tests?' runner-tests.log
       - uses: actions/setup-node@v4

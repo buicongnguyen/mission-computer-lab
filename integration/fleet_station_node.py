@@ -23,6 +23,7 @@ from fleet_contracts import FreshInput, LAND_TIMEOUT
 DECK = 0.6
 AIRBORNE = 2.0  # m world altitude: a vehicle counts as airborne above this.
 LAUNCH_GAP = 4.0  # s between successive launch clearances.
+LANDING_RELEASE = 10.0  # s disarmed with no touchdown before a cleared landing stops holding the others.
 
 
 class Station(Node):
@@ -40,6 +41,8 @@ class Station(Node):
         self.airborne_px4 = {}
         self.clear = {d: {'launch': False, 'land': False} for d in self.drones}
         self.flown = set()
+        self.disarmed_at = {}  # drone -> time it was first seen disarmed after flying
+        self.unconfirmed = set()  # cleared landings released without a touchdown
         self.landed = set()
         self.last_launch = -1e9
         self.moving = False
@@ -77,11 +80,19 @@ class Station(Node):
         # Checked before anything is stored: a half-read state would reach the next planning tick.
         finite_vector(state.get('position'))
         finite_number(state.get('layer'))  # The altitude layer, which orders the landings.
+        if 'px4_stamp' in state:
+            finite_number(state['px4_stamp'])
+        if state.get('pad_error') is not None:
+            finite_number(state['pad_error'])
         if not isinstance(state.get('armed'), bool) or not isinstance(state.get('phase'), str):
             raise ValueError('state needs armed and phase')
         if not self.state_inputs[drone].accept(state.get('t'), self.now()):
             return False
         self.states[drone] = state
+        if drone in self.flown and not state['armed']:
+            self.disarmed_at.setdefault(drone, self.now())
+        elif state['armed']:
+            self.disarmed_at.pop(drone, None)
         if state['armed'] and state['position'][2] > AIRBORNE and drone not in self.flown:
             self.flown.add(drone)
             self.airborne_at[drone] = self.now()
@@ -168,13 +179,25 @@ class Station(Node):
                 self.last_launch = now
             break
 
+    def released(self, drone):
+        """A vehicle cleared to land that has been disarmed for LANDING_RELEASE with no touchdown recorded (off its
+        pad, or its landing never confirmed). It no longer holds the vehicles above it in the air; its own checks
+        still fail."""
+        since = self.disarmed_at.get(drone)
+        if since is None or self.now() - since < LANDING_RELEASE:
+            return False
+        if drone not in self.unconfirmed:
+            self.unconfirmed.add(drone)
+            self.log.write('landing_unconfirmed', drone=drone, disarmed_at=since)
+        return True
+
     def grant_landings(self):
         """One landing at a time, lowest altitude layer first among every vehicle still in the air, once it holds
         over its pad. A descent passes through each lower layer, so a vehicle lands only after every lower one is
         down. Clearing the lowest of the vehicles already holding let one descend through 3 m while another flew
         home over its pad at 3 m, and they passed 0.19 m apart. A vehicle that came down away from the carrier is
         disarmed, and holds nobody up."""
-        busy = [d for d in self.drones if self.clear[d]['land'] and d not in self.landed]
+        busy = [d for d in self.drones if self.clear[d]['land'] and d not in self.landed and not self.released(d)]
         airborne = [d for d in self.drones if d in self.flown and d not in self.landed and self.states[d]['armed']]
         if busy or not airborne:
             return

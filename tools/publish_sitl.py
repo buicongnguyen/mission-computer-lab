@@ -264,7 +264,7 @@ def main():
     for v in fleet['vehicles']:
         touchdown = v['touchdown'] or {}
         lines.append(
-            f"| {v['ns']} | ({v['goal'][0]}, {v['goal'][1]}) | {v['altitude']:.0f} | {touchdown.get('pad_error', float('nan')):.3f} | "
+            f"| {v['ns']} | ({v['goal'][0]}, {v['goal'][1]}) | {v['altitude']:g} | {touchdown.get('pad_error', float('nan')):.3f} | "
             f"{(touchdown.get('carrier') or {}).get('speed', float('nan')):.2f} | {v['min_clearance_m']:.2f} |"
         )
     lines += [

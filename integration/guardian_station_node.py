@@ -14,7 +14,7 @@ import sys
 import rclpy
 from rclpy.utilities import remove_ros_args
 from std_msgs.msg import String
-from common import drop_malformed, finite_number, finite_vector
+from common import drop_malformed, finite_number, finite_vector, positive_number
 from fleet_station_node import Station
 from guardian import (
     GREEN,
@@ -68,8 +68,10 @@ class GuardianStation(Station):
         self.create_subscription(String, '/center/decision', self.on_decision, 10)
 
     def on_state(self, drone, msg):
-        if super().on_state(drone, msg):
+        accepted = super().on_state(drone, msg)
+        if accepted:
             self.heard[drone] = self.now()
+        return accepted
 
     @drop_malformed('/station/detections')
     def on_detections(self, msg):
@@ -79,7 +81,7 @@ class GuardianStation(Station):
         for d in data['detections']:
             finite_vector(d['p'])
             finite_number(d['t'])
-            finite_number(d.get('sigma', CFG.sigma))
+            positive_number(d.get('sigma', CFG.sigma))
         for d in data['detections']:
             self.tracker.update(d['t'], [(d['p'], data['source'], d.get('label'), d.get('sigma', CFG.sigma))])
 

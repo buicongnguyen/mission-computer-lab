@@ -14,7 +14,7 @@ import sys
 import rclpy
 from rclpy.utilities import remove_ros_args
 from std_msgs.msg import String
-from common import drop_malformed, finite_number, finite_vector
+from common import drop_malformed, finite_number, finite_vector, positive_number
 from fleet_mission_node import FleetMission
 from mission_node import Mission
 from px4_msgs.msg import VehicleStatus
@@ -59,6 +59,11 @@ class GuardianMission(FleetMission):
         if order and order.get('hazard') is not None:  # The impact area a dispersal order carries.
             finite_vector(order['hazard'][0])
             finite_number(order['hazard'][1])
+        if order and order.get('target') is not None:  # Flown later, on the control timer.
+            finite_vector(order['target'])
+        fix = (data.get('nav') or {}).get(self.ns) if isinstance(data, dict) else None
+        if fix is not None:
+            finite_vector(fix, 4)  # x, y, z, time of the station's own fix of this guardian.
         if not self.accept_clearance(data):
             return
         self.order = order or self.order
@@ -79,7 +84,6 @@ class GuardianMission(FleetMission):
                 link_age=0.0,
                 threats=None,
             )
-        fix = (data.get('nav') or {}).get(self.ns)
         if fix and (self.nav_fix is None or fix[3] > self.nav_fix[3]):
             self.station_fix(fix)
 
@@ -121,7 +125,7 @@ class GuardianMission(FleetMission):
         for d in detections:
             finite_vector(d['p'])
             finite_number(d['t'])
-            finite_number(d.get('sigma', CFG.sigma))
+            positive_number(d.get('sigma', CFG.sigma))
         for d in detections:
             self.onboard.update(d['t'], [(d['p'], self.ns, d.get('label'), d.get('sigma', CFG.sigma))])
 

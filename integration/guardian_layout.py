@@ -52,9 +52,11 @@ CFG = Config(
 )
 ORDER_AGE = 1.0  # s: the station orders only guardians whose state it heard this recently (states arrive at 5 Hz).
 # Each guardian launches from its pad, holds a watch post at its own altitude layer, and lands back on its pad.
+# The layers are 1.5 m apart: guardians wait for lower ones to land first, and one flying home at its layer can pass
+# over another waiting below; 1 m apart that pass sat right on the 1 m separation minimum (1.04 m in one flight).
 GUARDIANS = [
-    {'ns': 'px4_0', 'pad': -1.1, 'post': (1, 2), 'altitude': 4.0},  # Near the carrier, in the northern corridor.
-    {'ns': 'px4_1', 'pad': 0.0, 'post': (0, 12), 'altitude': 5.0},  # Northern picket: first contact from the north.
+    {'ns': 'px4_0', 'pad': -1.1, 'post': (1, 2), 'altitude': 4.5},  # Near the carrier, in the northern corridor.
+    {'ns': 'px4_1', 'pad': 0.0, 'post': (0, 12), 'altitude': 6.0},  # Northern picket: first contact from the north.
     {'ns': 'px4_2', 'pad': 1.1, 'post': (12, 8), 'altitude': 3.0},
 ]  # Eastern picket.
 CARRIER = (0.0, -1.5)

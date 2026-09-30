@@ -11,7 +11,7 @@ from unittest.mock import patch, Mock
 from builtin_interfaces.msg import Time
 from mission_node import Mission
 from fleet_mission_node import FleetMission, LEAD
-from fleet_station_node import Station, LAUNCH_GAP
+from fleet_station_node import Station, LAUNCH_GAP, LANDING_RELEASE
 from observer_node import Observer
 from common import JsonLog, px4_topic, SENSOR_QOS
 from mission_interfaces.msg import Decision
@@ -108,6 +108,7 @@ class MissionBoundaries(unittest.TestCase):
             'payload_time',
             'scan_points',
             'position_at',
+            'estimate_position',
             'map_scan',
             'next_target',
             'may_request_flight',
@@ -119,6 +120,16 @@ class MissionBoundaries(unittest.TestCase):
         a.get_clock.return_value.now.return_value.to_msg.return_value = Time(sec=105)
         a.get_clock.return_value.now.return_value.nanoseconds = 105000000000
         return a
+
+    def test_the_track_goes_on_after_the_handoff(self):
+        # A landed guardian's station fixes are matched against this track; frozen at the handoff, a GNSS drag-off
+        # leaked into its corrected position on the deck.
+        a = self.adapter()
+        a.handed_off = True
+        a.pose = SimpleNamespace(x=0.5, y=2.0, z=0.0, xy_valid=True, z_valid=True)
+        Mission.tick(a)
+        self.assertEqual(list(a.track)[-1][1], [2.0, 0.5, 0.0])
+        self.assertEqual((a.core.mock_calls, a.send_command.mock_calls), ([], []))  # Nothing else after it.
 
     def test_future_and_replayed_payloads_do_not_refresh(self):
         a = self.adapter()
@@ -316,6 +327,8 @@ class FleetContracts(unittest.TestCase):
             clear={d: {'launch': False, 'land': False} for d in self.DRONES},
             flown=set(),
             landed=set(),
+            disarmed_at={},
+            unconfirmed=set(),
             last_launch=-1e9,
             moving=False,
             parked=False,
@@ -337,6 +350,7 @@ class FleetContracts(unittest.TestCase):
             'grant',
             'sequence_launches',
             'grant_landings',
+            'released',
             'carrier_speed',
             'publish_clearance',
             'record',
@@ -434,6 +448,24 @@ class FleetContracts(unittest.TestCase):
         self.report(s, 'px4_1', 'descend', z=0.6, armed=False)
         Station.tick(s)
         self.assertEqual(self.grants(s, 'land'), ['px4_0', 'px4_1', 'px4_2'])
+
+    def test_a_cleared_landing_without_a_touchdown_stops_holding_the_others(self):
+        s = self.station()
+        for d in self.DRONES:
+            self.report(s, d, 'outbound', z=3.0, armed=True)
+            s.clear[d]['launch'] = True
+        for d in self.DRONES:
+            self.report(s, d, 'rendezvous', z=3.0 + self.DRONES.index(d), armed=True)
+        Station.tick(s)
+        self.assertEqual(self.grants(s, 'land'), ['px4_0'])
+        self.report(s, 'px4_0', 'descend', z=0.0, armed=False)  # Down beside the deck: no touchdown.
+        Station.tick(s)
+        self.assertEqual(self.grants(s, 'land'), ['px4_0'])  # Its touchdown may yet be confirmed.
+        s.clock += LANDING_RELEASE + 0.1
+        Station.tick(s)
+        self.assertEqual(self.grants(s, 'land'), ['px4_0', 'px4_1'])
+        self.assertNotIn('px4_0', s.landed)  # Its own landing checks still fail.
+        self.assertEqual([r['drone'] for r in self.logged(s, 'landing_unconfirmed')], ['px4_0'])
 
     def test_a_vehicle_down_away_from_the_carrier_holds_no_landing_up(self):
         s = self.station()

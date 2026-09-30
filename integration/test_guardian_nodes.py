@@ -317,6 +317,7 @@ class GuardianNodes(unittest.TestCase):
             '{"source": "px4_1", "detections": [{"p": [1, 2], "t": 1}]}',
             '{"source": "px4_1", "detections": [{"p": [1, 2, "x"], "t": 1}]}',
             '{"source": ["px4_1"], "detections": []}',
+            '{"source": "px4_1", "detections": [{"p": [1, 2, 3], "t": 1, "sigma": 0}]}',  # A zero sigma divides.
         )
         for text in bad_detections:
             self.assertFalse(s.on_detections(raw(text)))
@@ -326,22 +327,25 @@ class GuardianNodes(unittest.TestCase):
         for text in (
             '{"telemetry_fresh": true, "t": 1, "armed": true, "phase": "watch", "position": [0, 12]}',
             '{"telemetry_fresh": true, "t": 1, "armed": "yes", "phase": "watch", "position": [0, 12, 5]}',
+            '{"telemetry_fresh": true, "t": 1, "armed": true, "phase": "watch", "position": [0, 12, 5], "layer": 6, '
+            '"px4_stamp": "late"}',
         ):
             self.assertFalse(s.on_state('px4_1', raw(text)))
         self.assertEqual(len(s.tracker.tracks), tracks)
         self.assertEqual(json.dumps(s.states, sort_keys=True), states)
         dropped = [r for r in self.records('station.jsonl') if r['kind'] == 'dropped_message']
-        self.assertEqual(len(dropped), len(bad_detections) + 5)
+        self.assertEqual(len(dropped), len(bad_detections) + 6)
         self.assertTrue(all(r['error'] and r['topic'] for r in dropped))
         s.protect(1.0)
         s.tick()  # Still running, with the state it had.
         c = CenterNode(SimpleNamespace(log=self.path('center.jsonl'), unreachable=False))
         self.nodes.append(c)
-        for text in ('[1]', '{"state": "RED"}', 'nope'):
+        # A non-finite request would be queued, then stop the node when its answer is logged.
+        for text in ('[1]', '{"state": "RED"}', 'nope', '{"kind": "clear_after_red", "request": NaN}'):
             self.assertFalse(c.report(raw(text)))
         self.assertEqual(c.center.inbox, [])
         c.tick()
-        self.assertEqual([r['kind'] for r in self.records('center.jsonl')], ['dropped_message'] * 3)
+        self.assertEqual([r['kind'] for r in self.records('center.jsonl')], ['dropped_message'] * 4)
         w = self.world()
         self.assertFalse(w.state('px4_0', raw('[]')))
         self.assertNotIn('px4_0', w.phase)
@@ -523,8 +527,11 @@ class GuardianNodes(unittest.TestCase):
         uplink = lambda o: message({'t': 100.0, 'clearance': {}, 'orders': {'px4_0': o}})
         for hazard in ([[0.8, -3.1], 6.0], [[0.8, -3.1, 0.0], 'far'], [[0.8, -3.1, 0.0]]):
             self.assertFalse(g.on_clearance(uplink(dict(order, hazard=hazard))))
+        self.assertFalse(g.on_clearance(uplink(dict(order, target=[0.8, 4.1]))))  # Flown later, on the timer.
+        nav = message({'t': 100.0, 'clearance': {}, 'orders': {'px4_0': order}, 'nav': {'px4_0': [0.0, 1.0, 4.0]}})
+        self.assertFalse(g.on_clearance(nav))  # A station fix is x, y, z and its time.
         self.assertEqual(g.order['action'], 'watch')
-        self.assertEqual([c.args[0] for c in g.log.write.call_args_list], ['dropped_message'] * 3)
+        self.assertEqual([c.args[0] for c in g.log.write.call_args_list], ['dropped_message'] * 5)
         g.on_clearance(uplink(order))  # Its timestamp was not used up by the dropped messages.
         self.assertEqual(g.order['hazard'], order['hazard'])
         self.assertEqual(g.guard(100.0, [1.0, 2.0, 4.0]), order['target'])  # Nothing seen: the station's move stands.
