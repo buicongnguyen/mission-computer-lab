@@ -89,7 +89,7 @@ flowchart TB
 
 | Concern | Design in this lab | What a fielded system would add |
 |---|---|---|
-| Deconfliction | Fixed altitude layers of 3, 4 and 5 m; one launch and one landing at a time; a 4 s launch gap after the previous vehicle is above 2 m | Dynamic separation from shared position reports, geofenced corridors, and UTM or operator airspace procedures |
+| Deconfliction | Fixed altitude layers of 3, 4.5 and 6 m, 1.5 m apart so a vehicle passing over or under another keeps the 1 m minimum; one launch and one landing at a time, lowest layer first; a 4 s launch gap after the previous vehicle is above 2 m | Dynamic separation from shared position reports, geofenced corridors, and UTM or operator airspace procedures |
 | Landing on a moving deck | Each vehicle aims one second ahead of its pad (the supervisor's position gain is 1/s), descends at up to 0.6 m/s and goes around above 0.5 m of error | Relative positioning (RTK, fiducials or a pad beacon), deck-motion prediction, a touchdown lock or clamp, wind and turbulence limits, and GNSS checks that expect a moving deck: stock PX4 treats a landed drone on a steadily moving deck as at rest and its GNSS track as drift |
 | Station authority | Clearances only, published at 10 Hz; vehicles request arming only while holding a launch clearance | Authenticated command links, operator override, lost-link rules for the station itself |
 | Evidence | Station log, per-vehicle observers, fleet checks for separation, sequencing, pad error and carrier motion | Fleet telemetry at scale, time synchronisation across radios, flight logs from every airframe |
@@ -191,7 +191,9 @@ This is artifact verification, not an OTA updater. It has no download transport,
 
 ## Evidence and acceptance criteria
 
-The executable suite includes one CTest program with multiple supervisor checks, 35 Python unit/integration tests, eight scenario runs, and six signed-artifact cases. Tests fail the run on unexpected terminal mode, collision with a modeled obstacle, excessive estimator error, missing required transitions, malformed evidence or failed update checks.
+The executable suite includes one CTest program with multiple supervisor checks, the Python unit and process tests, eight scenario runs, and six signed-artifact cases ([current counts](results.md)). Tests fail the run on unexpected terminal mode, collision with a modeled obstacle, excessive estimator error, missing required transitions, malformed evidence or failed update checks.
+
+The PX4 flights are judged the same way, by named checks computed from independently recorded logs; [`integration/acceptance.py`](https://github.com/buicongnguyen/mission-computer-lab/blob/main/integration/acceptance.py) holds them, and a required check that cannot be evaluated fails rather than going missing.
 
 The eight scenarios cover nominal completion; recoverable camera loss and inference overload; sustained GNSS, link and IMU loss; low battery; and an actual supervisor-process kill. Every scenario records events, sampled states, camera frames, LiDAR endpoints, measurements and checks. The [execution report](execution.md) contains the observed values.
 

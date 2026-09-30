@@ -144,6 +144,11 @@ nav a:first-child {
   letter-spacing: 1.5px;
   margin-right: auto;
 }
+nav a[aria-current='page'] {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
 .document {
   max-width: 1060px;
   margin: 38px auto;
@@ -252,10 +257,12 @@ button:hover {
 /* Grid items default to min-width:auto, so a canvas bitmap or a long unbroken string widened the page past a phone screen. */
 .grid > *,
 .metrics > *,
-.bottom > * {
+.bottom > *,
+.two > * {
   min-width: 0;
 }
-canvas {
+canvas,
+select {
   max-width: 100%;
 }
 .sub,
@@ -374,8 +381,8 @@ nav .theme-toggle:hover {
     --pre-ink: #e3f3f5;
   }
 }
-</style><script src="../web/theme.js"></script><script src="assets/mermaid-11.17.2.min.js" defer></script><script src="assets/diagrams.js" defer></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet ops</a><a href="../web/guardian.html">Guardians</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>Guardian drones: design and evaluation</h1>
-<p>The request: let drones work as guardians that help a station cope with an attack by another drone, or by a missile from far away; think through the scenarios, and design mission control that cooperates with the station, the command center and the drone&#39;s own autonomy. This page evaluates that idea, improves it twice, and records what was built and measured. The replay is on <a href="../web/guardian.html">the guardian page</a>; the numbers are in <a href="guardian-results.html">the simulator results</a>.</p>
+</style><script src="../web/theme.js"></script><script src="assets/mermaid-11.17.2.min.js" defer></script><script src="assets/diagrams.js" defer></script></head><body><nav><a href="../web/sitl.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet</a><a href="../web/guardian.html">Guardians</a><a href="../web/index.html">Fast simulator</a><a href="results.html">Results</a><a href="architecture.html">Architecture</a><a href="sitl-guide.html">Run it</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>Guardian drones: design and evaluation</h1>
+<p>Guardian drones help a station cope with an attack by another drone, or by a missile from far away, with mission control shared between the station, a command center and each drone&#39;s own autonomy. This page evaluates that idea, improves it twice, and records what was built and measured, in simulation. The replay is on <a href="../web/guardian.html">the guardian page</a>; the numbers are in <a href="guardian-results.html">the simulator results</a>.</p>
 <h2>1. The idea, evaluated</h2>
 <p><strong>What is strong.</strong> A fleet already flying around a station is a sensor network. Drones at altitude see low flyers that a ground sensor loses behind terrain and clutter, and they can be placed where attacks come from. Giving them a protective role, coordinated with the station and a command center, is the right instinct: the value is in the cooperation, not in any single drone.</p>
 <p><strong>What does not hold up.</strong></p>
@@ -426,7 +433,8 @@ nav .theme-toggle:hover {
 <li><strong>One decision module, two simulators.</strong> <code>tools/guardian.py</code> holds the tracker, threat assessment, posture, keep-clear, onboard fallbacks, the center model, the navigation integrity check and the authority table. The fast simulator and the PX4 nodes import the same code.</li>
 <li><strong>Tracks, not detections.</strong> A constant-velocity Kalman filter per track, association in normalised residual, M-of-N confirmation, merging of duplicates, and a plausibility gate on how fast a young track may move.</li>
 <li><strong>Classification before alarm.</strong> Guardian cameras label what they see; a track classed as a bird never raises RED and does not hold the posture at AMBER, and an unclassified slow track may raise RED only close in. Fast tracks with a steady speed raise RED at once.</li>
-<li><strong>Invariants the tests enforce.</strong> A keep-clear or dispersal move, new or kept, opens the range along its whole straight path to every relevant track (not a bird, predicted to come near); a guardian re-checks any station move against its own tracks before flying it; and every logged action is taken by a layer allowed to take it.</li>
+<li><strong>Invariants the tests enforce.</strong> A keep-clear or dispersal move, new or kept, opens the range along its whole straight path to every relevant track (not a bird and not a steady fast object, predicted to come near) and shortens no steady fast object&#39;s predicted miss, since a fast object is judged on its path rather than on where it is now; a guardian re-checks a station keep-clear or dispersal move against its own tracks before flying it; and every logged action is taken by a layer allowed to take it.</li>
+<li><strong>Leaving an impact area comes first.</strong> Inside a fast object&#39;s predicted impact area, a guardian disperses whenever the dispersal move is itself a keep-clear move; otherwise keeping clear decides. A dispersal under way is kept while it still leads out, because a young track&#39;s impact estimate moves by metres between updates. The order carries the area, so a guardian that cannot fly the station&#39;s move re-plans its own way out.</li>
 <li><strong>Cross-checks against spoofing.</strong> The station compares each guardian&#39;s reported GNSS position with an independent observation of it: its own sensor&#39;s track of that guardian in the fast simulator, a datalink fix in the PX4 flights. A slow drag-off passes the drone&#39;s own consistency checks but not this one. A flagged guardian navigates by the station&#39;s fixes (horizontal only; height stays barometric) and lands where it is if they stop.</li>
 <li><strong>Layout is part of the design.</strong> The simulator tests where the posts are, not only what the software does.</li>
 </ol>
@@ -533,7 +541,7 @@ nav .theme-toggle:hover {
 <p><code>tools/guardian_sim.py</code> is a kinematic simulator. Five guardians (four pickets 900 m out at 80 m, one overwatch above the station at 60 m) fly at up to 12 m/s. The station&#39;s ground sensor sees 1200 m, but only 400 m for targets below 50 m; guardian sensors see 800 m in every direction and classify inside 500 m. Links have 0.2 s latency and 2% loss; the center answers after 1.5 s each way plus an 8–20 s operator decision. These are illustrative round numbers chosen to expose trade-offs, not the specification of any real sensor or aircraft.</p>
 <p>Four designs run against the same seeded threats: <strong>station only</strong> (no drone sensing), <strong>onboard only</strong> (drones sense and protect themselves, no network), <strong>networked</strong> (drone sensing fused at the station, which gives every order; no onboard autonomy), and <strong>hybrid</strong> (networked plus onboard reflexes, lost-link procedures and the navigation cross-check). Each cell is many seeds; the results page lists medians and percentiles.</p>
 <h2>7. What the evaluation shows</h2>
-<p>The generated tables are in <a href="guardian-results.html">the simulator results</a>. In summary:</p>
+<p>The generated tables are in <a href="guardian-results.html">the simulator results</a>. These are properties of the simulated designs under the illustrative numbers above, not of real sensors. In summary:</p>
 <ul>
 <li><strong>Warning comes from the network.</strong> Against a low intruder, the station&#39;s own sensor gives almost no warning; fusing guardian sensing gives over a minute, enough for the center to decide before arrival.</li>
 <li><strong>Safety under jamming comes from onboard autonomy.</strong> A networked design without it leaves a jammed picket in the threat&#39;s path; the hybrid design keeps every guardian clear.</li>
@@ -594,7 +602,7 @@ nav .theme-toggle:hover {
 </tbody></table>
 <p><a id="review"></a></p>
 <h2>9. Logic and code review</h2>
-<p>Two independent reviews read the decision module, the fast simulator and the PX4 integration after the eight flights were built, and replayed their doubts in the simulator before reporting them. Every finding below was reproduced, fixed in the code, covered by a test, and the evidence was regenerated.</p>
+<p>Two separate reviews, run by AI review agents, read the decision module, the fast simulator and the PX4 integration after the eight flights were built, and replayed their doubts in the simulator before reporting them. Every finding below was reproduced, fixed in the code, covered by a test, and the evidence was regenerated.</p>
 <table>
 <thead>
 <tr>
@@ -681,8 +689,8 @@ nav .theme-toggle:hover {
 </tbody></table>
 <p>The review also questioned whether the invariants prove anything: checking a rule the code already enforces only catches a broken implementation. The results page now also measures the same property on truth. In some runs a move, planned on tracks, brought a guardian more than tracking error nearer a real threat, mostly a weaving one at long range: 13 of 40 hybrid runs in the combined scenario, 8 of 40 in the swarm. That is the price of straight-line prediction. No guardian lost its safe radius in those runs.</p>
 <h2>10. The same logic on real PX4</h2>
-<p>Eight flight scenarios, one per threat above, run the decision module on three real PX4 instances in Gazebo. Guardians launch from the carrier one at a time, hold watch posts at their own altitude layers, and land back on it when the event is over. Each scenario adds its own threats and conditions: a low intruder, a fast object diving on the carrier, three intruders from two sectors, circling birds with sensor clutter, a jammer around one guardian&#39;s post, a GNSS drag-off on every receiver, a dead link to the center, and all of these at once. The environment (threats, sensors, jamming, spoofing) and the center are simulated; the guardians&#39; adapters, supervisors and PX4 are the real flight stack. Separations, drift and landings are judged on Gazebo truth. <a href="sitl-guide.html">The SITL guide</a> lists the topics and acceptance checks, and <a href="sitl-execution.html">the PX4 evidence</a> the measured results.</p>
-<p>In the final matrix all eight passed every check, 300 in all:</p>
+<p>Eight flight scenarios, one per threat above, run the decision module on three real PX4 instances in Gazebo. The arena is 20 m across, so speeds, ranges and radii are the fast simulator&#39;s scaled down: intruders fly at 1.2 m/s, the fast object dives at 5.5 m/s, and the safe radius is 1.5 m. Guardians launch from the carrier one at a time, hold watch posts at their own altitude layers, and land back on it when the event is over. Each scenario adds its own threats and conditions: a low intruder, a fast object diving on the carrier, three intruders from two sectors, circling birds with sensor clutter, a jammer around one guardian&#39;s post, a GNSS drag-off on every receiver, a dead link to the center, and all of these at once. The environment (threats, sensors, jamming, spoofing) and the center are simulated; the guardians&#39; adapters, supervisors and PX4 are the real flight stack. Separations, drift and landings are judged on Gazebo truth. <a href="sitl-guide.html">The SITL guide</a> lists the topics and acceptance checks, and <a href="sitl-execution.html">the PX4 evidence</a> the measured results.</p>
+<p>In the 30 September 2026 matrix all eight passed every check, 332 in all:</p>
 <table>
 <thead>
 <tr>
@@ -693,43 +701,43 @@ nav .theme-toggle:hover {
 </thead>
 <tbody><tr>
 <td><code>guardian_intruder</code></td>
-<td align="right">38 / 38</td>
-<td>RED 12.3 simulated seconds before the intruder reached the carrier&#39;s parking spot; the carrier drove to x = 11 m and stayed 10.1 m clear; closest guardian 5.96 m; recovery on the center&#39;s decision</td>
+<td align="right">42 / 42</td>
+<td>RED 12.1 simulated seconds before the intruder reached the carrier&#39;s parking spot; the carrier relocated and stayed 10.0 m clear; closest guardian 4.77 m; recovery on the center&#39;s decision</td>
 </tr>
 <tr>
 <td><code>guardian_fast</code></td>
-<td align="right">37 / 37</td>
-<td>RED 1.8 s before impact; the guardian nearest the impact point dispersed from 3.6 m to 4.4 m away before impact; closest guardian 5.0 m</td>
+<td align="right">41 / 41</td>
+<td>RED 1.9 s before impact; the guardian nearest the impact point dispersed from 3.6 m to 5.9 m away before impact; closest guardian 3.84 m</td>
 </tr>
 <tr>
 <td><code>guardian_swarm</code></td>
-<td align="right">38 / 38</td>
-<td>Three distinct tracks confirmed; the carrier&#39;s stop moved from x = 8 m to 11 m when the third intruder, from the east, was tracked; closest guardian 4.98 m</td>
+<td align="right">42 / 42</td>
+<td>Three distinct tracks confirmed; closest guardian 4.39 m</td>
 </tr>
 <tr>
 <td><code>guardian_birds</code></td>
-<td align="right">35 / 35</td>
-<td>No RED and no keep-clear move in the whole flight; the quiet watch ended by asking the center</td>
+<td align="right">39 / 39</td>
+<td>No RED, and every guardian held its post; the quiet watch ended by asking the center</td>
 </tr>
 <tr>
 <td><code>guardian_jamming</code></td>
-<td align="right">39 / 39</td>
-<td>The jammed guardian kept clear on its own, 4.17 m from the intruder at the closest, and regained its link 15.6 s later; filmed from both cameras</td>
+<td align="right">43 / 43</td>
+<td>The jammed guardian kept clear on its own, 5.44 m from the intruder at the closest, and regained its link after leaving the zone; filmed from both cameras</td>
 </tr>
 <tr>
 <td><code>guardian_spoofing</code></td>
-<td align="right">37 / 37</td>
-<td>The station flagged all three receivers 11 s after the drag-off began; each flew on station fixes and none strayed more than 1.19 m from its post</td>
+<td align="right">41 / 41</td>
+<td>The station flagged all three receivers 10 s after the drag-off began; each flew on station fixes and none strayed more than 1.41 m from its post</td>
 </tr>
 <tr>
 <td><code>guardian_center_loss</code></td>
-<td align="right">37 / 37</td>
-<td>With the center unreachable, the station recovered the guardians under delegation, after its 20 s timeout</td>
+<td align="right">41 / 41</td>
+<td>With the center unreachable, the station recovered the guardians under delegation, 20 s after its request (timeout 20 s)</td>
 </tr>
 <tr>
 <td><code>guardian_combined</code></td>
-<td align="right">39 / 39</td>
-<td>Two intruders, two birds, clutter, the jammer and no center at once; closest guardian 2.63 m; recovery under delegation</td>
+<td align="right">43 / 43</td>
+<td>Two intruders, two birds, clutter, the jammer and no center at once; closest guardian 1.93 m; recovery under delegation</td>
 </tr>
 </tbody></table>
 <h2>11. Limits</h2>

@@ -144,6 +144,11 @@ nav a:first-child {
   letter-spacing: 1.5px;
   margin-right: auto;
 }
+nav a[aria-current='page'] {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
 .document {
   max-width: 1060px;
   margin: 38px auto;
@@ -252,10 +257,12 @@ button:hover {
 /* Grid items default to min-width:auto, so a canvas bitmap or a long unbroken string widened the page past a phone screen. */
 .grid > *,
 .metrics > *,
-.bottom > * {
+.bottom > *,
+.two > * {
   min-width: 0;
 }
-canvas {
+canvas,
+select {
   max-width: 100%;
 }
 .sub,
@@ -374,7 +381,7 @@ nav .theme-toggle:hover {
     --pre-ink: #e3f3f5;
   }
 }
-</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet ops</a><a href="../web/guardian.html">Guardians</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>Domain notes: mission computer and flight-controller boundaries</h1>
+</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/sitl.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet</a><a href="../web/guardian.html">Guardians</a><a href="../web/index.html">Fast simulator</a><a href="results.html">Results</a><a href="architecture.html">Architecture</a><a href="sitl-guide.html">Run it</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>Domain notes: mission computer and flight-controller boundaries</h1>
 <p>Research date: <strong>22 September 2026</strong>. These notes explain the engineering context behind the project: what a Qualcomm-based mission computer paired with an NXP-based PX4 flight controller has to do, and which of those responsibilities this repository executes, models or leaves for real hardware. Public vendor documentation supports the technical interpretation. Work areas and priorities are engineering judgments.</p>
 <h2>Responsibilities and project coverage</h2>
 <p>A mission-computer platform role is systems integration and platform ownership: connect an autonomy computer to a separate flight controller, make perception and navigation workloads dependable, and carry secure platform bring-up through to manufacturing readiness. The difficult part is explaining and containing failures across those boundaries, not only implementing an object detector.</p>

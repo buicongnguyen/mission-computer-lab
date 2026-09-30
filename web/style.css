@@ -144,6 +144,11 @@ nav a:first-child {
   letter-spacing: 1.5px;
   margin-right: auto;
 }
+nav a[aria-current='page'] {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
 .document {
   max-width: 1060px;
   margin: 38px auto;
@@ -252,10 +257,12 @@ button:hover {
 /* Grid items default to min-width:auto, so a canvas bitmap or a long unbroken string widened the page past a phone screen. */
 .grid > *,
 .metrics > *,
-.bottom > * {
+.bottom > *,
+.two > * {
   min-width: 0;
 }
-canvas {
+canvas,
+select {
   max-width: 100%;
 }
 .sub,

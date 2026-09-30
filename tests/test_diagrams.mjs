@@ -27,6 +27,13 @@ for (const name of fs.readdirSync(path.join(root, 'docs')).filter(n => n.endsWit
     count++;
   }
 }
+// The README's diagram renders on GitHub rather than in the docs HTML; its syntax is checked the same way.
+const readme = [...fs.readFileSync(path.join(root, 'README.md'), 'utf8').matchAll(/```mermaid\r?\n([\s\S]*?)```/g)];
+assert(readme.length, 'README.md has its architecture diagram');
+for (const [, text] of readme) {
+  await mermaid.parse(text);
+  count++;
+}
 for (const type of ['sequenceDiagram', 'flowchart', 'graph']) assert(kinds.has(type), `Missing requested ${type}`);
 assert(
   fs

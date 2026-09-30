@@ -91,18 +91,19 @@ The ground station (`integration/fleet_station_node.py`) rides on the carrier. I
 3. **Return** by A* to the road corridor south of every obstacle.
 4. **Drive**: once every vehicle has flown and the first one heads home, the carrier drives east at 0.3 m/s, so recoveries meet a moving deck.
 5. **Rendezvous**: each vehicle holds its altitude layer over its own pad. To follow a moving pad without lag it aims one second ahead: the supervisor commands velocity proportional to position error at 1/s, so aiming at `pad + carrier velocity × 1 s` makes the commanded velocity equal the carrier's once the vehicle is over its pad.
-6. **Land** one at a time: the station clears the lowest layer among the vehicles holding overhead. The vehicle descends at up to about 0.6 m/s while tracking its pad; if it drifts more than 0.5 m off the pad before reaching the deck, it goes around to its layer and waits again. PX4's land detector disarms it on the deck.
+6. **Land** one at a time, lowest layer first: the station clears the lowest vehicle still in the air once it holds over its pad, and higher vehicles wait, because a descent passes through every lower layer. The vehicle descends at up to about 0.6 m/s while tracking its pad; if it drifts more than 0.5 m off the pad before reaching the deck, it goes around to its layer and waits again. PX4's land detector disarms it on the deck.
 7. The carrier stops when every vehicle is down, or at the end of the road, and stays parked.
 
 | Acceptance check | Criterion |
 |---|---|
 | Per vehicle: offboard, takeoff, goal | Armed OFFBOARD observed; climb above 2 m; inspection started within 0.6 m of its goal |
-| Per vehicle: returned and landed on its pad | Rendezvous and descent phases recorded; touchdown within 0.4 m of its own pad and within 0.35 m of deck height |
+| Per vehicle: returned and landed on its pad | Rendezvous and descent phases recorded; touchdown within 0.4 m of its own pad and within 0.35 m of deck height; PX4's own landed and ground-contact report after the vehicle was last airborne, within 4 s of the disarm, with the station's touchdown within 4 s of it too |
 | Per vehicle: moving deck | Carrier speed above 0.15 m/s at that vehicle's touchdown |
 | Per vehicle: safety | Disarmed at the end; no PX4 failsafe; estimated obstacle clearance above 0.5 m |
 | Fleet separation | Closest approach between airborne vehicles above 1.0 m, from time-aligned observer traces at 5 Hz |
 | Landings sequenced | Three land clearances, each granted after the previous vehicle's touchdown |
 | Carrier moved; ROS bag | Carrier travelled more than 3 m; the bag holds every vehicle's decision topic and the clearance topic |
+| Well-formed messages; runner | No node dropped a malformed message (a node drops one instead of stopping, and the drop fails the flight); the runner raised no error |
 
 **Observed limitation: PX4 treats a moving deck as GNSS drift.** After each landing, PX4 logged `Preflight: GPS Horizontal Pos Drift too high` and the drone's position estimate stopped following the carrier. In PX4 v1.16, EKF2 runs its GNSS drift and speed checks only while the vehicle is on the ground and at rest (`src/modules/ekf2/EKF/aid_sources/gnss/gps_checks.cpp`). A drone riding a deck at a steady 0.27 m/s feels no acceleration, so it counts as at rest, while its GNSS position moves faster than `EKF2_REQ_HDRIFT` (default 0.1 m/s). EKF2 then skips those GNSS samples, the estimate stays where the drone landed, and the failing preflight check would block re-arming while the carrier moves (re-arming was not attempted in this run). The acceptance checks are not affected: each drone's estimate tracked its pad through touchdown (2–10 cm at first deck contact), pad error is recorded when PX4 declares the landing and disarms, and separation and clearance use only airborne samples. The fleet replay draws a landed drone on its pad, and the deck camera shows where the drones physically are. Launching again from a moving vehicle would need a deliberate design: a moving-base or relative position source, or deck-specific GNSS check settings validated for the aircraft.
 
@@ -119,8 +120,8 @@ The eight guardian scenarios run the decision logic of [the guardian design](gua
 | Guardian | Watch post | Altitude | Position |
 |---|---|---|---|
 | `px4_0` | (1, 2) | 4 m | Closest to the carrier, across the northern approach, and inside the jamming zone when there is one |
-| `px4_1` | (0, 12) | 5 m | Forward: first contact from the north |
-| `px4_2` | (12, 8) | 3 m | Eastern flank |
+| `px4_1` | (0, 12) | 5.5 m | Forward: first contact from the north |
+| `px4_2` | (12, 8) | 2.5 m | Eastern flank |
 
 | Scenario | Threats and conditions | What it must show |
 |---|---|---|
@@ -136,9 +137,9 @@ The eight guardian scenarios run the decision logic of [the guardian design](gua
 1. The guardians launch one at a time and fly to their posts. Their routes keep clear of the other guardians' posts. The adapter's phase becomes `watch`.
 2. Five seconds after all three are on watch, the environment node starts the scenario. Threats follow their scripts, the jammer switches on, or the spoofer starts moving the world's reference point (`/world/guardian/set_spherical_coordinates`), which shifts every NavSat reading.
 3. Each guardian's simulated sensor (8 m range, camera label inside 5 m) feeds its own onboard tracker directly. The same detections reach the station only over the link, which the environment drops while a guardian is inside the jamming zone. The station has its own sensor, which loses low flyers beyond 6 m. It also locates its guardians by their datalink.
-4. The station fuses the tracks, raises AMBER and then RED, and alerts the crew. It drives the carrier along the road to the nearest of three stops (x = 5, 8 or 11 m) that keeps every tracked threat's predicted path twice the protected radius away (a delegated action), and orders keep-clear or dispersal moves. It orders only guardians it has heard from in the last second; a silent one is told to hold. Orders to a jammed guardian do not arrive.
-5. A guardian whose uplink falls silent holds on its own authority. When its own sensor predicts a conflict inside its reflex horizon, it keeps clear on its own, and it does not fly a station move that would close on a track it can see. After 30 s without an uplink it flies a planned route to where it last heard the carrier was, and holds there. A guardian flying on station fixes lands where it is if the fixes stop for 3 s.
-6. When the posture is back to GREEN, or a quiet watch has run its course, the station asks the center. The center node answers after its link delay and operator decision time, and the station relays `recover`. With the center unreachable, the station recovers on its delegated authority after the center timeout. The guardians return and land on the carrier one at a time.
+4. The station fuses the tracks, raises AMBER and then RED, and alerts the crew. It drives the carrier along the road to the nearest of three stops (x = 5, 8 or 11 m) that keeps every tracked threat's predicted path twice the protected radius away (a delegated action), and orders keep-clear or dispersal moves. Inside a fast object's predicted impact area a guardian disperses whenever the dispersal move is itself a keep-clear move; a dispersal under way is kept while it still leads out, and the order carries the area. It orders only guardians it has heard from in the last second; a silent one is told to hold. Orders to a jammed guardian do not arrive.
+5. A guardian whose uplink falls silent holds on its own authority. When its own sensor predicts a conflict inside its reflex horizon, it keeps clear on its own, and it does not fly a station move that would close on a track it can see. Ordered to disperse but unable to fly the station's move, it re-plans its own way out of the impact area. After 30 s without an uplink it flies a planned route to where it last heard the carrier was, and holds there. A guardian flying on station fixes lands where it is if the fixes stop for 3 s.
+6. Once RED has cleared, or a quiet watch has run its course, the station asks the center; only a new RED resets that question, and recall orders go out at the next GREEN. The center node answers after its link delay and operator decision time, and the station relays `recover`. With the center unreachable, the station recovers on its delegated authority after the center timeout. The guardians return and land on the carrier one at a time, lowest layer first.
 
 | Station, environment and center topics | Type | Contract |
 |---|---|---|
@@ -163,14 +164,16 @@ The checks read Gazebo truth, which the environment logs at 5 Hz, so a spoofed o
 | `station_ordered_keep_clear` | A guardian that was not jammed executed a keep-clear order from the station |
 | `jammed_guardian_acted_alone` | The jammed guardian kept clear on the onboard layer with its uplink silent, and the environment recorded dropped messages |
 | `distinct_tracks_confirmed` | Confirmed tracks matched the required number of distinct hostile threats, one track per threat, within 2 m of truth |
-| `dispersed_before_impact` | The station ordered the named guardian away before the fast object's impact time, and at impact it was truly further from the impact point than its post is |
+| `dispersed_before_impact` | The station ordered the named guardian away before the fast object's impact time, and at impact it was truly at least 0.5 m further from the impact point than its post is |
 | `spoofing_detected`, `navigated_by_station_fixes`, `drift_bounded` | The integrity alarm came within 20 s of the drag-off; every guardian switched to station fixes; none drifted 3 m from its post |
-| `never_closed_on_threat` | Every keep-clear or dispersal decision, by station or vehicle, opened the range along its whole straight path to every relevant track it logged (not a bird, predicted to come within twice the clear radius) |
+| `never_closed_on_threat` | Every keep-clear or dispersal decision, by station or vehicle, opened the range along its whole straight path to every relevant slow track it logged (not a bird, predicted to come within twice the clear radius), and shortened no logged steady fast object's predicted miss |
 | `authority_respected` | Every logged action was taken by a layer allowed to take it; relayed recovery carries the center's authority |
 | `recovery_by_center`, `recovery_under_delegation` | Recovery followed the center's decision or, with the center unreachable, the station's delegation after the timeout |
-| Fleet | Separation between airborne guardians above 1 m; landings one at a time; ROS bag recorded |
+| Fleet | Separation between airborne guardians above 1 m; landings one at a time; ROS bag recorded; no dropped messages |
 
 The threats, sensors, jamming and spoofing are simulated stand-ins with illustrative parameters; the guardians' adapters, supervisors and PX4 are the real flight stack. Nothing in any scenario responds to a threat.
+
+Every check in this guide is a function of the recorded logs in [`integration/acceptance.py`](https://github.com/buicongnguyen/mission-computer-lab/blob/main/integration/acceptance.py); `tests/test_acceptance.py` tests them with synthetic logs, without a simulator.
 
 ## 6. Exercise failures
 
@@ -219,7 +222,7 @@ sequenceDiagram
 bash scripts/run_sitl.sh --all --video --output ~/work/mission-computer-lab/retests/matrix-001
 ```
 
-`--all` runs the four single-drone scenarios below, then the fleet scenario from section 4 and the eight guardian scenarios from section 5. The matrix stops at the first failed scenario so its logs can be investigated. Alternatively select `camera_dropout`, `companion_crash`, `gps_loss`, `fleet_carrier` or any `guardian_*` scenario with `--scenario`.
+`--all` runs the four single-drone scenarios below, then the fleet scenario from section 4 and the eight guardian scenarios from section 5. The matrix stops at the first failed scenario so its logs can be investigated; `--keep-going` flies every scenario and still exits nonzero if any failed. Alternatively select `camera_dropout`, `companion_crash`, `gps_loss`, `fleet_carrier` or any `guardian_*` scenario with `--scenario`.
 
 | Scenario | Injection boundary | Evidence to inspect |
 |---|---|---|
@@ -228,7 +231,7 @@ bash scripts/run_sitl.sh --all --video --output ~/work/mission-computer-lab/rete
 | Companion crash | Runner sends SIGKILL to the mission process group, including C++ | Independent observer survives; PX4 detects lost offboard proof-of-life and applies its own land policy |
 | GPS loss | Set the Gazebo bridge's `SIM_GPS_USED=0` through PX4 | Observed invalid GPS fix, rejection of fresh-but-invalid packets, HOLD then LAND, land and disarm |
 
-The camera and LiDAR are **procedural ROS payload sensors**, not rendered Gazebo camera/lidar plugins. The camera contains a moving bright synthetic shape; the ONNX graph segments brightness. This deliberately small model tests artifact, tensor, timing and communication contracts. It has no trained class semantics, and its bounding box does not steer toward an aerial target. The inspection route is independent of object identity.
+The camera and LiDAR are **procedural ROS payload sensors**, not rendered Gazebo camera/lidar plugins. In the guardian flights the LiDAR is computed from the airframe's true Gazebo pose, as a real scanner measures the real surroundings, so a spoofed GNSS estimate cannot move what it sees. The camera contains a moving bright synthetic shape; the ONNX graph segments brightness. This deliberately small model tests artifact, tensor, timing and communication contracts. It has no trained class semantics, and its bounding box does not steer toward an aerial target. The inspection route is independent of object identity.
 
 ## 7. Follow the interfaces
 
@@ -256,7 +259,7 @@ The occupancy map starts from the first scan and grows with every later scan; th
 
 ## 8. Inspect the evidence
 
-The output root also contains `provenance.json`: versions and source/binary hashes captured before flight, plus a post-run unchanged-input check. Publication uses this saved record. Each scenario directory contains:
+The output root also contains `provenance.json`: versions, and hashes of the flight code, the files it imports and the built binaries, captured before flight, plus a post-run unchanged-input check. Publication uses this saved record. Each scenario directory contains:
 
 - `result.json`: acceptance checks, status transitions, command acknowledgments, message counts, position trace and decisions.
 - `observer.jsonl`: independent firmware and ROS observations, including after a mission crash.

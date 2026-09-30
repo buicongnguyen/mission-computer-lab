@@ -134,7 +134,7 @@
       v => Math.round(v * 100) + '% of runs'
     ],
     [
-      'Never closed on a threat; stayed within authority',
+      'Both invariants: every move safe as decided, every action within authority',
       r =>
         Math.min(...scenarios.map(s => Math.min(R.summary[s][r].never_closed_rate, R.summary[s][r].authority_ok_rate))),
       null,
@@ -821,9 +821,15 @@
     draw();
     drawSitl();
   });
-  if (S)
+  if (S) {
+    // When the PX4 flights ran and on what, from the run's own provenance record.
+    const at = new Date((S.provenance?.captured_at_unix ?? Date.parse(S.generated_utc) / 1000) * 1000);
+    const day = at.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const px4 = Object.keys(S.environment.upstream_revisions || {}).find(k => k.startsWith('PX4')) || 'PX4';
     $('provenance').textContent =
-      `Fast simulator: ${R.seeds} seeds per cell. PX4 flights recorded ${S.generated_utc} · ${S.environment.platform}`;
+      `Fast simulator: ${R.seeds} seeds per cell. PX4 flights recorded ${day}, ${at.toISOString().slice(11, 16)} UTC: ` +
+      `${px4} with Gazebo Harmonic and ROS 2 Humble in WSL2.`;
+  }
   sizeCanvas();
   $('scenario').value = scenario;
   select();

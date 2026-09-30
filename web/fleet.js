@@ -12,6 +12,16 @@
   const format = v => Number(v).toFixed(2),
     STEP = 0.2,
     start = fleet.replay_start_wall_time;
+  // When the flights ran and on what, from the run's own provenance record.
+  const recorded = r => {
+    const at = new Date((r.provenance?.captured_at_unix ?? Date.parse(r.generated_utc) / 1000) * 1000);
+    const day = at.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const px4 = Object.keys(r.environment.upstream_revisions || {}).find(k => k.startsWith('PX4')) || 'PX4';
+    const same = r.provenance?.inputs_unchanged
+      ? '; every runtime input hashed before and after the run, unchanged'
+      : '';
+    return `Recorded ${day}, ${at.toISOString().slice(11, 16)} UTC: ${px4} with Gazebo Harmonic and ROS 2 Humble in WSL2${same}.`;
+  };
   const end = Math.max(...fleet.vehicles.map(v => v.trace.at(-1).wall_time), fleet.carrier.at(-1).wall_time);
   const frames = Math.max(1, Math.ceil((end - start) / STEP)),
     since = t => format(Math.max(0, t - start));
@@ -26,7 +36,7 @@
   $('travel').textContent = format(fleet.carrier.at(-1).e - fleet.carrier[0].e) + ' m';
   const errors = fleet.vehicles.map(v => v.touchdown && v.touchdown.pad_error).filter(e => typeof e === 'number');
   $('padError').textContent = errors.length ? format(Math.max(...errors)) + ' m' : '—';
-  $('provenance').textContent = `Recorded ${report.generated_utc} · ${report.environment.platform}`;
+  $('provenance').textContent = recorded(report);
   checks.forEach(([name, ok]) => {
     const row = document.createElement('div');
     row.className = 'check';

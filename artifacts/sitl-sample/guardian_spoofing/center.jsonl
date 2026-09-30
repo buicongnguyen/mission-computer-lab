@@ -1,8 +1,8 @@
-{"wall_time": 1790416465.7941496, "kind": "report", "t": 68.452, "report": "integrity", "state": null, "request": null}
-{"wall_time": 1790416465.7943301, "kind": "report", "t": 68.452, "report": "integrity", "state": null, "request": null}
-{"wall_time": 1790416465.7944176, "kind": "report", "t": 68.452, "report": "integrity", "state": null, "request": null}
-{"wall_time": 1790416469.3414528, "kind": "decision", "t": 72.0, "decision": "acknowledge", "request": null, "delivered_at": 72.452}
-{"wall_time": 1790416469.3414867, "kind": "decision", "t": 72.0, "decision": "acknowledge", "request": null, "delivered_at": 72.452}
-{"wall_time": 1790416469.3414927, "kind": "decision", "t": 72.0, "decision": "acknowledge", "request": null, "delivered_at": 72.452}
-{"wall_time": 1790416500.4336815, "kind": "report", "t": 102.5, "report": "watch_complete", "state": null, "request": 1}
-{"wall_time": 1790416503.933147, "kind": "decision", "t": 106.0, "decision": "recover", "request": 1, "delivered_at": 106.5}
+{"wall_time": 1790799608.4589236, "kind": "report", "t": 70.4, "report": "integrity", "state": null, "request": null}
+{"wall_time": 1790799609.9590018, "kind": "report", "t": 71.9, "report": "integrity", "state": null, "request": null}
+{"wall_time": 1790799609.9592137, "kind": "report", "t": 71.9, "report": "integrity", "state": null, "request": null}
+{"wall_time": 1790799611.9576828, "kind": "decision", "t": 73.9, "decision": "acknowledge", "request": null, "delivered_at": 74.4}
+{"wall_time": 1790799613.4577737, "kind": "decision", "t": 75.4, "decision": "acknowledge", "request": null, "delivered_at": 75.9}
+{"wall_time": 1790799613.4578075, "kind": "decision", "t": 75.4, "decision": "acknowledge", "request": null, "delivered_at": 75.9}
+{"wall_time": 1790799643.3582554, "kind": "report", "t": 105.3, "report": "watch_complete", "state": null, "request": 1}
+{"wall_time": 1790799646.8577347, "kind": "decision", "t": 108.8, "decision": "recover", "request": 1, "delivered_at": 109.3}

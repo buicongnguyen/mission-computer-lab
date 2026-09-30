@@ -6,7 +6,7 @@ Prepared on 22 September 2026 and reviewed in seven passes on 23–26 September 
 
 **If the flight stack is already built, start with section 3.** Otherwise follow section 4 first. You do not need Qualcomm hardware, a flight controller, a GPU, Docker, or a Gazebo window to run these tests.
 
-The current files include the fixes from eight review passes; see [the review record](review-report.md) for changes and retest evidence.
+The current files include the fixes from ten review passes; see [the review record](review-report.md) for changes and retest evidence.
 
 ## Contents
 
@@ -42,9 +42,9 @@ This gives quick feedback without compiling or launching PX4. It exercises eight
 
 ### 1.3 Added the actual flight stack
 
-I installed ROS 2 Humble and Gazebo Harmonic in Ubuntu 22.04 WSL, built PX4 v1.16.0 and Micro XRCE-DDS Agent v2.4.3, and built the matching ROS message packages.
+The flight stack is ROS 2 Humble and Gazebo Harmonic in Ubuntu 22.04 WSL, with PX4 v1.16.0, Micro XRCE-DDS Agent v2.4.3 and the matching ROS message packages built from source.
 
-I then added a Gazebo inspection world, ROS payload and inference nodes, a ROS adapter around the C++ supervisor, a local MAVLink GCS heartbeat, an independent observation process, selected-topic ROS bag recording, a process orchestrator, and a flight-evidence replay.
+On top of it sit a Gazebo inspection world, ROS payload and inference nodes, a ROS adapter around the C++ supervisor, a local MAVLink GCS heartbeat, an independent observation process, selected-topic ROS bag recording, a process orchestrator, and a flight-evidence replay.
 
 The completed system runs actual PX4 firmware in software-in-the-loop (SITL). Gazebo supplies the x500's physical dynamics and flight sensors. The mission software requests offboard mode, arms through PX4's command interface, climbs to 3 m, follows an inspection route, requests landing, and observes disarming. It does not bypass the arming checks with a force-arm command.
 
@@ -62,11 +62,11 @@ The completed system runs actual PX4 firmware in software-in-the-loop (SITL). Ga
 | Two dashboard state tests | Passed | Scenario selection, timeline/events and play/pause behavior |
 | Static documentation checks | Passed | Local links, HTML metadata and referenced DOM IDs |
 
-The current 116 Python tests are 70 lightweight tests plus 46 ROS/runner regression tests. The original implementation had 14 plus 5; the additional cases cover the review findings. The six security experiments are also exercised by the lightweight workflow; these counts are different layers of evidence, not a claimed coverage percentage.
+The current test counts are on [the results page](results.md). The original implementation had 14 lightweight tests and 5 ROS tests; the additional cases cover the review findings. The six security experiments are also exercised by the lightweight workflow; these counts are different layers of evidence, not a claimed coverage percentage.
 
 ### 1.5 Reviewed and packaged the evidence
 
-The [review record](review-report.md) documents eight review passes. They add transport deadlines, payload freshness validation, permanent landing handoff, stricter evidence gates, run-time provenance, process cleanup fixes, intermittent-fault escalation, verification of the stored signed model at boot, operator-takeover handoff, the Mermaid diagrams, in pass 6 simulation-time freshness, recorded Gazebo video, a 3D replay and the three-drone fleet on a moving carrier, in pass 7 the guardian design, its evaluation and its PX4 flight, and in pass 8 eight guardian flights, one per threat, with three independent reviews of the logic, the integration and the pages. That record includes commands for independently rerunning the review checks.
+The [review record](review-report.md) documents ten review passes. They add transport deadlines, payload freshness validation, permanent landing handoff, stricter evidence gates, run-time provenance, process cleanup fixes, intermittent-fault escalation, verification of the stored signed model at boot, operator-takeover handoff, the Mermaid diagrams, in pass 6 simulation-time freshness, recorded Gazebo video, a 3D replay and the three-drone fleet on a moving carrier, in pass 7 the guardian design, its evaluation and its PX4 flight, in pass 8 eight guardian flights, one per threat, with three separate reviews of the logic, the integration and the pages, in pass 9 phase-boundary, full-path clearance and publication fixes, and in pass 10 the fast-object dispersal fix, hardened node inputs, a tested acceptance module and the ROS tests in CI. That record includes commands for independently rerunning the review checks.
 
 The repository includes domain notes, an architecture guide, runbooks, recorded evidence and two offline replays. A GitHub Actions workflow covers the lightweight suite and documentation checks. Browser state and link checks passed; visual HTML layout review inside the embedded browser was blocked by its local-file URL policy and was not completed.
 
@@ -172,7 +172,7 @@ bash scripts/run_all.sh 2>&1 | tee "$DRONE_RETEST/lightweight-console.log"
 echo "Exit code: $?"
 ```
 
-**Expected:** CTest passes, 35 Python tests pass, eight scenarios print `PASS`, and the artifact checker reports eight scenarios and six security cases. The final exit code must be 0. If it is not, stop and inspect the captured log before publishing anything.
+**Expected:** CTest passes, every Python test passes, eight scenarios print `PASS`, and the artifact checker reports eight scenarios and six security cases. The final exit code must be 0. If it is not, stop and inspect the captured log before publishing anything.
 
 This command refreshes `artifacts/latest/`. The console transcript has a unique path, but the lightweight harness's default raw output directory is reused. The committed `artifacts/sample/` remains unchanged.
 
@@ -186,7 +186,7 @@ bash scripts/test_integration.sh 2>&1 |
 echo "Exit code: $?"
 ```
 
-**Expected:** `Ran 12 tests` and `OK`. These tests do not launch or arm a vehicle. If imports fail, check the sourced workspace and the explicit Python executable.
+**Expected:** `OK`, with the count shown on [the results page](results.md). These tests do not launch or arm a vehicle. If imports fail, check the sourced workspace and the explicit Python executable.
 
 ### Step 3.6 — Run the actual flight scenarios
 
@@ -200,7 +200,7 @@ echo "Exit code: $?"
 
 The runner launches and cleans up all required processes itself. **Do not separately start another PX4, agent or Gazebo instance for this command.** Keep flight hardware disconnected from this lab. The configured DDS domain is 42; domain selection is not network authentication or isolation.
 
-Expect progress approximately every 15 seconds. The sequence is `nominal`, `camera_dropout`, `companion_crash`, `gps_loss`, then the three-drone `fleet_carrier` and the eight three-guardian scenarios (`guardian_intruder`, `guardian_fast`, `guardian_swarm`, `guardian_birds`, `guardian_jamming`, `guardian_spoofing`, `guardian_center_loss`, `guardian_combined`). Without `--video` the four single-drone flights took about 161 seconds in total and each guardian flight about three minutes; with `--video` only the single-drone flights, the fleet and `guardian_jamming` are filmed, and the pass 8 matrix with video took about 33 minutes. Your scheduling, discovery and physics startup can differ. The timeout applies to each scenario after startup, is multiplied by 2.5 with `--video`, and is at least 900 s for the fleet. The complete matrix must print thirteen PASS results and exit 0. It stops at the first failed case.
+Expect progress approximately every 15 seconds. The sequence is `nominal`, `camera_dropout`, `companion_crash`, `gps_loss`, then the three-drone `fleet_carrier` and the eight three-guardian scenarios (`guardian_intruder`, `guardian_fast`, `guardian_swarm`, `guardian_birds`, `guardian_jamming`, `guardian_spoofing`, `guardian_center_loss`, `guardian_combined`). Without `--video` the four single-drone flights took about 161 seconds in total and each guardian flight about three minutes; with `--video` only the single-drone flights, the fleet and `guardian_jamming` are filmed, and the pass 10 matrix with video took about 31 minutes. Your scheduling, discovery and physics startup can differ. The timeout applies to each scenario after startup, is multiplied by 2.5 with `--video`, and is at least 900 s for the fleet. The complete matrix must print thirteen PASS results and exit 0. It stops at the first failed case; add `--keep-going` to fly the remaining scenarios anyway (the exit code is still nonzero).
 
 No Gazebo GUI window is expected unless you add `--gui`: the test launches the simulator server without a window. After a successful scenario, the aircraft has landed and disarmed before cleanup. The HTML replay is a separate recorded visualization.
 
@@ -327,7 +327,7 @@ ros2 interface show mission_interfaces/msg/Decision
 bash scripts/test_integration.sh
 ```
 
-Compare the hashes with section 2. The interfaces should display their fields, and all 46 integration tests should pass. Continue with section 3's flight command, using the correct current repository and workspace variables.
+Compare the hashes with section 2. The interfaces should display their fields, and every integration test should pass. Continue with section 3's flight command, using the correct current repository and workspace variables.
 
 <a id="documents"></a>
 ## 5. Regenerate the documentation
@@ -997,7 +997,6 @@ The parent `results.json` lists scenarios performed in that particular invocatio
 
 | Symptom | First useful action |
 |---|---|
-| `wsl` fails from an automated sandbox | Confirm the existing distribution in a normal PowerShell terminal; host permission handling is separate from missing Ubuntu |
 | `rclpy` or `mission_interfaces` cannot be imported | Source ROS and the correct overlay; use `$SITL_WORKSPACE/venv/bin/python` |
 | `mission_supervisor` is missing | Rebuild the small CMake project; ROS package builds do not create that binary |
 | No telemetry after startup | Inspect agent/PX4 logs, ROS domain and localhost settings; check the required DDS topic version |
@@ -1032,7 +1031,7 @@ The parent `results.json` lists scenarios performed in that particular invocatio
 | `integration/observer_node.py` | Independent firmware and application evidence | Can it still record after the mission process group is killed? |
 | `integration/gcs_heartbeat.py` | Local MAVLink GCS heartbeat only | How is this different from the ROS offboard command path? |
 | `integration/run_sitl.py` | Process lifecycle, final parameters, injections and acceptance | Is each PASS based on observed state or merely requested action? |
-| `integration/test_contracts.py`, `integration/test_guardian_nodes.py`, `integration/test_runner.py` | 32 ROS boundary, fleet station, deck-landing, guardian node and process-cleanup regressions | Can a packet be fresh but invalid? |
+| `integration/test_contracts.py`, `integration/test_guardian_nodes.py`, `integration/test_runner.py` | ROS boundary, fleet station, deck-landing, guardian node and process-cleanup regressions | Can a packet be fresh but invalid? |
 | `ros2/mission_interfaces/` | Typed Perception and Decision messages | Which data is needed to audit the inference/decision boundary? |
 | `scripts/` | Install, build and test entry points | Which script changes apt packages, and which just launches a run? |
 | `tools/publish_sample.py`, `tools/publish_sitl.py` | Gate and package reference evidence | Does publication preserve the full raw recording or a compact subset? |
@@ -1070,7 +1069,7 @@ After meaningful runtime changes, rerun the affected checks and then the accepta
 4. Compare the crash run's last application decision with the first firmware failsafe. Explain why the mission process cannot log its own recovery after SIGKILL.
 5. Read the sampled ONNX timing and describe an honest future end-to-end latency measurement plan.
 
-A useful AI request is: “Read the relevant source and existing tests. Explain this one behavior, propose a small change with an explicit acceptance condition, and show the evidence after running the affected checks.” Review the diff and be able to explain the result yourself.
+A useful way through any of these: read the relevant source and existing tests, explain the one behavior, propose a small change with an explicit acceptance condition, and show the evidence after running the affected checks. Be able to explain every line of the diff yourself.
 
 <a id="boundaries"></a>
 ## 16. Boundaries, unfinished work and references
@@ -1116,14 +1115,14 @@ The checked-in implementation and captured logs are the authority for what ran. 
 ### 16.4 Reproduction checklist
 
 - [ ] I ran the commands inside the correct Windows/Ubuntu shells and used the intended source/build paths.
-- [ ] CTest and the 70 lightweight Python tests pass.
+- [ ] CTest and the lightweight Python tests pass.
 - [ ] All eight fast scenarios and all six security cases pass.
 - [ ] All nineteen integration regression tests pass.
 - [ ] A fresh `--all` flight run contains six passing scenarios with empty failed-check lists.
 - [ ] I can identify arm/mode/land ACKs and distinguish PX4 navigation state from application state.
 - [ ] I inspected camera recovery, actual invalid GPS fix, and independent firmware response after the companion crash.
 - [ ] I preserved the raw logs/bags and published only evidence from the matching code/environment.
-- [ ] Both replay state tests and the static HTML checks pass; I opened the HTML myself to review its layout.
+- [ ] The replay state tests and the static HTML checks pass; I opened the HTML myself to review its layout.
 - [ ] Any description of the project distinguishes executed simulation from future Qualcomm/hardware work.
 
 For a concise daily command reference, use [sitl-guide.md](sitl-guide.md). For the original measured values, use [sitl-execution.md](sitl-execution.md). This complete guide provides the implementation record, test procedure and debugging context behind those shorter documents.

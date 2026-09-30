@@ -105,12 +105,15 @@ for (const v of fleet.vehicles) {
     `${v.ns}: touchdown shown`
   );
 }
-// One landing at a time: each land grant follows the previous touchdown (the station picks the lowest
-// layer among the drones holding overhead at that moment, so the order depends on who arrives first).
+// One landing at a time, each land grant after the previous touchdown, and lowest layer first: a descent passes
+// through every lower layer, so a drone lands only after every lower one is down.
 const landing = events
   .filter(e => /grants land|touchdown/.test(e))
   .map(e => (e.includes('touchdown') ? 'down' : 'grant'));
 assert.deepEqual(landing, ['grant', 'down', 'grant', 'down', 'grant', 'down'], 'landings are sequenced one at a time');
+const granted = events.filter(e => e.includes('grants land to')).map(e => e.match(/grants land to (\S+)/)[1]);
+const byLayer = [...fleet.vehicles].sort((a, b) => a.altitude - b.altitude).map(v => v.ns);
+assert.deepEqual(granted, byLayer, 'landings go lowest layer first');
 // 3D: a landed drone is drawn riding its pad, not at PX4's estimate, which stops following a moving deck.
 assert.ok(loaded, 'the 3D view receives the fleet');
 fleet.vehicles.forEach((v, k) => {

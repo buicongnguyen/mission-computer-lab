@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PX4 / ROS 2 / Gazebo execution evidence</title><style>/* Color tokens. Light is the default; dark follows the system unless the page's toggle chose a theme. */
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Results</title><style>/* Color tokens. Light is the default; dark follows the system unless the page's toggle chose a theme. */
 :root {
   color-scheme: light;
   --bg: #f2f6f7;
@@ -381,183 +381,110 @@ nav .theme-toggle:hover {
     --pre-ink: #e3f3f5;
   }
 }
-</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/sitl.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet</a><a href="../web/guardian.html">Guardians</a><a href="../web/index.html">Fast simulator</a><a href="results.html">Results</a><a href="architecture.html">Architecture</a><a href="sitl-guide.html">Run it</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>PX4 / ROS 2 / Gazebo execution evidence</h1>
-<p>Actual PX4/Gazebo/ROS; procedural camera/lidar; CPU synthetic ONNX; no Qualcomm hardware.</p>
-<p>Generated UTC: 2026-09-30T20:26:54.928928+00:00</p>
+</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/sitl.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet</a><a href="../web/guardian.html">Guardians</a><a href="../web/index.html">Fast simulator</a><a href="results.html" aria-current="page">Results</a><a href="architecture.html">Architecture</a><a href="sitl-guide.html">Run it</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>Results</h1>
+<p>What has been run, what it showed, and where the evidence is. Every PX4 figure below comes from one flight matrix, recorded on 30 September 2026 on the committed source and published as it ran; the <a href="../web/sitl.html">replays</a> and videos are that same run.</p>
+<h2>PX4 flights: 13 of 13 pass</h2>
+<p>Real PX4 v1.16 firmware in Gazebo Harmonic with ROS 2 Humble, on Ubuntu 22.04 in WSL2. Each flight is judged by named checks computed from independently recorded logs, and for the guardians from Gazebo truth (<a href="sitl-guide.html">how</a>). 456/456 named checks passed; none failed.</p>
 <table>
 <thead>
 <tr>
 <th>Scenario</th>
-<th>Result</th>
-<th align="right">Wall duration (s)</th>
-<th align="right">Max estimated altitude (m)</th>
-<th align="right">Min estimated obstacle clearance (m)</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>nominal</td>
-<td>PASS</td>
-<td align="right">83.86</td>
-<td align="right">2.950</td>
-<td align="right">1.188</td>
-</tr>
-<tr>
-<td>camera_dropout</td>
-<td>PASS</td>
-<td align="right">85.33</td>
-<td align="right">3.005</td>
-<td align="right">1.149</td>
-</tr>
-<tr>
-<td>companion_crash</td>
-<td>PASS</td>
-<td align="right">50.57</td>
-<td align="right">2.744</td>
-<td align="right">3.479</td>
-</tr>
-<tr>
-<td>gps_loss</td>
-<td>PASS</td>
-<td align="right">52.90</td>
-<td align="right">2.745</td>
-<td align="right">3.699</td>
-</tr>
-</tbody></table>
-<p>All four scenarios require actual armed offboard state, observed climb, land mode, landed state and final disarm. Normal and camera-recovery runs also require a reached goal, COMPLETE and accepted land command. GPS loss requires a post-injection stale-GNSS landing decision. Companion crash requires a subsequent PX4 failsafe.</p>
-<p>Clearance uses valid recorded PX4 position estimates against known cylinders. Invalid estimates after injected GPS loss are excluded; clearance is not established for that degraded interval. This is not Gazebo ground-truth collision verification. Wall duration includes startup and process cleanup.</p>
-<h2>Fleet from a moving carrier</h2>
-<p>Three PX4 instances launch in sequence from pads on a carrier vehicle, fly separate inspection legs at 3, 4.5 and 6 m, and land back on the carrier while it drives. A ground-station node grants one launch at a time and one landing at a time, lowest layer first; each vehicle keeps its own C++ supervisor and PX4 failsafes.</p>
-<table>
-<thead>
-<tr>
-<th>Vehicle</th>
-<th>Goal</th>
-<th align="right">Altitude layer (m)</th>
-<th align="right">Touchdown pad error (m)</th>
-<th align="right">Carrier speed at touchdown (m/s)</th>
-<th align="right">Min obstacle clearance (m)</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>px4_0</td>
-<td>(9, 9)</td>
-<td align="right">3</td>
-<td align="right">0.078</td>
-<td align="right">0.27</td>
-<td align="right">1.15</td>
-</tr>
-<tr>
-<td>px4_1</td>
-<td>(10, 3)</td>
-<td align="right">4.5</td>
-<td align="right">0.027</td>
-<td align="right">0.27</td>
-<td align="right">1.05</td>
-</tr>
-<tr>
-<td>px4_2</td>
-<td>(-1, 10)</td>
-<td align="right">6</td>
-<td align="right">0.068</td>
-<td align="right">0.27</td>
-<td align="right">2.17</td>
-</tr>
-</tbody></table>
-<p>Minimum separation between airborne vehicles: 1.48 m. Carrier travel: 12.0 m. Recording two cameras slows this simulation below real time; the adapters judge freshness on simulation time, as PX4 does.</p>
-<h2>Guardians against threats</h2>
-<p>Three PX4 instances hold watch posts around the carrier while each scenario adds its own threats, a jammer, a GNSS spoofer or a dead link to the center; the station and each guardian run the same decision code as the fast simulator. Separations, drift and landings are measured on Gazebo truth. See <a href="guardian.html">the guardian design</a>.</p>
-<table>
-<thead>
-<tr>
-<th>Scenario</th>
-<th>What happens</th>
+<th>What it shows</th>
 <th align="right">Checks</th>
-<th align="right">Warning (simulated s)</th>
-<th align="right">Closest guardian to a threat (m)</th>
-<th>Recovery decided by</th>
+<th>Key measurement</th>
 </tr>
 </thead>
 <tbody><tr>
+<td><code>nominal</code></td>
+<td>Take-off, an A*-planned inspection route at 3 m, landing</td>
+<td align="right">22/22</td>
+<td>Highest estimate 2.95 m; closest estimated approach to an obstacle 1.19 m</td>
+</tr>
+<tr>
+<td><code>camera_dropout</code></td>
+<td>Camera frames stop for 0.8 s in flight</td>
+<td align="right">25/25</td>
+<td>HOLD 0.80 s (wall clock) after the runner signalled the dropout, ACTIVE 1.7 s later, mission completed</td>
+</tr>
+<tr>
+<td><code>companion_crash</code></td>
+<td>The mission computer&#39;s processes are killed in flight</td>
+<td align="right">20/20</td>
+<td>PX4 failsafe 0.99 s after the kill; landed and disarmed</td>
+</tr>
+<tr>
+<td><code>gps_loss</code></td>
+<td>The GNSS fix is removed in flight</td>
+<td align="right">21/21</td>
+<td>LAND 4.2 s after the fix was lost; landed and disarmed</td>
+</tr>
+<tr>
+<td><code>fleet_carrier</code></td>
+<td>Three drones launch from, and land back on, a moving carrier</td>
+<td align="right">36/36</td>
+<td>Touchdowns 7.8, 2.7 and 6.8 cm from the pads with the carrier at 0.27 m/s; closest airborne approach 1.48 m</td>
+</tr>
+<tr>
 <td><code>guardian_intruder</code></td>
 <td>One intruder, links intact</td>
-<td align="right">42 / 42</td>
-<td align="right">12.1</td>
-<td align="right">4.77</td>
-<td>center</td>
+<td align="right">42/42</td>
+<td>RED 12.1 s before arrival; the carrier relocated 10.0 m clear; closest guardian 4.77 m</td>
 </tr>
 <tr>
 <td><code>guardian_fast</code></td>
 <td>A fast object diving on the carrier</td>
-<td align="right">41 / 41</td>
-<td align="right">1.9</td>
-<td align="right">3.84</td>
-<td>center</td>
+<td align="right">41/41</td>
+<td>RED 1.9 s before impact; the nearest guardian 5.9 m from the impact point at impact (post 3.6 m)</td>
 </tr>
 <tr>
 <td><code>guardian_swarm</code></td>
 <td>Three intruders from two sectors</td>
-<td align="right">42 / 42</td>
-<td align="right">12.2</td>
-<td align="right">4.39</td>
-<td>center</td>
+<td align="right">42/42</td>
+<td>Three distinct tracks confirmed; closest guardian 4.39 m</td>
 </tr>
 <tr>
 <td><code>guardian_birds</code></td>
 <td>Circling birds and sensor clutter</td>
-<td align="right">39 / 39</td>
-<td align="right">—</td>
-<td align="right">—</td>
-<td>center</td>
+<td align="right">39/39</td>
+<td>No RED; every guardian held its post</td>
 </tr>
 <tr>
 <td><code>guardian_jamming</code></td>
 <td>An intruder while one guardian is jammed</td>
-<td align="right">43 / 43</td>
-<td align="right">12.1</td>
-<td align="right">5.43</td>
-<td>center</td>
+<td align="right">43/43</td>
+<td>The jammed guardian kept clear on its own, 5.44 m from the intruder at the closest</td>
 </tr>
 <tr>
 <td><code>guardian_spoofing</code></td>
 <td>A GNSS drag-off on every receiver</td>
-<td align="right">41 / 41</td>
-<td align="right">—</td>
-<td align="right">—</td>
-<td>center</td>
+<td align="right">41/41</td>
+<td>Flagged 10 s after the drag began; drift at most 1.41 m</td>
 </tr>
 <tr>
 <td><code>guardian_center_loss</code></td>
 <td>An intruder with no link to the center</td>
-<td align="right">41 / 41</td>
-<td align="right">12.3</td>
-<td align="right">5.61</td>
-<td>station (delegated)</td>
+<td align="right">41/41</td>
+<td>Recovery under delegation, 20 s after the request</td>
 </tr>
 <tr>
 <td><code>guardian_combined</code></td>
 <td>Two intruders, a jammed guardian, birds and no center</td>
-<td align="right">43 / 43</td>
-<td align="right">12.1</td>
-<td align="right">1.93</td>
-<td>station (delegated)</td>
+<td align="right">43/43</td>
+<td>Closest guardian 1.93 m; recovery under delegation</td>
 </tr>
 </tbody></table>
-<h2>Exact upstream revisions</h2>
+<p>Two things make these numbers trustworthy. First, a required check that cannot be evaluated fails; it is never left out, and the code that decides PASS is itself tested (<a href="https://github.com/buicongnguyen/mission-computer-lab/blob/main/integration/acceptance.py"><code>integration/acceptance.py</code></a>, <a href="https://github.com/buicongnguyen/mission-computer-lab/blob/main/tests/test_acceptance.py"><code>tests/test_acceptance.py</code></a>). Second, the runner hashes the flight code, everything it imports and the built binaries before the first flight and again after the last (40 files, unchanged), and the publisher refuses a run with any failed check or changed input. The replays, videos and this page were then generated from that run.</p>
+<h2>Guardian designs in the fast simulator</h2>
+<p>Four designs (station only, onboard only, networked, hybrid) against eight threat scenarios, 40 seeds each: 1280 runs, plus a layout experiment. Both safety invariants held in every run: every keep-clear or dispersal move was safe against the tracks it was decided on, and no layer acted outside its authority. The hybrid design kept every guardian clear in every run of five of the six threat scenarios; against a 250 m/s object diving on the station, the overwatch above it escaped in 10% of runs, and 90% once offset 250 m. Details: <a href="guardian-results.html">guardian results</a> and <a href="guardian.html">the design</a>.</p>
+<h2>Fast policy harness</h2>
+<p>Eight fault scenarios (nominal, camera dropout, GNSS loss, link loss, inference overrun, low battery, IMU loss, companion crash) pass on a kinematic simulator with an educational Kalman filter, and six signed-artifact cases behave as specified. <a href="execution.html">Execution report</a>.</p>
+<h2>Tests</h2>
+<p>1 C++ contract program (CTest), 102 Python unit and process tests, 68 ROS boundary and runner tests, and 6 browser page tests. CI runs all of them on every push, the ROS tests inside the official ROS 2 Humble container; it also runs the Python tests under <code>python -O</code>, lints, and fails if the committed HTML is stale. The PX4/Gazebo flights run locally, not in CI.</p>
+<h2>Where to look next</h2>
 <ul>
-<li>PX4 v1.16.0: <code>6ea3539157ca358c70a515878b77077af7d4611d</code></li>
-<li>px4_msgs release/1.16: <code>392e831c1f659429ca83902e66820d7094591410</code></li>
-<li>XRCE Agent v2.4.3: <code>73622810d984349b80bbac0ef55fc0b694d62222</code></li>
+<li><a href="findings.html">Engineering findings</a>: what building and flying this taught, in eighteen short entries.</li>
+<li><a href="review-report.html">Review record</a>: every finding of ten review passes, with its fix and test.</li>
+<li><a href="validation.html">Validation history</a>: each earlier flight matrix, including the failed ones.</li>
+<li><a href="sitl-guide.html">SITL guide</a>: how to run the flights, their topics and every acceptance check.</li>
 </ul>
-<h2>Evidence and limitations</h2>
-<ul>
-<li>Interactive replays of the <a href="../web/sitl.html">single-drone flights</a>, the <a href="../web/fleet.html">fleet</a> and the <a href="../web/guardian.html">guardians</a>, and the <a href="../artifacts/sitl-sample/report.json">machine-readable report</a>.</li>
-<li>Per-scenario reference folders preserve final parameters, firmware log, mission/perception logs and acceptance result.</li>
-<li>Runtime source/binary hashes and installed versions were captured before flight; inputs were checked again after the matrix. Per-file SHA-256 hashes identify the exact tested inputs, including changes not yet committed when tested.</li>
-<li>Original run folders retain ROS bags and independent observer JSONL; Linux runtime folders retain PX4 ULogs.</li>
-<li>Camera and LiDAR are procedural ROS publishers. PX4 flight sensors and vehicle dynamics come from Gazebo.</li>
-<li>Battery supervision uses a fixed simulated 95% input in this adapter; low-battery testing remains in the accelerated suite.</li>
-<li>The model is a hand-authored brightness segmentation graph on CPU. No trained drone classifier, NPU profiling, VIO or Qualcomm boot-chain validation is claimed.</li>
-<li>DDS discovery uses domain 42 and the normal network transports. This is a simulation setup, not a secured operational deployment.</li>
-</ul>
-<p>Reproduce with <a href="sitl-guide.html">the WSL SITL guide</a>.</p>
 </main><footer>Mission Computer Lab · software simulation portfolio · <a href="https://github.com/buicongnguyen/mission-computer-lab">source on GitHub</a> · 2026</footer></body></html>

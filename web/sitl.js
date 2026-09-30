@@ -30,6 +30,16 @@
   const navName = n => names[n] || `NAV STATE ${n}`;
   const armed = s => (s.arming_state === 2 ? 'ARMED' : 'DISARMED');
   const format = v => Number(v).toFixed(2);
+  // When the flights ran and on what, from the run's own provenance record.
+  const recorded = r => {
+    const at = new Date((r.provenance?.captured_at_unix ?? Date.parse(r.generated_utc) / 1000) * 1000);
+    const day = at.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const px4 = Object.keys(r.environment.upstream_revisions || {}).find(k => k.startsWith('PX4')) || 'PX4';
+    const same = r.provenance?.inputs_unchanged
+      ? '; every runtime input hashed before and after the run, unchanged'
+      : '';
+    return `Recorded ${day}, ${at.toISOString().slice(11, 16)} UTC: ${px4} with Gazebo Harmonic and ROS 2 Humble in WSL2${same}.`;
+  };
   let active,
     index = 0,
     playing = false,
@@ -100,7 +110,7 @@
     }
   }
   $('overall').textContent = `${report.results.filter(r => r.passed).length} / ${report.results.length} pass`;
-  $('provenance').textContent = `Recorded ${report.generated_utc} · ${report.environment.platform}`;
+  $('provenance').textContent = recorded(report);
   report.results.forEach((r, i) => {
     const o = document.createElement('option');
     o.value = i;
@@ -127,10 +137,19 @@
       row.append(label, state);
       $('checks').append(row);
     });
+    // Once the offboard setpoint stream stops on the ground (handoff after landing, or a companion crash), PX4's
+    // preflight checks report not ready: expected after the flight, and not a fault.
+    const flown = active.statuses.find(s => s.arming_state === 2)?.wall_time ?? Infinity;
+    const preflight = s =>
+      s.preflight !== false
+        ? ''
+        : s.arming_state !== 2 && s.wall_time > flown
+          ? ' · not ready to re-arm (offboard stream ended)'
+          : ' · PREFLIGHT CHECKS FAILING';
     const events = [
       ...active.statuses.map(s => ({
         at: s.wall_time,
-        text: `PX4 ${navName(s.nav_state)} · ${armed(s)}${s.failsafe ? ' · FAILSAFE' : ''}${s.preflight === false ? ' · PREFLIGHT CHECKS FAILING' : ''}`
+        text: `PX4 ${navName(s.nav_state)} · ${armed(s)}${s.failsafe ? ' · FAILSAFE' : ''}${preflight(s)}`
       })),
       ...active.mission_transitions.map(s => ({ at: s.wall_time, text: `C++ ${s.mode} / ${s.reason}` })),
       ...(active.replans || []).map(r => ({

@@ -1,0 +1,509 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Engineering findings</title><style>/* Color tokens. Light is the default; dark follows the system unless the page's toggle chose a theme. */
+:root {
+  color-scheme: light;
+  --bg: #f2f6f7;
+  --surface: #fff;
+  --surface-2: #e7f1f3;
+  --code-bg: #eef3f5;
+  --status-bg: #edf7f4;
+  --ink: #132b3b;
+  --muted: #4c6372;
+  --line: #d7e1e6;
+  --line-soft: #e3eaed;
+  --link: #006c86;
+  --teal: #067c80;
+  --accent: #067c80;
+  --accent-ink: #fff;
+  --ok: #057864;
+  --focus: #b36b00;
+  --nav-bg: #112e3d;
+  --nav-ink: #d8f7f2;
+  --pre-bg: #102c3b;
+  --pre-ink: #e3f3f5;
+  --pipe-bg: #143849;
+  --pipe-ink: #e9f8f5;
+  --quote-bg: #eef8f7;
+  --quote-ink: #31505b;
+  --btn-bg: #fff;
+  --btn-line: #6f8a97;
+  --btn-hover: #dbf4ed;
+  --badge-bg: #d7f3e9;
+  --badge-ink: #14634c;
+  --badge-line: #b3deca;
+  --notice-bg: #fff8e9;
+  --notice-line: #b47b24;
+  --err-bg: #fdeaea;
+  --err-ink: #962222;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #0b161d;
+    --surface: #122530;
+    --surface-2: #18313e;
+    --code-bg: #1b3442;
+    --status-bg: #16322f;
+    --ink: #e2eef2;
+    --muted: #9db3be;
+    --line: #284150;
+    --line-soft: #213845;
+    --link: #74d3e6;
+    --teal: #3cc1bd;
+    --accent: #3cc1bd;
+    --accent-ink: #04211f;
+    --ok: #63d6ae;
+    --focus: #ffb000;
+    --nav-bg: #071117;
+    --nav-ink: #d8f7f2;
+    --pre-bg: #07141b;
+    --pre-ink: #e3f3f5;
+    --pipe-bg: #1a4254;
+    --pipe-ink: #e9f8f5;
+    --quote-bg: #14303a;
+    --quote-ink: #c7dde3;
+    --btn-bg: #152b37;
+    --btn-line: #6e8d9c;
+    --btn-hover: #1d3a47;
+    --badge-bg: #123b31;
+    --badge-ink: #8fe6c6;
+    --badge-line: #1f5a4a;
+    --notice-bg: #2a2313;
+    --notice-line: #d6a24a;
+    --err-bg: #3b1a1a;
+    --err-ink: #ffb4b4;
+  }
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b161d;
+  --surface: #122530;
+  --surface-2: #18313e;
+  --code-bg: #1b3442;
+  --status-bg: #16322f;
+  --ink: #e2eef2;
+  --muted: #9db3be;
+  --line: #284150;
+  --line-soft: #213845;
+  --link: #74d3e6;
+  --teal: #3cc1bd;
+  --accent: #3cc1bd;
+  --accent-ink: #04211f;
+  --ok: #63d6ae;
+  --focus: #ffb000;
+  --nav-bg: #071117;
+  --nav-ink: #d8f7f2;
+  --pre-bg: #07141b;
+  --pre-ink: #e3f3f5;
+  --pipe-bg: #1a4254;
+  --pipe-ink: #e9f8f5;
+  --quote-bg: #14303a;
+  --quote-ink: #c7dde3;
+  --btn-bg: #152b37;
+  --btn-line: #6e8d9c;
+  --btn-hover: #1d3a47;
+  --badge-bg: #123b31;
+  --badge-ink: #8fe6c6;
+  --badge-line: #1f5a4a;
+  --notice-bg: #2a2313;
+  --notice-line: #d6a24a;
+  --err-bg: #3b1a1a;
+  --err-ink: #ffb4b4;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  font:
+    16px/1.65 system-ui,
+    -apple-system,
+    Segoe UI,
+    sans-serif;
+  color: var(--ink);
+}
+a {
+  color: var(--link);
+  text-underline-offset: 3px;
+}
+nav {
+  background: var(--nav-bg);
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 20px 5%;
+  font-size: 14px;
+}
+nav a {
+  color: var(--nav-ink);
+  text-decoration: none;
+}
+nav a:first-child {
+  font-weight: 750;
+  letter-spacing: 1.5px;
+  margin-right: auto;
+}
+nav a[aria-current='page'] {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+.document {
+  max-width: 1060px;
+  margin: 38px auto;
+  padding: 46px 60px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+h1 {
+  font-size: clamp(30px, 5vw, 46px);
+  line-height: 1.14;
+  letter-spacing: -1.3px;
+  margin: 0 0 24px;
+}
+h2 {
+  font-size: 26px;
+  margin: 44px 0 16px;
+  line-height: 1.3;
+  border-top: 1px solid var(--line);
+  padding-top: 25px;
+}
+h3 {
+  font-size: 20px;
+  margin: 26px 0 10px;
+}
+p,
+li {
+  max-width: 85ch;
+}
+blockquote {
+  margin: 20px 0;
+  border-left: 4px solid var(--teal);
+  padding: 12px 22px;
+  background: var(--quote-bg);
+  color: var(--quote-ink);
+}
+blockquote p {
+  margin: 0;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+  display: block;
+  overflow: auto;
+}
+td,
+th {
+  border: 1px solid var(--line);
+  padding: 12px;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: var(--surface-2);
+}
+pre {
+  background: var(--pre-bg);
+  color: var(--pre-ink);
+  padding: 20px;
+  border-radius: 8px;
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.6;
+}
+code {
+  font-family: Consolas, monospace;
+}
+p code,
+li code,
+td code {
+  background: var(--code-bg);
+  padding: 2px 5px;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+footer {
+  padding: 25px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+button,
+select,
+input {
+  font: inherit;
+}
+button,
+select {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--btn-line);
+  background: var(--btn-bg);
+  color: var(--ink);
+}
+button {
+  cursor: pointer;
+}
+button:hover {
+  background: var(--btn-hover);
+}
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+/* Grid items default to min-width:auto, so a canvas bitmap or a long unbroken string widened the page past a phone screen. */
+.grid > *,
+.metrics > *,
+.bottom > *,
+.two > * {
+  min-width: 0;
+}
+canvas,
+select {
+  max-width: 100%;
+}
+.sub,
+#provenance {
+  overflow-wrap: anywhere;
+}
+nav .theme-toggle {
+  padding: 3px 10px;
+  font-size: 13px;
+  background: transparent;
+  color: var(--nav-ink);
+  border-color: rgba(216, 247, 242, 0.35);
+}
+nav .theme-toggle:hover {
+  background: rgba(216, 247, 242, 0.12);
+}
+@media (max-width: 700px) {
+  .document {
+    padding: 28px 20px;
+    margin: 16px 12px;
+  }
+  nav {
+    gap: 15px;
+    font-size: 12px;
+  }
+  td,
+  th {
+    min-width: 120px;
+  }
+}
+@media print {
+  nav,
+  footer {
+    display: none;
+  }
+  .document {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    max-width: none;
+  }
+  body {
+    background: white;
+  }
+  h2 {
+    break-after: avoid;
+  }
+  pre {
+    white-space: pre-wrap;
+  }
+  a {
+    color: inherit;
+  }
+}
+
+.diagram {
+  margin: 24px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  background: var(--surface);
+  overflow: auto;
+}
+.diagram pre.mermaid {
+  background: var(--surface);
+  color: var(--ink);
+  text-align: center;
+  padding: 8px;
+  margin: 0;
+  min-width: 440px;
+}
+.diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+.diagram figcaption {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 10px 0;
+}
+.diagram details {
+  font-size: 13px;
+}
+.diagram summary {
+  cursor: pointer;
+}
+.diagram .diagram-error {
+  text-align: left;
+  white-space: pre-wrap;
+}
+@media print {
+  .diagram {
+    break-inside: avoid;
+  }
+  .diagram details {
+    display: none;
+  }
+}
+
+/* Paper is always light, whatever theme is on screen. */
+@media print {
+  :root,
+  :root:not([data-theme='light']),
+  :root[data-theme='dark'] {
+    color-scheme: light;
+    --bg: #fff;
+    --surface: #fff;
+    --surface-2: #e7f1f3;
+    --code-bg: #eef3f5;
+    --ink: #132b3b;
+    --muted: #4c6372;
+    --line: #d7e1e6;
+    --quote-bg: #eef8f7;
+    --quote-ink: #31505b;
+    --pre-bg: #102c3b;
+    --pre-ink: #e3f3f5;
+  }
+}
+</style><script src="../web/theme.js"></script></head><body><nav><a href="../web/sitl.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet</a><a href="../web/guardian.html">Guardians</a><a href="../web/index.html">Fast simulator</a><a href="results.html">Results</a><a href="architecture.html">Architecture</a><a href="sitl-guide.html">Run it</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>Engineering findings</h1>
+<p>What building and flying this lab exposed, layer by layer: the mission computer&#39;s own policy, its boundary with PX4, several vehicles at once, estimation and planning, the guardians&#39; decision rules, and the evidence itself. Each finding was reproduced before it was fixed and is now guarded by a test or a flight check. <a href="review-report.html">The review record</a> lists every finding, pass by pass.</p>
+<h2>The supervisor and its authority</h2>
+<h3>1. Intermittent faults never escalated</h3>
+<ul>
+<li><strong>Seen:</strong> a 60 s probe of the real supervisor binary, with link packets every 0.6 s, alternated between 11-tick HOLDs and single-tick ACTIVE commands for the whole minute. It never landed, and the vehicle crept forward on a failing link.</li>
+<li><strong>Cause:</strong> the fault timer reset on the first healthy sample.</li>
+<li><strong>Fix:</strong> a fault episode ends only after 2 s of continuous health; any unhealthy sample 2 s or more into an episode latches LAND.</li>
+<li><strong>Guard:</strong> a C++ degraded-link test that fails against the previous implementation, and a second test showing that a single recovered dropout still clears.</li>
+</ul>
+<h3>2. The boot gate could not fail</h3>
+<ul>
+<li><strong>Seen:</strong> arbitrary bytes came back <code>VERIFIED IN USER SPACE</code>.</li>
+<li><strong>Cause:</strong> the gate generated a key, signed the bytes and verified them in one call.</li>
+<li><strong>Fix:</strong> release and boot are separate. Release writes a detached manifest and signature. At boot the stored file is read once and verified against a separately supplied public key (hash, version floor, device identity), and exactly those bytes are loaded into ONNX Runtime, so nothing can change between the check and the load.</li>
+<li><strong>Guard:</strong> tests for a verified load, a tampered file, a different trust anchor and a missing signature. In a live ROS run a tampered model stopped the perception node (<code>boot_rejected: payload_tampered</code>, exit code 3).</li>
+</ul>
+<h3>3. The adapter would have overridden a pilot</h3>
+<ul>
+<li><strong>Seen:</strong> the handoff to PX4 covered failsafe, disarm and estimator loss, but not an operator leaving OFFBOARD. Within 2 s the adapter would have switched the vehicle back.</li>
+<li><strong>Fix:</strong> once armed OFFBOARD has been seen, any other navigation state while armed is a permanent <code>external_mode_change</code> handoff.</li>
+<li><strong>Guard:</strong> adapter regression tests. Every recorded flight was checked against the new rule first; no outcome changed.</li>
+</ul>
+<h2>Time, identity and several vehicles</h2>
+<h3>4. Freshness was judged on the wrong clock</h3>
+<ul>
+<li><strong>Seen:</strong> on the first fleet run, all three supervisors escalated to LAND on the ground, before take-off.</li>
+<li><strong>Cause:</strong> the adapters judged sensor freshness on the wall clock while PX4 ran on simulation time. Recording video slows the simulation (real-time factor 0.64 with one camera, 0.41 with two), so healthy telemetry looked stale.</li>
+<li><strong>Fix:</strong> Gazebo&#39;s <code>/clock</code> is bridged into ROS and every adapter runs with <code>use_sim_time</code>, matching the supervisor&#39;s single simulation clock. Hardware keeps the monotonic clock.</li>
+<li><strong>Guard:</strong> every published flight is recorded on video, well below real time.</li>
+</ul>
+<h3>5. Every command went to system 1</h3>
+<ul>
+<li><strong>Seen:</strong> in the fleet, the second vehicle ignored 142 arm and mode requests and never took off.</li>
+<li><strong>Cause:</strong> PX4 accepts only commands addressed to its own <code>MAV_SYS_ID</code>.</li>
+<li><strong>Fix:</strong> each adapter takes its vehicle&#39;s system ID.</li>
+<li><strong>Guard:</strong> <code>test_commands_are_addressed_to_this_vehicle</code>.</li>
+</ul>
+<h3>6. PX4 reads a moving deck as GNSS drift (recorded, not changed)</h3>
+<ul>
+<li><strong>Seen:</strong> after touchdown on the driving carrier, each drone&#39;s estimate stayed where it had landed while the deck carried it up to 4 m away, and PX4 reported &quot;GPS Horizontal Pos Drift too high&quot;.</li>
+<li><strong>Cause:</strong> EKF2 runs its GNSS drift checks on the ground at rest, and a drone on a deck moving at a steady 0.27 m/s is at rest to its IMU.</li>
+<li><strong>Decision:</strong> the firmware gates keep their defaults. Loosening a GNSS quality gate is an aircraft-level decision, and the same check would block re-arming on a moving deck. The flight checks use airborne and touchdown samples, the replay draws landed drones on their pads, and <a href="sitl-guide.html">the SITL guide</a> sets out the design options.</li>
+</ul>
+<h3>7. A descent through a lower layer</h3>
+<ul>
+<li><strong>Seen:</strong> in a fleet flight two drones passed 0.19 m apart, and their traces jump as if they touched.</li>
+<li><strong>Cause:</strong> the station cleared the lowest of the vehicles already holding over their pads. px4_1 (4 m layer) arrived first and was cleared, while px4_0 (3 m) was still flying home along the carrier, over px4_1&#39;s pad, and px4_1 descended through 3 m into its path. Earlier runs had passed only because the lowest layer happened to arrive first. For the guardians the order was not even by altitude: their state carried the deciding layer (&quot;station&quot;, &quot;onboard&quot;) under the key the station reads as the altitude layer.</li>
+<li><strong>Fix:</strong> a landing is cleared only for the lowest vehicle still armed and airborne, once it holds over its pad; higher vehicles wait. The guardian&#39;s deciding layer has its own key, and the station drops a state without an altitude layer. Waiting over its pad, a higher drone then sat exactly one layer above the lane a lower one flew in along, and the next flight measured 0.97 m against the 1 m minimum, so the fleet&#39;s layers are now 1.5 m apart (3, 4.5 and 6 m), and the guardians&#39; too after a spoofing flight measured 1.04 m. A cleared vehicle whose touchdown is never confirmed is released after 10 s, so it strands nobody above it.</li>
+<li><strong>Guard:</strong> <code>test_one_landing_at_a_time_lowest_airborne_layer_first</code>, <code>test_a_vehicle_down_away_from_the_carrier_holds_no_landing_up</code>, <code>test_a_cleared_landing_without_a_touchdown_stops_holding_the_others</code> and <code>test_a_guardian_state_keeps_its_altitude_layer_for_the_landing_order</code>, and the fleet page test checks the published landing order.</li>
+</ul>
+<h2>Estimation and planning</h2>
+<h3>8. LAND stopped descending at an estimated zero altitude</h3>
+<ul>
+<li><strong>Seen:</strong> after GNSS loss the dead-reckoned altitude drifted low, and 8 of 20 seeds left the fast-harness vehicle hovering 0.1–0.4 m above the ground until timeout. The published pass rested on one seed.</li>
+<li><strong>Fix:</strong> LAND descends at 0.3–0.7 m/s until touchdown is detected, not until the estimate reads zero.</li>
+<li><strong>Guard:</strong> a C++ test for estimates at and below zero, and a multi-seed test over every landing scenario.</li>
+</ul>
+<h3>9. A single-scan map planned through a hidden obstacle</h3>
+<ul>
+<li><strong>Seen:</strong> from the start point one cylinder hides most of another. Six cells inside real obstacles were marked free, and goals such as (10, 6) planned straight through them (clearance −1.1 m). The shipped goal was safe only because of tie-breaking.</li>
+<li><strong>Fix:</strong> every scan is added to the map where the vehicle was when it was taken, and the route is replanned when it closes. With no route left the mission lands.</li>
+<li><strong>Guard:</strong> all 28 goals whose first plan was unsafe now complete with at least 1.0 m of clearance.</li>
+</ul>
+<h3>10. A simulated LiDAR that believed a spoofed GNSS</h3>
+<ul>
+<li><strong>Seen:</strong> in every spoofing flight one guardian logged 14 to 16 stale-vision holds, and twice latched LAND. Earlier flights passed only because the LAND came after the descent had begun; one smoke flight latched it while waiting over the pad and failed.</li>
+<li><strong>Cause:</strong> the procedural LiDAR was computed from the PX4 estimate, which the GNSS drag-off carries metres from where the guardian really holds its post on station fixes. For that guardian the estimate grazed a cylinder, ranges fell below the minimum, and the adapter rejected the scans.</li>
+<li><strong>Fix:</strong> a real LiDAR measures the real surroundings whatever the GNSS says, so in the guardian flights the scan is computed from the airframe&#39;s true pose, which Gazebo already provides.</li>
+<li><strong>Guard:</strong> <code>test_the_payload_lidar_measures_the_true_surroundings</code>; the next spoofing flight logged no stale vision at all.</li>
+</ul>
+<h2>Guardian decision rules</h2>
+<h3>11. A fixed-gain filter misread an intruder&#39;s speed</h3>
+<ul>
+<li><strong>Seen:</strong> an 18 m/s intruder read as anything from 10 to 60 m/s, with a flipping heading, so the alert came seconds before arrival instead of a minute.</li>
+<li><strong>Fix:</strong> a constant-velocity Kalman filter that weights each sensor by its noise.</li>
+<li><strong>Guard:</strong> <code>test_confirms_and_estimates_a_straight_target</code> bounds the velocity error.</li>
+</ul>
+<h3>12. Two safety rules that cancelled each other out</h3>
+<ul>
+<li><strong>Seen:</strong> on PX4, a guardian at its ceiling could not move while an intruder passed beneath it. The rule &quot;never close on any track&quot; counted distant birds, and they vetoed every escape direction. Another guardian, cornered at the arena edge, came within 1.41 m of an intruder crossing above it (safe radius 1.5 m).</li>
+<li><strong>Fix:</strong> a move is judged only against tracks that could matter: not birds, and not tracks predicted to stay far away. Keep-clear may also descend, down to a floor.</li>
+<li><strong>Guard:</strong> <code>test_relevant_tracks_leave_out_birds_and_tracks_that_stay_far_away</code> and <code>test_a_guardian_at_its_ceiling_descends_away_from_a_threat_crossing_above</code>.</li>
+</ul>
+<h3>13. Three rules kept a guardian in the impact area</h3>
+<ul>
+<li><strong>Seen:</strong> in the fast-object PX4 flight, the guardian nearest the impact point gained only 0.38 m of distance from it before impact, short of the 0.5 m the check requires.</li>
+<li><strong>Cause:</strong> three rules worked against leaving. Every move had to open the range to each track&#39;s current position, and the object dived in from the north-west, so most ways out of the impact area were moves toward where it was at that instant. Keeping clear came before dispersing, and the best keep-clear move, which maximises the miss from the object&#39;s path, ran along the edge of the area. And the impact estimate of a young fast track moved by metres between updates: a dispersal re-planned every cycle flipped direction, and the guardian, refusing one target, fell back to a keep-clear move toward the impact point.</li>
+<li><strong>Fix:</strong> a steady fast object is judged on its predicted path: a move may not shorten its predicted miss. Inside the area, a dispersal that is itself a keep-clear move comes first. A dispersal under way is kept while it still leads out, and the order carries the area, so a guardian that cannot fly the station&#39;s move re-plans its own way out.</li>
+<li><strong>Guard:</strong> a unit test for each rule, built on the flight&#39;s own geometry, and the flight check <code>never_closed_on_threat</code>, which re-judges every logged move against the fast paths it was given. On the next flight the guardian was 5.0 m from the impact point at impact, 1.4 m further out than its post, and the full matrix then passed.</li>
+</ul>
+<h3>14. An unlabelled bird held the guardians out</h3>
+<ul>
+<li><strong>Seen:</strong> in two combined flights the guardians were never recalled, and the flight timed out.</li>
+<li><strong>Cause:</strong> after the intruders passed, the guardians were held where keep-clear had left them, too far for their cameras to label a circling bird. Re-acquired as a new, unclassified track every lap of its circle, the bird brought the posture back to AMBER within seconds of each GREEN. The station asked the center, and started its delegation timer, only at GREEN, and any AMBER reset both.</li>
+<li><strong>Fix:</strong> the question to the center starts when RED clears, and only a new RED resets it. Recall orders still wait for a GREEN moment, so an unidentified object in view keeps the guardians out only while it is actually there. The fast simulator follows the same rule.</li>
+<li><strong>Guard:</strong> <code>test_an_amber_flicker_after_the_event_does_not_hold_recovery_back</code>; the next combined flight recovered under delegation.</li>
+</ul>
+<h2>The evidence itself</h2>
+<h3>15. Checks that were weaker than their names</h3>
+<ul>
+<li><strong>Seen:</strong> <code>threat_confirmed</code> passed on clutter; one track could match two threats; <code>dispersed_before_impact</code> only checked that an order was sent; the &quot;never closes on a threat&quot; invariant passed by construction; a disarm could count as a landing.</li>
+<li><strong>Fix:</strong> threats are matched to Gazebo truth one to one; dispersal is judged by the guardian&#39;s true distance from the impact point at impact; every move is re-judged along its whole path; a landing needs fresh, independent PX4 landed and ground-contact evidence after the vehicle was airborne.</li>
+<li><strong>Guard:</strong> the checks live in <a href="https://github.com/buicongnguyen/mission-computer-lab/blob/main/integration/acceptance.py"><code>integration/acceptance.py</code></a> and are tested with synthetic logs, each flaw failing the check that names it. Re-judging the published guardian flights from their published logs reproduces every guardian-stage verdict and figure; the fleet-stage checks need the observer logs, which are not published.</li>
+</ul>
+<h3>16. One bad value could end a flight</h3>
+<ul>
+<li><strong>Seen:</strong> a full flight matrix failed because an order carried an infinite clearance value. Strict JSON logging rejected it, and that vehicle&#39;s adapter exited mid-flight. A later review found that one malformed message on several topics would raise inside a ROS callback and stop the node.</li>
+<li><strong>Fix:</strong> the unavailable value is omitted. Every node checks what it receives (types, finite numbers, vector lengths) and drops a malformed message with a <code>dropped_message</code> record instead of stopping.</li>
+<li><strong>Guard:</strong> <code>test_malformed_messages_are_dropped_and_logged_never_fatal</code> sends each node malformed input. The flight check <code>messages_well_formed</code> fails any flight in which a message was dropped, so the robustness cannot hide a fault.</li>
+</ul>
+<h3>17. A wall-clock window failed good landings</h3>
+<ul>
+<li><strong>Seen:</strong> the jamming flight, filmed at below real time, failed two landings that PX4 itself had confirmed.</li>
+<li><strong>Cause:</strong> the check timed the disarm from PX4&#39;s last status record, which arrives about 2.8 s after the disarm (its preflight checks fail once the offboard stream stops), and allowed 2 s of wall-clock time. At 0.4 of real time that is under a second of simulated time.</li>
+<li><strong>Fix:</strong> the check times from the arming transition itself, and allows 4 s for PX4&#39;s landed-and-contact report and for the station&#39;s touchdown.</li>
+<li><strong>Guard:</strong> a regression test built from the flight&#39;s own timeline; the stale and early reports the earlier test covers are still rejected, and every landing of the earlier flight matrices still passes.</li>
+</ul>
+<h3>18. A landed guardian lost its position fixes</h3>
+<ul>
+<li><strong>Seen:</strong> in the spoofing flight the station recorded one guardian&#39;s touchdown 500 s after it had disarmed on its pad.</li>
+<li><strong>Cause:</strong> a guardian whose GNSS is being dragged flies on the station&#39;s datalink fixes. The station stopped updating its fix of a guardian once it disarmed and kept sending the last airborne one, so the landed guardian&#39;s corrected position drifted with the ongoing drag-off, and its pad error stayed over the touchdown limit.</li>
+<li><strong>Fix:</strong> fixes stay current on the deck, and the guardian keeps recording its own track after the handoff, so each fix is matched against its estimate at that moment; the integrity cross-check itself still runs only in flight.</li>
+<li><strong>Guard:</strong> <code>test_a_landed_guardian_on_station_fixes_keeps_getting_current_ones</code> and <code>test_the_track_goes_on_after_the_handoff</code>.</li>
+</ul>
+</main><footer>Mission Computer Lab · software simulation portfolio · <a href="https://github.com/buicongnguyen/mission-computer-lab">source on GitHub</a> · 2026</footer></body></html>

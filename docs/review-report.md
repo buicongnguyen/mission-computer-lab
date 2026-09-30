@@ -1,6 +1,8 @@
 # Logic and code review record
 
-Review dates: 23 September 2026 (passes 1–3), 24 September 2026 (passes 4 and 5), 25 September 2026 (pass 6) and 26 September 2026 (passes 7–8) and 26–27 September 2026 (pass 9). Scope: the WSL mission-computer lab, including C++ policy contracts, Python adapters and transport, flight orchestration, evidence publication, replays and guides. Nine sequential passes were performed over the implementation; later passes also reviewed earlier fixes. This is an engineering review, not a flight qualification or a claim that all possible defects have been eliminated.
+The full review log, pass by pass. [Engineering findings](findings.md) is the curated summary, and [Results](results.md) the current evidence.
+
+Review dates: 23 September 2026 (passes 1–3), 24 September 2026 (passes 4 and 5), 25 September 2026 (pass 6), 26 September 2026 (passes 7–8), 26–27 September 2026 (pass 9) and 30 September 2026 (pass 10). Scope: the WSL mission-computer lab, including C++ policy contracts, Python adapters and transport, flight orchestration, evidence publication, replays and guides. Ten sequential passes were performed over the implementation; later passes also reviewed earlier fixes. Passes 5, 8 and 10 included separate reviews run by AI review agents, each given one area; every finding they reported was reproduced before it was fixed. This is an engineering review, not a flight qualification or a claim that all possible defects have been eliminated.
 
 The current source contains the fixes below. The measured reference artifacts identify runtime inputs by SHA-256, including source changes that were uncommitted when tested.
 
@@ -84,9 +86,9 @@ Review date: 24 September 2026. Every source file was re-read, and each hypothes
 The flight matrix was rerun after the last source change, so the published per-file provenance hashes match the shared source files exactly. The recorded `source_commit` is the base revision in the development history, which this repository does not include; use the per-file SHA-256 hashes to match evidence to source.
 
 <a id="pass-5"></a>
-## Pass 5 — Independent review, planner safety and the published site
+## Pass 5 — Separate reviews, planner safety and the published site
 
-Review date: 24 September 2026. Three independent reviewers covered the C++ and Python core, the ROS/PX4 orchestration, and the browser and documentation tooling. Every finding below was reproduced before it was fixed.
+Review date: 24 September 2026. Three AI review agents, each given one area, covered the C++ and Python core, the ROS/PX4 orchestration, and the browser and documentation tooling. Every finding below was reproduced before it was fixed.
 
 | Finding | Why it mattered | Fix and regression evidence |
 |---|---|---|
@@ -146,7 +148,7 @@ Not changed, and recorded as remaining work: the ROS contract tests still need a
 <a id="pass-7"></a>
 ## Pass 7 — Guardian drones: evaluation and a real-PX4 flight
 
-Review date: 26 September 2026. The request was to let drones act as guardians against an attacking drone or a missile from far away, cooperating with the station, the command center and their own autonomy. [The guardian design](guardian.md) evaluates that idea, improves it twice (non-kinetic protection with authority split by time budget), and records the evaluation. This pass added `tools/guardian.py` (the decision logic), `tools/guardian_sim.py` (four designs against eight threats over 40 seeds), the guardian PX4 scenario and its nodes, and [the guardian page](../web/guardian.html). Every defect below was found in a failing run or test and traced before it was fixed.
+Review date: 26 September 2026. This pass designed guardian drones against an attacking drone or a missile from far away, cooperating with the station, the command center and their own autonomy. [The guardian design](guardian.md) evaluates that idea, improves it twice (non-kinetic protection with authority split by time budget), and records the evaluation. This pass added `tools/guardian.py` (the decision logic), `tools/guardian_sim.py` (four designs against eight threats over 40 seeds), the guardian PX4 scenario and its nodes, and [the guardian page](../web/guardian.html). Every defect below was found in a failing run or test and traced before it was fixed.
 
 | Finding | Why it mattered | Fix and regression evidence |
 |---|---|---|
@@ -177,9 +179,9 @@ Recorded, not changed: in the combined scenario one hybrid run in 40 came within
 
 <a id="pass-8"></a>
 
-## Pass 8 — Eight guardian flights, and three independent reviews
+## Pass 8 — Eight guardian flights, and three separate reviews
 
-Review date: 26 September 2026. The request was to implement the guardian scenarios on PX4 and to review the logic and the code. The single PX4 guardian flight of pass 7 became eight: one per threat the fast simulator evaluates. `integration/guardian_layout.py` holds the scenario table; the runner writes each flight's Gazebo world from a template and judges it on Gazebo truth. Three reviewers then read the work independently: the decision module and fast simulator, the PX4 integration, and the published pages and publisher. They replayed their doubts in the simulator before reporting them, 35 findings in all. Every finding below was reproduced, then fixed with a test or a check, or recorded as a limit. Flying the scenarios found seven more; they are listed separately. [The guardian design](guardian.md#review) summarises what changed in the design.
+Review date: 26 September 2026. This pass implemented the guardian scenarios on PX4 and reviewed the logic and the code. The single PX4 guardian flight of pass 7 became eight: one per threat the fast simulator evaluates. `integration/guardian_layout.py` holds the scenario table; the runner writes each flight's Gazebo world from a template and judges it on Gazebo truth. Three AI review agents then read the work separately: the decision module and fast simulator, the PX4 integration, and the published pages and publisher. They replayed their doubts in the simulator before reporting them, 35 findings in all. Every finding below was reproduced, then fixed with a test or a check, or recorded as a limit. Flying the scenarios found seven more; they are listed separately. [The guardian design](guardian.md#review) summarises what changed in the design.
 
 | Decision module and fast simulator | Why it mattered | Fix and regression evidence |
 |---|---|---|
@@ -243,7 +245,7 @@ Review date: 26 September 2026. The request was to implement the guardian scenar
 
 ## Pass 9 — Phase boundaries, full-path clearance and trustworthy publication
 
-Eight defects were reproduced against published commit `dac9f1b` even though its existing tests passed. The fixes and runnable reproduction steps are in [the review-fixes guide](review-fixes.md). Review proceeded through control-flow inspection, focused failure regressions and recorded simulation execution; these were sequential checks in this task, not claims of independent reviewers.
+Eight defects were reproduced against published commit `dac9f1b` even though its existing tests passed. The fixes and runnable reproduction steps are in [the review-fixes guide](review-fixes.md). Review proceeded through control-flow inspection, focused failure regressions and recorded simulation execution; these were sequential checks, not separate reviews.
 
 | Finding | Fix | Regression evidence |
 |---|---|---|
@@ -262,9 +264,58 @@ The first full matrix then passed all four single-drone flights and the fleet, b
 
 The next matrix, preserved in `retests/fixes-20260926-final2`, passed the repaired intruder flight but failed the fast scenario's dispersal check despite safe recovery and landing. The station's continuous geometry admitted a route that the drone's conservative occupancy grid rejected. Guardians now report their blocked cells, and station orders must satisfy both the station geometry and that grid. A regression inserts a reported blocked cell into the previous route and requires a clear replacement. The onboard acceptance gate remains active.
 
-A tested `--keep-going` runner option now records all scenarios while preserving failed checks and a nonzero exit. The remaining fast-inbound timing limitation is recorded in validation; sharing obstacle maps did not eliminate it.
+A tested `--keep-going` runner option now records all scenarios while preserving failed checks and a nonzero exit. The remaining fast-inbound failure is recorded in validation; sharing obstacle maps did not eliminate it. [Pass 10](#pass-10) found its causes and fixed it.
 
-The portable suite has 78 tests and the ROS/runner suite has 59. The 40-seed guardian evaluation was regenerated with matching decision-source hashes; eight fast policy scenarios and six security cases passed. Current flight results and failed checks are recorded in [validation](validation.md); [SITL execution](sitl-execution.md) describes the earlier passing reference replay.
+The portable suite has 78 tests and the ROS/runner suite has 59. The 40-seed guardian evaluation was regenerated with matching decision-source hashes; eight fast policy scenarios and six security cases passed. At that point the flight results and failed checks were recorded in [validation](validation.md), and the published replay was still the earlier passing recording.
+
+<a id="pass-10"></a>
+
+## Pass 10 — Fast-object dispersal, hardened inputs and tested acceptance
+
+Review date: 30 September 2026. The whole repository was evaluated: a reading of the code and evidence, plus two AI review agents, one on the implementation and one reading the project as a first-time visitor would. The work below followed from it.
+
+| Finding | Why it mattered | Fix and regression evidence |
+|---|---|---|
+| High: the fast-object flight failed its dispersal check | The guardian beside the impact point gained 0.38 m from it before impact where 0.5 m is required, so pass 9 ended with 12 of 13 flights passing | Three causes, each fixed and then flown. Moves had to open the range to a fast object's current position, which vetoed the ways out of its path: a steady fast object is now judged on its predicted path. The station's keep-clear rule came before dispersal and ran along the edge of the area: inside the area, a dispersal that is itself a keep-clear move now comes first. The young track's impact estimate moved by metres, so each cycle's target flipped direction, and the vehicle's fallback maximised the miss and moved toward the impact point: a dispersal under way is kept while it still leads out, and the order carries the area so the vehicle re-plans its own way out. `test_a_steady_fast_object_is_judged_on_its_path_not_where_it_is_now`, `test_inside_the_impact_area_dispersal_comes_first_when_it_also_keeps_clear`, `test_a_dispersal_under_way_is_kept_while_the_impact_estimate_moves`, `test_a_guardian_ordered_to_disperse_re_plans_its_own_way_out` |
+| Medium: one malformed message could stop a node | A ROS callback that raises ends `rclpy.spin`, and a dead adapter hands its vehicle to a PX4 failsafe | Every node checks types, finite numbers and vector lengths, and drops a malformed message with a `dropped_message` record. The new flight check `messages_well_formed` fails any flight with a drop. `test_malformed_messages_are_dropped_and_logged_never_fatal`, `test_a_dispersal_order_carries_its_impact_area_and_a_malformed_one_is_dropped` |
+| Medium: a correct landing failed its check | In the first pass 10 matrix the jamming flight, filmed at below real time, failed two landings that PX4 itself had confirmed | `landed_confirmed` timed the disarm from PX4's last status record, which arrives about 2.8 s after the disarm, and allowed 2 s of wall-clock time. It now times from the arming transition and allows 4 s, which still rejects stale and early reports; every landing of the earlier matrices still passes. `test_a_landing_is_timed_from_the_disarm_not_from_later_status_changes` |
+| Medium: a landed, spoofed guardian's touchdown went unrecorded | In the same matrix the station recorded one guardian's touchdown 500 s after it disarmed | The station stopped updating its datalink fix of a guardian once it disarmed, so the guardian's corrected position drifted with the ongoing drag-off and its pad error stayed over the touchdown limit. Fixes now stay current on the deck; the cross-check itself runs only in flight. `test_a_landed_guardian_on_station_fixes_keeps_getting_current_ones` |
+| High: a landing descended through another drone's layer | In the second pass 10 matrix two fleet drones passed 0.19 m apart, their traces jumping as if they touched | The station cleared the lowest of the vehicles already holding: px4_1 (4 m) arrived first and descended through 3 m while px4_0 flew home over its pad at 3 m. For guardians the order was not by altitude at all, because their state carried the deciding layer under the altitude-layer key. Landings now go strictly lowest first among every vehicle still armed and airborne, the deciding layer has its own key, and a state without an altitude layer is dropped. The next flight then measured 0.97 m, as a lower drone flew in exactly one layer (1 m) under a higher one waiting over its pad, so the fleet's layers are now 1.5 m apart. `test_one_landing_at_a_time_lowest_airborne_layer_first`, `test_a_vehicle_down_away_from_the_carrier_holds_no_landing_up`, `test_a_guardian_state_keeps_its_altitude_layer_for_the_landing_order` |
+| Medium: the checks that decide PASS were untested | They lived inside the 1,200-line runner, and the publisher restated their names by hand | [`integration/acceptance.py`](https://github.com/buicongnguyen/mission-computer-lab/blob/main/integration/acceptance.py) holds every check as a pure function of the logs, with the name tables the publisher imports. `tests/test_acceptance.py` drives it with synthetic logs, and re-judging the published guardian flights from their published logs reproduces every guardian-stage verdict and figure (the fleet-stage checks need the observer logs, which are not published) |
+| Medium: the ROS boundary tests never ran in CI | Passes 5 and 6 recorded this as remaining work | A CI job builds `px4_msgs` (pinned) and `mission_interfaces` in the official ROS 2 Humble container and runs every integration test, and fails if none ran |
+| Medium: provenance hashed every Python file | Editing a publisher or a documentation tool after a run made its evidence look stale | Provenance hashes the flight code and what it imports, 23 files. `test_flights_hash_the_code_they_run_and_nothing_else` |
+| Low: published documents carried local paths and work-log wording | Home-directory paths from the development machine; "the request was"; reviews by AI agents described as independent reviewers | Paths replaced with `$SITL_WORKSPACE` and `$DRONE_REPO`, and `tools/check_docs.py` now fails on home-directory paths; the wording is corrected |
+| Low: test counts disagreed between documents | The README, the validation record and this record stated different counts | Current counts appear on the README and the results page only; `test_the_readme_and_results_page_state_the_real_suite_sizes` checks them against the test files |
+| Low: dense code was hard to review | Many statements per line | `ruff format` and Prettier, checked in CI; `.git-blame-ignore-revs` keeps the formatting commit out of `git blame` |
+
+After those fixes, a logic review and a code review, each run by an AI review agent reading the changes without executing anything, reported the findings below. They were fixed before the final flight matrix, or recorded.
+
+| Review finding | Why it mattered | Fix and regression evidence |
+|---|---|---|
+| High: the CI step for the runner tests could not fail | A `run:` step has no pipefail, so it took `tee`'s exit status, and the `Ran N tests` guard also matches a failed run | `set -o pipefail` in that step; the ROS job already runs under `shell: bash`, which sets it |
+| Medium: the landed-guardian fix only reset a baseline | After the handoff the adapter stopped recording its own track, so each new station fix was matched against the estimate from the moment of disarm, and a drag-off still leaked into the corrected position | The track goes on after the handoff. `test_the_track_goes_on_after_the_handoff` |
+| Medium: one cleared landing that never produced a touchdown held every vehicle above it in the air | A vehicle cleared to land that came down off its pad, or whose landing was never confirmed, stayed "landing" for good | After 10 s disarmed with no touchdown the station logs `landing_unconfirmed` and clears the next vehicle; the stranded vehicle's own checks still fail. `test_a_cleared_landing_without_a_touchdown_stops_holding_the_others` |
+| Medium: guardian layers were still 1 m apart | With landings lowest first, a guardian flying home at its layer passes over one waiting a layer below; a spoofing flight measured 1.04 m against the 1 m minimum | Guardian layers are 1.5 m apart like the fleet's: 2.5, 4 and 5.5 m. A first choice of 3, 4.5 and 6 m failed the next swarm flight: raised to 4.5 m, px4_0 climbed away from the two low intruders to 5.9 m, under its 6 m ceiling, and the high intruder at 7 m passed 1.29 m over it, so px4_0 stays at its original 4 m |
+| Medium: some inputs were used after the state had changed, or never checked | The uplink's station fix and order target, the center's report `request`, a detection's `sigma` and a state's `px4_stamp` and `pad_error` could raise after partial updates or later on a timer, where an exception stops the node | All are checked before anything changes; a zero or negative sigma is malformed, and arithmetic errors count as malformed input. The malformed-message tests cover each |
+| Medium: the simulated LiDAR believed a spoofed GNSS | Found by the smoke flights after the review: in every spoofing flight one guardian logged 14 to 16 stale-vision holds and latched LAND twice, because the procedural scan was computed from the dragged PX4 estimate, which grazed a cylinder, so ranges fell below the minimum and the scans were rejected | In the guardian flights the scan is computed from the airframe's true Gazebo pose, as a real LiDAR measures the real surroundings. `test_the_payload_lidar_measures_the_true_surroundings`; the next spoofing flight logged no stale vision |
+| Medium: an unlabelled bird could hold recovery back for good | In a combined flight on a quiet host the guardians were never recalled: held away from their posts, no camera could label a circling bird, which was re-acquired as a new track every lap and brought AMBER back within seconds of each GREEN, while the station asked the center only at GREEN and started over at every AMBER | The question starts when RED clears and only a new RED resets it; recall orders still wait for GREEN. The fast simulator follows the same rule; its evaluation was regenerated with every published figure unchanged. `test_an_amber_flicker_after_the_event_does_not_hold_recovery_back` |
+| Low: the fleet execution table rounded 4.5 m to 4 | The publisher formatted altitudes as whole metres | Formatted with `g` |
+| Low: claims ahead of the evidence, and a label that named the wrong cause | Pages said the replay test reproduces every verdict; the preflight label blamed the handoff also after a companion crash | Wording corrected |
+
+Recorded, not changed. Dispersal can still override a live keep-clear episode, so a guardian near the edge of both could alternate between the two; every move stays a safe move. The landing check still uses wall-clock windows, which a much slower simulation would outgrow. The flight checks do not check the landing order themselves (the fleet page test does), and `never_closed_on_threat` re-judges moves against what they logged, a consistency check rather than an independent one. The onboard decision reports a relayed center order as the station's, and both callers correct it.
+
+Also added: the [Results](results.md) and [Engineering findings](findings.md) pages, one navigation bar across the site, a readable recording line on the replays, and a label for PX4's "not ready to re-arm" state after the landing handoff.
+
+| Pass 10 verification | Observed result |
+|---|---|
+| C++ Release build and CTest | 1/1 passed |
+| Python tests | 102 passed, also under `python -O` |
+| ROS boundary and runner tests | 68 passed locally, and in the ROS 2 Humble container used by CI |
+| Guardian evaluation | 4 designs × 8 scenarios × 40 seeds on Linux (Python 3.10): both invariants held in all 1280 runs. Against pass 9, judging fast objects on their path changed four figures (hybrid intruder warning median 77 → 75 s, also in the layout baseline; networked swarm upper range 86 → 85 s; runs judged closing on truth, networked and hybrid, 25 and 21 → 22 and 22); the dispersal changes after that moved one percentile by 0.9 m |
+| PX4/Gazebo/ROS matrix with video | 13/13 passed with every named check (456/456) in 31 minutes; `inputs_unchanged: true`; the published samples and videos come from this run |
+| Web checks | Prettier and the link check clean on the repository and on the assembled Pages site; the six page tests passed (the Mermaid diagrams, the four replay pages and the theme); the replay and new documentation pages inspected in headless Edge on a desktop, and in Chromium mobile emulation at 390 px in both themes, with no sideways scrolling |
+
+Recorded, not changed: a sanitizer build in CI, hash-pinned Python dependencies, one shared function for the single-drone and fleet runners, typed ROS messages in place of JSON strings, a check that the fleet and guardian worlds' cylinders match the planner, and release storage for the videos.
 
 ## Diagrams and how to read them
 
@@ -294,7 +345,7 @@ bash scripts/test_integration.sh
 .venv/bin/python -O -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-Expected: one CTest executable passes; 78 lightweight Python tests pass; eight fast scenarios pass; six security experiments behave as specified; 59 integration tests pass. Running the Python cases with `-O` also verifies evidence gates do not rely on removable `assert` statements. These commands do not start a physical aircraft.
+Expected: the CTest executable and every Python and integration test pass (current counts are on [the results page](results.md)); eight fast scenarios pass; six security experiments behave as specified. Running the Python cases with `-O` also verifies evidence gates do not rely on removable `assert` statements. These commands do not start a physical aircraft.
 
 For the actual flight matrix, use a fresh Linux output directory and retain it for later inspection:
 
@@ -335,7 +386,7 @@ Back in Ubuntu WSL:
 git diff --check
 ```
 
-Expect every Mermaid definition to parse, offline bundle checks to pass, all four replay state suites and the theme test to pass, and all local HTML links and anchors to resolve. The audit result can change as new advisories are published.
+Expect every Mermaid definition to parse, offline bundle checks to pass, the replay state suites and the theme test to pass, and all local HTML links and anchors to resolve. The audit result can change as new advisories are published.
 
 ## Recorded verification and remaining boundaries
 
@@ -352,8 +403,8 @@ Expect every Mermaid definition to parse, offline bundle checks to pass, all fou
 | Replays | Both state suites passed; rendering/layout not claimed |
 | npm dependency audit | 0 reported advisories after the pinned upgrade |
 
-The final local results and measured flight values are linked in [the validation record](validation.md), [fast execution report](execution.md) and [PX4 execution report](sitl-execution.md). The intermediate pass-3 Linux run passed three flights but failed the overly broad GPS validity check; its result was preserved unchanged, as were the first failed attempt and the final pass-3 run, locally with their bags and logs. Compact current evidence, from the pass 4 run, is published under `artifacts/sample/` and `artifacts/sitl-sample/`.
+The final local results and measured flight values are linked in [the validation record](validation.md), [fast execution report](execution.md) and [PX4 execution report](sitl-execution.md). The intermediate pass-3 Linux run passed three flights but failed the overly broad GPS validity check; its result was preserved unchanged, as were the first failed attempt and the final pass-3 run, locally with their bags and logs. Compact current evidence is published under `artifacts/sample/` and `artifacts/sitl-sample/`; [Results](results.md) summarises it.
 
 The review does not turn the procedural camera into a trained detector or the WSL host into a Qualcomm board. The executed boundary remains CPU ONNX, procedural payload sensors, A* with scan-driven replanning of static obstacles, simulated dynamics and actual PX4 firmware. Battery input in the flight adapter is still fixed, timing synchronization is single-host, and no VIO, NPU benchmark, secure boot fuse operation, dynamic replanning or flight certification is claimed.
 
-Land commands are one-shot; the adapter stops offboard proof-of-life after handoff and relies on the configured PX4 fallback if needed. The suite does not currently inject a dropped land-command packet. Passes 1–3 did not complete browser layout inspection because the embedded browser's local-file policy blocked access. Pass 9 verifies diagram parsing, static packaging/links and replay state separately; it makes no new pixel-level verification claim. Hosted CI and Pages now run on GitHub; full ROS/PX4 verification remains local in WSL.
+Land commands are one-shot; the adapter stops offboard proof-of-life after handoff and relies on the configured PX4 fallback if needed. The suite does not currently inject a dropped land-command packet. Passes 1–3 did not complete browser layout inspection because the embedded browser's local-file policy blocked access. Later passes verify diagram parsing, static packaging and links, and replay state separately, and inspect the pages in headless Edge. Hosted CI runs the fast suite, the ROS boundary tests in a ROS 2 Humble container and the page tests; the PX4/Gazebo flights run locally in WSL.

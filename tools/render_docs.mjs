@@ -44,6 +44,21 @@ marked.use({
     }
   }
 });
+// The same navigation bar as the replay pages, with the current guide marked.
+const navItems = [
+  ['../web/sitl.html', 'Flights'],
+  ['../web/fleet.html', 'Fleet'],
+  ['../web/guardian.html', 'Guardians'],
+  ['../web/index.html', 'Fast simulator'],
+  ['results.html', 'Results'],
+  ['architecture.html', 'Architecture'],
+  ['sitl-guide.html', 'Run it'],
+  ['references.html', 'References']
+];
+const nav = page =>
+  `<nav><a href="../web/sitl.html">MISSION COMPUTER LAB</a>${navItems
+    .map(([href, label]) => `<a href="${href}"${href === page ? ' aria-current="page"' : ''}>${label}</a>`)
+    .join('')}<a href="${repository}">GitHub</a></nav>`;
 const docs = fs.readdirSync(path.join(root, 'docs')).filter(x => x.endsWith('.md'));
 for (const name of docs) {
   const md = fs.readFileSync(path.join(root, 'docs', name), 'utf8');
@@ -54,7 +69,7 @@ for (const name of docs) {
     : '';
   fs.writeFileSync(
     path.join(root, 'docs', name.replace('.md', '.html')),
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>${css}</style><script src="../web/theme.js"></script>${diagrams}</head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet ops</a><a href="../web/guardian.html">Guardians</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review</a><a href="references.html">References</a><a href="${repository}">GitHub</a></nav><main class="document">${html}</main><footer>Mission Computer Lab · software simulation portfolio · <a href="${repository}">source on GitHub</a> · 2026</footer></body></html>`
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>${css}</style><script src="../web/theme.js"></script>${diagrams}</head><body>${nav(name.replace('.md', '.html'))}<main class="document">${html}</main><footer>Mission Computer Lab · software simulation portfolio · <a href="${repository}">source on GitHub</a> · 2026</footer></body></html>`
   );
   console.log('Rendered', name.replace('.md', '.html'));
 }

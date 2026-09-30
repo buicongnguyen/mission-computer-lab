@@ -185,7 +185,7 @@ Board secure boot, provisioning and fuse lifecycle need the vendor's exact docum
 
 | Symptom | Likely cause and useful action |
 |---|---|
-| PowerShell says `Access is denied` for WSL inside an agent sandbox | WSL service access may require the host's approval mechanism; this is distinct from missing Ubuntu. Running WSL from your own terminal can confirm installation. |
+| PowerShell says `Access is denied` for WSL in a restricted shell | WSL service access may need interactive approval on that host; this is distinct from missing Ubuntu. Running WSL from your own terminal confirms the installation. |
 | `python3 -m venv` fails | Install Ubuntu's `python3-venv`; then recreate only the project virtual environment. |
 | Installation is slow on `/mnt/c` | Windows filesystem metadata overhead; wait for pip or use a fresh Linux-filesystem clone. |
 | ORT or NumPy import error | Use `.venv/bin/python`, Python 3.10, and the pinned packages; do not mix Windows and Linux virtual environments. |

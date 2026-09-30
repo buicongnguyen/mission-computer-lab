@@ -40,12 +40,12 @@ INFO  [init] Standalone PX4 launch, waiting for Gazebo
 INFO  [init] Gazebo world is ready
 INFO  [init] PX4_GZ_MODEL_NAME set, PX4 will attach to existing model
 INFO  [gz_bridge] world: inspection, model: x500_0
-INFO  [lockstep_scheduler] setting initial absolute time to 1776000 us
+INFO  [lockstep_scheduler] setting initial absolute time to 1932000 us
 INFO  [commander] LED: open /dev/led0 failed (22)
   UXRCE_DDS_DOM_ID: curr: 0 -> new: 42
 INFO  [uxrce_dds_client] init UDP agent IP:127.0.0.1, port:8888
-INFO  [tone_alarm] home set
 WARN  [health_and_arming_checks] Preflight Fail: No connection to the ground control station	
+INFO  [tone_alarm] home set
 INFO  [mavlink] mode: Normal, data rate: 4000000 B/s on udp port 18570 remote port 14550
 INFO  [mavlink] partner IP: 127.0.0.1
 INFO  [mavlink] mode: Onboard, data rate: 4000000 B/s on udp port 14580 remote port 14540
@@ -53,13 +53,13 @@ INFO  [mavlink] mode: Onboard, data rate: 4000 B/s on udp port 14280 remote port
 INFO  [mavlink] mode: Gimbal, data rate: 400000 B/s on udp port 13030 remote port 13280
 INFO  [logger] logger started (mode=all)
 INFO  [logger] Start file log (type: full)
-INFO  [logger] [logger] ./log/2026-09-26/09_28_37.ulg	
-INFO  [logger] Opened full log file: ./log/2026-09-26/09_28_37.ulg
+INFO  [logger] [logger] ./log/2026-09-30/19_55_16.ulg	
+INFO  [logger] Opened full log file: ./log/2026-09-30/19_55_16.ulg
 INFO  [mavlink] MAVLink only on localhost (set param MAV_{i}_BROADCAST = 1 to enable network)
 INFO  [mavlink] MAVLink only on localhost (set param MAV_{i}_BROADCAST = 1 to enable network)
 INFO  [px4] Startup script returned successfully
 INFO  [commander] [32mReady for takeoff![0m
-INFO  [uxrce_dds_client] synchronized with time offset 1790414918926697us
+INFO  [uxrce_dds_client] synchronized with time offset 1790798118459880us
 INFO  [uxrce_dds_client] successfully created rt/fmu/out/register_ext_component_reply data writer, topic id: 198
 INFO  [uxrce_dds_client] successfully created rt/fmu/out/arming_check_request data writer, topic id: 17
 INFO  [uxrce_dds_client] successfully created rt/fmu/out/mode_completed data writer, topic id: 150
@@ -101,7 +101,7 @@ INFO  [commander] Landing detected
 INFO  [uxrce_dds_client] time sync converged
 INFO  [commander] Disarmed by landing	
 INFO  [tone_alarm] notify neutral
-INFO  [logger] closed logfile, bytes written: 13494038
+INFO  [logger] closed logfile, bytes written: 13542236
 
 PX4 Exiting...
 Exiting NOW.

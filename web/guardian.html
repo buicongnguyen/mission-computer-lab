@@ -20,12 +20,11 @@
 .notice{background:var(--notice-bg);border-left:4px solid var(--notice-line);padding:16px;margin:22px 0;font-size:13px}.error{color:var(--err-ink)}
 table.plain{display:table;width:100%;border-collapse:collapse;font-size:13px}table.plain th{min-width:0}table.plain th,table.plain td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line-soft);vertical-align:top}
 button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}[hidden]{display:none!important}.links{display:flex;gap:20px;flex-wrap:wrap}
-@media(max-width:900px){.grid,.two{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){table.plain{display:block;overflow-x:auto}}@media(max-width:900px){.grid,.two{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style></head><body>
-<nav><a href="sitl.html">MISSION COMPUTER LAB</a><a href="sitl.html">Single-drone flights</a><a href="fleet.html">Fleet ops</a><a href="../docs/guardian.html">Guardian design</a><a href="../docs/references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav>
-<main class="shell"><div class="eyebrow">GUARDIAN DRONES · SENSE · WARN · KEEP CLEAR · NON-KINETIC</div><h1>Guardians that see first, and never close in.</h1>
+<nav><a href="sitl.html">MISSION COMPUTER LAB</a><a href="sitl.html">Flights</a><a href="fleet.html">Fleet</a><a href="guardian.html" aria-current="page">Guardians</a><a href="index.html">Fast simulator</a><a href="../docs/results.html">Results</a><a href="../docs/architecture.html">Architecture</a><a href="../docs/sitl-guide.html">Run it</a><a href="../docs/references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav>
+<main class="shell"><div class="eyebrow">GUARDIAN DRONES · SENSE · WARN · KEEP CLEAR · NON-KINETIC</div><h1>Guardians that see first and keep clear.</h1>
 <p class="lead">Drones on watch posts around a station extend its sensors, give the crew and the command center time to decide, keep themselves clear of intruders, and survive jamming and GNSS spoofing. Decisions are split by time budget: the drone acts alone within seconds, the station within its delegated authority, and the center decides everything beyond protection.</p>
-<div class="notice" id="release-validation"><strong>Earlier reference recording.</strong> The latest source passes 12/13 flight scenarios. These replay checks belong to the previous passing revision. <a href="../docs/validation.html">See current validation and unresolved checks</a>.</div>
 <div id="error" role="alert" class="error"></div>
 <div class="metrics" id="kpis"></div>
 <section class="section panel"><h2>Four designs against eight threats</h2><p class="sub" id="runsNote"></p>
