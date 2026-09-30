@@ -54,11 +54,13 @@ ORDER_AGE = 1.0  # s: the station orders only guardians whose state it heard thi
 # Each guardian launches from its pad, holds a watch post at its own altitude layer, and lands back on its pad.
 # The layers are 1.5 m apart: guardians wait for lower ones to land first, and one flying home at its layer can pass
 # over another waiting below; 1 m apart that pass sat right on the 1 m separation minimum (1.04 m in one flight).
+# px4_0 stays at 4 m. Raised to 4.5 m, its climb away from the two low intruders in the swarm took it to 5.9 m, just
+# under its ceiling, and the high intruder at 7 m passed 1.29 m over it.
 GUARDIANS = [
-    {'ns': 'px4_0', 'pad': -1.1, 'post': (1, 2), 'altitude': 4.5},  # Near the carrier, in the northern corridor.
-    {'ns': 'px4_1', 'pad': 0.0, 'post': (0, 12), 'altitude': 6.0},  # Northern picket: first contact from the north.
-    {'ns': 'px4_2', 'pad': 1.1, 'post': (12, 8), 'altitude': 3.0},
-]  # Eastern picket.
+    {'ns': 'px4_0', 'pad': -1.1, 'post': (1, 2), 'altitude': 4.0},  # Near the carrier, in the northern corridor.
+    {'ns': 'px4_1', 'pad': 0.0, 'post': (0, 12), 'altitude': 5.5},  # Northern picket: first contact from the north.
+    {'ns': 'px4_2', 'pad': 1.1, 'post': (12, 8), 'altitude': 2.5},
+]  # Eastern picket, at the keep-clear floor: it can still climb or move sideways.
 CARRIER = (0.0, -1.5)
 # Threat scripts. 'line' flies start -> aim and on past it; 'dive' stops at its aim (impact); 'circle' loiters.
 NORTH = {'kind': 'drone', 'motion': 'line', 'start': (-3.4, 23.0, 4.0), 'aim': (0.0, -1.5), 'speed': 1.2, 'delay': 0.0}
