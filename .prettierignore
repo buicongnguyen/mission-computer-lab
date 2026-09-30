@@ -1,0 +1,9 @@
+# Formatted by hand or generated: only the web scripts, the Node tests and the stylesheet are formatted.
+*
+!web/
+!web/*.js
+!web/style.css
+!tests/
+!tests/*.mjs
+!tools/
+!tools/*.mjs

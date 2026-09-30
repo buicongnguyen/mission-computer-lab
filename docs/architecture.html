@@ -1,38 +1,379 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mission Computer Lab: architecture and contracts</title><style>/* Color tokens. Light is the default; dark follows the system unless the page's toggle chose a theme. */
-:root{color-scheme:light;
-  --bg:#f2f6f7;--surface:#fff;--surface-2:#e7f1f3;--code-bg:#eef3f5;--status-bg:#edf7f4;
-  --ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--line-soft:#e3eaed;
-  --link:#006c86;--teal:#067c80;--accent:#067c80;--accent-ink:#fff;--ok:#057864;--focus:#b36b00;
-  --nav-bg:#112e3d;--nav-ink:#d8f7f2;--pre-bg:#102c3b;--pre-ink:#e3f3f5;--pipe-bg:#143849;--pipe-ink:#e9f8f5;
-  --quote-bg:#eef8f7;--quote-ink:#31505b;--btn-bg:#fff;--btn-line:#6f8a97;--btn-hover:#dbf4ed;
-  --badge-bg:#d7f3e9;--badge-ink:#14634c;--badge-line:#b3deca;
-  --notice-bg:#fff8e9;--notice-line:#b47b24;--err-bg:#fdeaea;--err-ink:#962222}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;
-  --bg:#0b161d;--surface:#122530;--surface-2:#18313e;--code-bg:#1b3442;--status-bg:#16322f;
-  --ink:#e2eef2;--muted:#9db3be;--line:#284150;--line-soft:#213845;
-  --link:#74d3e6;--teal:#3cc1bd;--accent:#3cc1bd;--accent-ink:#04211f;--ok:#63d6ae;--focus:#ffb000;
-  --nav-bg:#071117;--nav-ink:#d8f7f2;--pre-bg:#07141b;--pre-ink:#e3f3f5;--pipe-bg:#1a4254;--pipe-ink:#e9f8f5;
-  --quote-bg:#14303a;--quote-ink:#c7dde3;--btn-bg:#152b37;--btn-line:#6e8d9c;--btn-hover:#1d3a47;
-  --badge-bg:#123b31;--badge-ink:#8fe6c6;--badge-line:#1f5a4a;
-  --notice-bg:#2a2313;--notice-line:#d6a24a;--err-bg:#3b1a1a;--err-ink:#ffb4b4}}
-:root[data-theme="dark"]{color-scheme:dark;
-  --bg:#0b161d;--surface:#122530;--surface-2:#18313e;--code-bg:#1b3442;--status-bg:#16322f;
-  --ink:#e2eef2;--muted:#9db3be;--line:#284150;--line-soft:#213845;
-  --link:#74d3e6;--teal:#3cc1bd;--accent:#3cc1bd;--accent-ink:#04211f;--ok:#63d6ae;--focus:#ffb000;
-  --nav-bg:#071117;--nav-ink:#d8f7f2;--pre-bg:#07141b;--pre-ink:#e3f3f5;--pipe-bg:#1a4254;--pipe-ink:#e9f8f5;
-  --quote-bg:#14303a;--quote-ink:#c7dde3;--btn-bg:#152b37;--btn-line:#6e8d9c;--btn-hover:#1d3a47;
-  --badge-bg:#123b31;--badge-ink:#8fe6c6;--badge-line:#1f5a4a;
-  --notice-bg:#2a2313;--notice-line:#d6a24a;--err-bg:#3b1a1a;--err-ink:#ffb4b4}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);font:16px/1.65 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}a{color:var(--link);text-underline-offset:3px}nav{background:var(--nav-bg);display:flex;gap:28px;align-items:center;flex-wrap:wrap;padding:20px 5%;font-size:14px}nav a{color:var(--nav-ink);text-decoration:none}nav a:first-child{font-weight:750;letter-spacing:1.5px;margin-right:auto}.document{max-width:1060px;margin:38px auto;padding:46px 60px;background:var(--surface);border:1px solid var(--line);border-radius:14px}h1{font-size:clamp(30px,5vw,46px);line-height:1.14;letter-spacing:-1.3px;margin:0 0 24px}h2{font-size:26px;margin:44px 0 16px;line-height:1.3;border-top:1px solid var(--line);padding-top:25px}h3{font-size:20px;margin:26px 0 10px}p,li{max-width:85ch}blockquote{margin:20px 0;border-left:4px solid var(--teal);padding:12px 22px;background:var(--quote-bg);color:var(--quote-ink)}blockquote p{margin:0}table{border-collapse:collapse;width:100%;font-size:14px;display:block;overflow:auto}td,th{border:1px solid var(--line);padding:12px;text-align:left;vertical-align:top}th{background:var(--surface-2)}pre{background:var(--pre-bg);color:var(--pre-ink);padding:20px;border-radius:8px;overflow:auto;font-size:13px;line-height:1.6}code{font-family:Consolas,monospace}p code,li code,td code{background:var(--code-bg);padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}footer{padding:25px;text-align:center;color:var(--muted);font-size:13px}button,select,input{font:inherit}button,select{padding:8px 14px;border-radius:6px;border:1px solid var(--btn-line);background:var(--btn-bg);color:var(--ink)}button{cursor:pointer}button:hover{background:var(--btn-hover)}:focus-visible{outline:3px solid var(--focus);outline-offset:3px}
+:root {
+  color-scheme: light;
+  --bg: #f2f6f7;
+  --surface: #fff;
+  --surface-2: #e7f1f3;
+  --code-bg: #eef3f5;
+  --status-bg: #edf7f4;
+  --ink: #132b3b;
+  --muted: #4c6372;
+  --line: #d7e1e6;
+  --line-soft: #e3eaed;
+  --link: #006c86;
+  --teal: #067c80;
+  --accent: #067c80;
+  --accent-ink: #fff;
+  --ok: #057864;
+  --focus: #b36b00;
+  --nav-bg: #112e3d;
+  --nav-ink: #d8f7f2;
+  --pre-bg: #102c3b;
+  --pre-ink: #e3f3f5;
+  --pipe-bg: #143849;
+  --pipe-ink: #e9f8f5;
+  --quote-bg: #eef8f7;
+  --quote-ink: #31505b;
+  --btn-bg: #fff;
+  --btn-line: #6f8a97;
+  --btn-hover: #dbf4ed;
+  --badge-bg: #d7f3e9;
+  --badge-ink: #14634c;
+  --badge-line: #b3deca;
+  --notice-bg: #fff8e9;
+  --notice-line: #b47b24;
+  --err-bg: #fdeaea;
+  --err-ink: #962222;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #0b161d;
+    --surface: #122530;
+    --surface-2: #18313e;
+    --code-bg: #1b3442;
+    --status-bg: #16322f;
+    --ink: #e2eef2;
+    --muted: #9db3be;
+    --line: #284150;
+    --line-soft: #213845;
+    --link: #74d3e6;
+    --teal: #3cc1bd;
+    --accent: #3cc1bd;
+    --accent-ink: #04211f;
+    --ok: #63d6ae;
+    --focus: #ffb000;
+    --nav-bg: #071117;
+    --nav-ink: #d8f7f2;
+    --pre-bg: #07141b;
+    --pre-ink: #e3f3f5;
+    --pipe-bg: #1a4254;
+    --pipe-ink: #e9f8f5;
+    --quote-bg: #14303a;
+    --quote-ink: #c7dde3;
+    --btn-bg: #152b37;
+    --btn-line: #6e8d9c;
+    --btn-hover: #1d3a47;
+    --badge-bg: #123b31;
+    --badge-ink: #8fe6c6;
+    --badge-line: #1f5a4a;
+    --notice-bg: #2a2313;
+    --notice-line: #d6a24a;
+    --err-bg: #3b1a1a;
+    --err-ink: #ffb4b4;
+  }
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b161d;
+  --surface: #122530;
+  --surface-2: #18313e;
+  --code-bg: #1b3442;
+  --status-bg: #16322f;
+  --ink: #e2eef2;
+  --muted: #9db3be;
+  --line: #284150;
+  --line-soft: #213845;
+  --link: #74d3e6;
+  --teal: #3cc1bd;
+  --accent: #3cc1bd;
+  --accent-ink: #04211f;
+  --ok: #63d6ae;
+  --focus: #ffb000;
+  --nav-bg: #071117;
+  --nav-ink: #d8f7f2;
+  --pre-bg: #07141b;
+  --pre-ink: #e3f3f5;
+  --pipe-bg: #1a4254;
+  --pipe-ink: #e9f8f5;
+  --quote-bg: #14303a;
+  --quote-ink: #c7dde3;
+  --btn-bg: #152b37;
+  --btn-line: #6e8d9c;
+  --btn-hover: #1d3a47;
+  --badge-bg: #123b31;
+  --badge-ink: #8fe6c6;
+  --badge-line: #1f5a4a;
+  --notice-bg: #2a2313;
+  --notice-line: #d6a24a;
+  --err-bg: #3b1a1a;
+  --err-ink: #ffb4b4;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  font:
+    16px/1.65 system-ui,
+    -apple-system,
+    Segoe UI,
+    sans-serif;
+  color: var(--ink);
+}
+a {
+  color: var(--link);
+  text-underline-offset: 3px;
+}
+nav {
+  background: var(--nav-bg);
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 20px 5%;
+  font-size: 14px;
+}
+nav a {
+  color: var(--nav-ink);
+  text-decoration: none;
+}
+nav a:first-child {
+  font-weight: 750;
+  letter-spacing: 1.5px;
+  margin-right: auto;
+}
+.document {
+  max-width: 1060px;
+  margin: 38px auto;
+  padding: 46px 60px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+h1 {
+  font-size: clamp(30px, 5vw, 46px);
+  line-height: 1.14;
+  letter-spacing: -1.3px;
+  margin: 0 0 24px;
+}
+h2 {
+  font-size: 26px;
+  margin: 44px 0 16px;
+  line-height: 1.3;
+  border-top: 1px solid var(--line);
+  padding-top: 25px;
+}
+h3 {
+  font-size: 20px;
+  margin: 26px 0 10px;
+}
+p,
+li {
+  max-width: 85ch;
+}
+blockquote {
+  margin: 20px 0;
+  border-left: 4px solid var(--teal);
+  padding: 12px 22px;
+  background: var(--quote-bg);
+  color: var(--quote-ink);
+}
+blockquote p {
+  margin: 0;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+  display: block;
+  overflow: auto;
+}
+td,
+th {
+  border: 1px solid var(--line);
+  padding: 12px;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: var(--surface-2);
+}
+pre {
+  background: var(--pre-bg);
+  color: var(--pre-ink);
+  padding: 20px;
+  border-radius: 8px;
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.6;
+}
+code {
+  font-family: Consolas, monospace;
+}
+p code,
+li code,
+td code {
+  background: var(--code-bg);
+  padding: 2px 5px;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+footer {
+  padding: 25px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+button,
+select,
+input {
+  font: inherit;
+}
+button,
+select {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--btn-line);
+  background: var(--btn-bg);
+  color: var(--ink);
+}
+button {
+  cursor: pointer;
+}
+button:hover {
+  background: var(--btn-hover);
+}
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
 /* Grid items default to min-width:auto, so a canvas bitmap or a long unbroken string widened the page past a phone screen. */
-.grid>*,.metrics>*,.bottom>*{min-width:0}canvas{max-width:100%}.sub,#provenance{overflow-wrap:anywhere}
-nav .theme-toggle{padding:3px 10px;font-size:13px;background:transparent;color:var(--nav-ink);border-color:rgba(216,247,242,.35)}nav .theme-toggle:hover{background:rgba(216,247,242,.12)}
-@media(max-width:700px){.document{padding:28px 20px;margin:16px 12px}nav{gap:15px;font-size:12px}td,th{min-width:120px}}@media print{nav,footer{display:none}.document{margin:0;padding:0;border:0;max-width:none}body{background:white}h2{break-after:avoid}pre{white-space:pre-wrap}a{color:inherit}}
+.grid > *,
+.metrics > *,
+.bottom > * {
+  min-width: 0;
+}
+canvas {
+  max-width: 100%;
+}
+.sub,
+#provenance {
+  overflow-wrap: anywhere;
+}
+nav .theme-toggle {
+  padding: 3px 10px;
+  font-size: 13px;
+  background: transparent;
+  color: var(--nav-ink);
+  border-color: rgba(216, 247, 242, 0.35);
+}
+nav .theme-toggle:hover {
+  background: rgba(216, 247, 242, 0.12);
+}
+@media (max-width: 700px) {
+  .document {
+    padding: 28px 20px;
+    margin: 16px 12px;
+  }
+  nav {
+    gap: 15px;
+    font-size: 12px;
+  }
+  td,
+  th {
+    min-width: 120px;
+  }
+}
+@media print {
+  nav,
+  footer {
+    display: none;
+  }
+  .document {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    max-width: none;
+  }
+  body {
+    background: white;
+  }
+  h2 {
+    break-after: avoid;
+  }
+  pre {
+    white-space: pre-wrap;
+  }
+  a {
+    color: inherit;
+  }
+}
 
-.diagram{margin:24px 0;border:1px solid var(--line);border-radius:10px;padding:16px;background:var(--surface);overflow:auto}.diagram pre.mermaid{background:var(--surface);color:var(--ink);text-align:center;padding:8px;margin:0;min-width:440px}.diagram svg{max-width:100%;height:auto}.diagram figcaption{font-size:13px;color:var(--muted);margin:10px 0}.diagram details{font-size:13px}.diagram summary{cursor:pointer}.diagram .diagram-error{text-align:left;white-space:pre-wrap}@media print{.diagram{break-inside:avoid}.diagram details{display:none}}
+.diagram {
+  margin: 24px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  background: var(--surface);
+  overflow: auto;
+}
+.diagram pre.mermaid {
+  background: var(--surface);
+  color: var(--ink);
+  text-align: center;
+  padding: 8px;
+  margin: 0;
+  min-width: 440px;
+}
+.diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+.diagram figcaption {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 10px 0;
+}
+.diagram details {
+  font-size: 13px;
+}
+.diagram summary {
+  cursor: pointer;
+}
+.diagram .diagram-error {
+  text-align: left;
+  white-space: pre-wrap;
+}
+@media print {
+  .diagram {
+    break-inside: avoid;
+  }
+  .diagram details {
+    display: none;
+  }
+}
 
 /* Paper is always light, whatever theme is on screen. */
-@media print{:root,:root:not([data-theme="light"]),:root[data-theme="dark"]{color-scheme:light;--bg:#fff;--surface:#fff;--surface-2:#e7f1f3;--code-bg:#eef3f5;--ink:#132b3b;--muted:#4c6372;--line:#d7e1e6;--quote-bg:#eef8f7;--quote-ink:#31505b;--pre-bg:#102c3b;--pre-ink:#e3f3f5}}
+@media print {
+  :root,
+  :root:not([data-theme='light']),
+  :root[data-theme='dark'] {
+    color-scheme: light;
+    --bg: #fff;
+    --surface: #fff;
+    --surface-2: #e7f1f3;
+    --code-bg: #eef3f5;
+    --ink: #132b3b;
+    --muted: #4c6372;
+    --line: #d7e1e6;
+    --quote-bg: #eef8f7;
+    --quote-ink: #31505b;
+    --pre-bg: #102c3b;
+    --pre-ink: #e3f3f5;
+  }
+}
 </style><script src="../web/theme.js"></script><script src="assets/mermaid-11.17.2.min.js" defer></script><script src="assets/diagrams.js" defer></script></head><body><nav><a href="../web/index.html">MISSION COMPUTER LAB</a><a href="../web/sitl.html">Flights</a><a href="../web/fleet.html">Fleet ops</a><a href="../web/guardian.html">Guardians</a><a href="architecture.html">Architecture</a><a href="wsl-guide.html">Run in WSL</a><a href="domain-notes.html">Domain notes</a><a href="review-report.html">Review</a><a href="references.html">References</a><a href="https://github.com/buicongnguyen/mission-computer-lab">GitHub</a></nav><main class="document"><h1>Mission Computer Lab: architecture and contracts</h1>
 <p>This repository implements two WSL/Linux test environments for a benign inspection mission: a fast kinematic policy harness and an actual PX4/Gazebo/ROS 2 integration, which also flies a three-drone fleet from a moving carrier. It does not emulate the Qualcomm SoC. The diagram and component table below describe the fast harness; <a href="sitl-guide.html">the SITL guide</a> specifies the real firmware integration, topic contracts, frames and failsafe ownership.</p>
 <h2>Fast harness data path</h2>

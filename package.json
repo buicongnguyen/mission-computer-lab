@@ -3,12 +3,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "docs": "node tools/render_docs.mjs"
+    "docs": "node tools/render_docs.mjs",
+    "format": "prettier --write \"web/*.js\" web/style.css \"tests/*.mjs\" \"tools/*.mjs\"",
+    "format:check": "prettier --check \"web/*.js\" web/style.css \"tests/*.mjs\" \"tools/*.mjs\""
   },
   "devDependencies": {
     "jsdom": "26.1.0",
     "marked": "17.0.5",
     "mermaid": "11.17.2",
+    "prettier": "3.9.9",
     "three": "0.147.0"
   },
   "engines": {

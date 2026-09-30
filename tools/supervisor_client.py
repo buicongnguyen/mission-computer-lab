@@ -1,4 +1,5 @@
 """Bounded Linux pipe exchange shared by both simulation adapters."""
+
 import math
 import os
 import select
@@ -6,14 +7,14 @@ import time
 
 
 def exchange(process, fields, timeout):
-    process.stdin.write(' '.join(str(v) for v in fields)+'\n')
+    process.stdin.write(' '.join(str(v) for v in fields) + '\n')
     process.stdin.flush()
-    deadline = time.monotonic()+timeout
+    deadline = time.monotonic() + timeout
     data = b''
     while b'\n' not in data:
-        remaining = deadline-time.monotonic()
+        remaining = deadline - time.monotonic()
         if remaining <= 0 or not select.select([process.stdout], [], [], remaining)[0]:
-            raise RuntimeError('C++ supervisor response timeout'+(' after a partial line' if data else ''))
+            raise RuntimeError('C++ supervisor response timeout' + (' after a partial line' if data else ''))
         chunk = os.read(process.stdout.fileno(), 4096)
         if not chunk:
             raise RuntimeError('C++ supervisor closed its response pipe')

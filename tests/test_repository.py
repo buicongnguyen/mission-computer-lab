@@ -1,4 +1,5 @@
 """Repository-level contracts: what flight provenance covers."""
+
 from pathlib import Path
 import sys
 import unittest
@@ -11,7 +12,9 @@ import provenance  # noqa: E402
 class Provenance(unittest.TestCase):
     def test_flights_hash_the_code_they_run_and_nothing_else(self):
         files = {p.relative_to(ROOT).as_posix() for p in provenance.runtime_python()}
-        runtime = {p.relative_to(ROOT).as_posix() for p in ROOT.glob('integration/*.py') if not p.name.startswith('test_')}
+        runtime = {
+            p.relative_to(ROOT).as_posix() for p in ROOT.glob('integration/*.py') if not p.name.startswith('test_')
+        }
         self.assertLessEqual(runtime, files)  # The runner and every node it launches.
         for module in ('guardian', 'world', 'security', 'supervisor_client', 'evidence_contracts', 'provenance'):
             self.assertIn(f'tools/{module}.py', files)  # Imported by them, directly or indirectly.

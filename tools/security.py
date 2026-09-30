@@ -1,4 +1,5 @@
 """User-space signed artifact policy, NOT Qualcomm secure boot or an OTA installer."""
+
 import hashlib
 import json
 from pathlib import Path
@@ -6,12 +7,15 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from cryptography.exceptions import InvalidSignature
 
+
 def canonical(manifest):
     return json.dumps(manifest, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
+
 
 def sign(payload, key, version=2, device='wsl-mission-sim'):
     manifest = {'version': version, 'device': device, 'sha256': hashlib.sha256(payload).hexdigest()}
     return manifest, key.sign(canonical(manifest))
+
 
 def verify(payload, manifest, signature, public_key, minimum_version=2, device='wsl-mission-sim'):
     public_key.verify(signature, canonical(manifest))
@@ -25,8 +29,10 @@ def verify(payload, manifest, signature, public_key, minimum_version=2, device='
         raise ValueError('payload_tampered')
     return True
 
+
 def sidecar(path, suffix):
     return path.with_name(path.name + suffix)
+
 
 def provision(path, key, version=2, device='wsl-mission-sim'):
     """Release step: sign the stored artifact and write a detached manifest and signature."""
@@ -35,11 +41,14 @@ def provision(path, key, version=2, device='wsl-mission-sim'):
     sidecar(path, '.manifest.json').write_bytes(canonical(manifest))
     sidecar(path, '.sig').write_bytes(signature)
 
+
 def public_key_hex(key):
     return key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
 
+
 def load_public_key(path):
     return Ed25519PublicKey.from_public_bytes(bytes.fromhex(Path(path).read_text().strip()))
+
 
 def boot_gate(path, public_key):
     """Read the artifact once, verify it against a separately supplied key, return those exact bytes.
@@ -58,6 +67,7 @@ def boot_gate(path, public_key):
         {'stage': 'sensors and mission supervisor', 'status': 'READY'},
     ]
 
+
 def security_experiments(payload):
     key = Ed25519PrivateKey.generate()
     manifest, signature = sign(payload, key)
@@ -65,7 +75,7 @@ def security_experiments(payload):
     wrong, wrong_sig = sign(payload, key, device='other-board')
     cases = [
         ('valid_update', payload, manifest, signature, key.public_key(), True),
-        ('tampered_payload', payload+b'x', manifest, signature, key.public_key(), False),
+        ('tampered_payload', payload + b'x', manifest, signature, key.public_key(), False),
         ('rollback', payload, old, old_sig, key.public_key(), False),
         ('wrong_device', payload, wrong, wrong_sig, key.public_key(), False),
         ('wrong_signer', payload, manifest, signature, Ed25519PrivateKey.generate().public_key(), False),
@@ -78,6 +88,7 @@ def security_experiments(payload):
             reason = 'accepted'
         except (ValueError, InvalidSignature) as error:
             accepted, reason = False, str(error) or 'signature_rejected'
-        results.append({'case': name, 'accepted': accepted, 'expected': expected,
-                        'passed': accepted == expected, 'reason': reason})
+        results.append(
+            {'case': name, 'accepted': accepted, 'expected': expected, 'passed': accepted == expected, 'reason': reason}
+        )
     return results
